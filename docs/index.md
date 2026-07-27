@@ -65,6 +65,8 @@
 | [megaport-cli mcr looking-glass bgp-routes](megaport-cli_mcr_looking-glass_bgp-routes.md) | List BGP routes with full BGP attributes |
 | [megaport-cli mcr looking-glass bgp-sessions](megaport-cli_mcr_looking-glass_bgp-sessions.md) | List BGP sessions configured on the MCR |
 | [megaport-cli mcr looking-glass ip-routes](megaport-cli_mcr_looking-glass_ip-routes.md) | List IP routes from the MCR routing table |
+| [megaport-cli mcr looking-glass ping](megaport-cli_mcr_looking-glass_ping.md) | Run a ping from the MCR to a destination |
+| [megaport-cli mcr looking-glass traceroute](megaport-cli_mcr_looking-glass_traceroute.md) | Run a traceroute from the MCR to a destination |
 | [megaport-cli mcr restore](megaport-cli_mcr_restore.md) | Restore a deleted MCR |
 | [megaport-cli mcr status](megaport-cli_mcr_status.md) | Check the provisioning status of an MCR |
 | [megaport-cli mcr unlock](megaport-cli_mcr_unlock.md) | Unlock an MCR |

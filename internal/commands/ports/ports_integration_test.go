@@ -96,18 +96,6 @@ func newBuyLAGPortCmd() *cobra.Command {
 	return cmd
 }
 
-func newUpdatePortCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "update"}
-	cmd.Flags().Bool("interactive", false, "")
-	cmd.Flags().String("json", "", "")
-	cmd.Flags().String("json-file", "", "")
-	cmd.Flags().String("name", "", "")
-	cmd.Flags().Bool("marketplace-visibility", false, "")
-	cmd.Flags().String("cost-centre", "", "")
-	cmd.Flags().Int("term", 0, "")
-	return cmd
-}
-
 func newDeletePortCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "delete"}
 	cmd.Flags().BoolP("force", "f", false, "")
