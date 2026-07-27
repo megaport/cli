@@ -1171,19 +1171,20 @@ func TestBuildUpdateVXCRequestFromPrompt(t *testing.T) {
 
 func TestBuildUpdateVXCRequestFromPromptShutdownStatusDisplay(t *testing.T) {
 	responses := []string{
-		"no", // update name
-		"no", // update rate limit
-		"no", // update term
-		"no", // update cost centre
-		"no", // update shutdown
-		"no", // update A-End VLAN
-		"no", // update B-End VLAN
-		"no", // update A-End inner VLAN
-		"no", // update B-End inner VLAN
-		"no", // update A-End UID
-		"no", // update B-End UID
-		"no", // A-End VRouter config
-		"no", // B-End VRouter config
+		"yes",          // update name
+		"New VXC Name", // new name
+		"no",           // update rate limit
+		"no",           // update term
+		"no",           // update cost centre
+		"no",           // update shutdown
+		"no",           // update A-End VLAN
+		"no",           // update B-End VLAN
+		"no",           // update A-End inner VLAN
+		"no",           // update B-End inner VLAN
+		"no",           // update A-End UID
+		"no",           // update B-End UID
+		"no",           // A-End VRouter config
+		"no",           // B-End VRouter config
 	}
 
 	tests := []struct {
