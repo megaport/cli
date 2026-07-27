@@ -42,6 +42,14 @@ name: Publish WASM to S3
 #   write access. The shared deploy role trusts the whole repo, so to add a required-
 #   reviewers approval gate, move this job into a `production` GitHub environment (needs a
 #   repo admin to create it) and re-add `environment: production` to the job.
+#
+# INTEGRITY (SEC-8095):
+#   The build-provenance attestation proves the published megaport.wasm came from this
+#   repo's CI, not that a human approved its contents (see the missing environment gate
+#   above). The end-to-end guarantee also depends on the Portal actually checking the
+#   SHA-256/SRI values below against what it fetches, and on those values being copied
+#   into the Portal config correctly each release. Neither of those steps lives in this
+#   repo, so they're out of this workflow's control and belong in the SEC-8095 audit scope.
 
 # Manual-only by design: do not add an automatic tag-push trigger (see SAFETY above).
 on:
@@ -59,7 +67,8 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # required for AWS OIDC
+  id-token: write  # required for AWS OIDC and build-provenance attestation
+  attestations: write  # required to attest megaport.wasm
 
 # One constant group serializes every publish, so two runs can't race a --delete sync
 # against the shared latest/ prefix (two manual dispatches on different refs would
@@ -90,7 +99,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           fetch-depth: 0  # need tags for `git describe` version fallback
 
@@ -143,6 +152,54 @@ jobs:
           # CloudFront auto-compression caps at 10 MB; the raw wasm is well over that,
           # so it must be pre-compressed at origin and served with Content-Encoding: br.
           GOWORK=off go run ./cmd/wasmcompress web/vue-demo/megaport.wasm
+
+      - name: Compute integrity hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          # Hash the uncompressed wasm (the .br object still decodes to these bytes),
+          # so the value matches what the browser sees after Content-Encoding: br.
+          #
+          # wasm gets a hex SHA-256 rather than an SRI value because streaming
+          # instantiation (WebAssembly.instantiateStreaming via fetch) has no
+          # `integrity` attribute to check it against; wasm_exec.js is loaded as a
+          # <script src>, which does support SRI, hence the sha384-<base64> form.
+          wasm_sha256="$(shasum -a 256 web/vue-demo/megaport.wasm | awk '{print $1}')"
+          wasm_exec_sri="sha384-$(openssl dgst -sha384 -binary web/vue-demo/wasm_exec.js | openssl base64 -A)"
+          echo "wasm_sha256=$wasm_sha256" >> "$GITHUB_OUTPUT"
+          echo "wasm_exec_sri=$wasm_exec_sri" >> "$GITHUB_OUTPUT"
+          echo "megaport.wasm SHA-256: $wasm_sha256"
+          echo "wasm_exec.js SRI: $wasm_exec_sri"
+
+      - name: Write integrity manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          WASM_SHA256: ${{ steps.hashes.outputs.wasm_sha256 }}
+          WASM_EXEC_SRI: ${{ steps.hashes.outputs.wasm_exec_sri }}
+        run: |
+          set -euo pipefail
+          # Published alongside the site (synced by "Publish to S3" below) so the
+          # values are re-verifiable from the CDN later without re-hashing or relying
+          # on the step summary above, which the Actions UI eventually expires.
+          cat > web/vue-demo/integrity.json <<EOF
+          {
+            "version": "${VERSION}",
+            "megaport.wasm": {"sha256": "${WASM_SHA256}"},
+            "wasm_exec.js": {"sha384_sri": "${WASM_EXEC_SRI}"}
+          }
+          EOF
+
+      - name: Attest build provenance for megaport.wasm
+        # The attestation subject is the uncompressed wasm bytes, but the object served
+        # at .../megaport.wasm is brotli-compressed (Content-Encoding: br). Verifying the
+        # deployed artifact requires br-decoding it first, e.g.:
+        #   curl -s https://media.megaport.com/<prefix>/<version>/megaport.wasm | brotli -d > megaport.wasm
+        #   gh attestation verify megaport.wasm -R megaport/megaport-cli
+        # Running `gh attestation verify` against the raw CDN download fails on a digest
+        # mismatch, since it isn't the uncompressed subject that was attested.
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be  # v2.4.0
+        with:
+          subject-path: web/vue-demo/megaport.wasm
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a  # v4.3.1
@@ -222,6 +279,8 @@ jobs:
           PREFIX: ${{ vars.WASM_S3_PREFIX }}
           VERSION: ${{ steps.version.outputs.version }}
           PUBLISH_LATEST: ${{ inputs.publish_latest }}
+          WASM_SHA256: ${{ steps.hashes.outputs.wasm_sha256 }}
+          WASM_EXEC_SRI: ${{ steps.hashes.outputs.wasm_exec_sri }}
         run: |
           {
             echo "### WASM published"
@@ -229,4 +288,11 @@ jobs:
             echo "- Version prefix: \`${PREFIX}/${VERSION}/\`"
             echo "- Files: \`megaport.wasm\`, \`wasm_exec.js\`"
             [ "$PUBLISH_LATEST" = "true" ] && echo "- Latest alias: \`${PREFIX}/latest/\`"
+            echo ""
+            echo "#### Integrity reference values (\`${VERSION}\`)"
+            echo ""
+            echo "Copy these into the Portal WASM-loader config for this release."
+            echo ""
+            echo "- \`megaport.wasm\` SHA-256 (hex): \`${WASM_SHA256}\`"
+            echo "- \`wasm_exec.js\` SRI: \`${WASM_EXEC_SRI}\`"
           } >> "$GITHUB_STEP_SUMMARY"

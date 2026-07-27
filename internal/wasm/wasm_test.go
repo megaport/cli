@@ -223,6 +223,26 @@ func TestSplitArgs(t *testing.T) {
 			expected: []string{"locations", "list"},
 		},
 		{
+			name:     "removes leading program name literal megaport",
+			input:    "megaport locations list",
+			expected: []string{"locations", "list"},
+		},
+		{
+			name:     "preserves megaport as a flag value",
+			input:    "ports update abc123 --name megaport",
+			expected: []string{"ports", "update", "abc123", "--name", "megaport"},
+		},
+		{
+			name:     "preserves megaport as a positional argument",
+			input:    "tag megaport ports",
+			expected: []string{"tag", "megaport", "ports"},
+		},
+		{
+			name:     "removes leading program name but preserves later megaport flag value",
+			input:    "megaport-cli ports update abc123 --name megaport",
+			expected: []string{"ports", "update", "abc123", "--name", "megaport"},
+		},
+		{
 			name:     "empty string",
 			input:    "",
 			expected: nil,

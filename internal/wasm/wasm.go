@@ -738,14 +738,12 @@ func SplitArgs(cmd string) []string {
 		args = append(args, currentArg.String())
 	}
 
-	// Remove program name if user included it.
-	// The main_wasm.go will add it back, so we don't want duplicates.
-	var cleanedArgs []string
-	for _, arg := range args {
-		if arg == "megaport-cli" || arg == "./megaport-cli" || arg == "megaport" {
-			continue
-		}
-		cleanedArgs = append(cleanedArgs, arg)
+	// Remove a leading program-name token if the user included it.
+	// Only the first token is checked: a later argument, flag value, or
+	// positional equal to "megaport" is a real value and must be kept.
+	cleanedArgs := args
+	if len(cleanedArgs) > 0 && (cleanedArgs[0] == "megaport-cli" || cleanedArgs[0] == "./megaport-cli" || cleanedArgs[0] == "megaport") {
+		cleanedArgs = cleanedArgs[1:]
 	}
 
 	if debugMode.Load() {
