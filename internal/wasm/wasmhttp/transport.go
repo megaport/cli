@@ -185,7 +185,7 @@ func (t *WasmHTTPTransport) doFetch(req *http.Request, options map[string]interf
 
 			errMsg := "unknown error reading response body"
 			if len(textArgs) > 0 && textArgs[0].Type() == js.TypeObject {
-				if msg := textArgs[0].Get("message"); !msg.IsUndefined() {
+				if msg := textArgs[0].Get("message"); msg.Type() == js.TypeString {
 					errMsg = msg.String()
 				}
 			}
