@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/testutil"
 	"github.com/megaport/megaport-cli/internal/utils"
 	"github.com/megaport/megaport-cli/internal/validation"
@@ -1107,6 +1108,84 @@ func TestBuildUpdateVXCRequestFromPrompt(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, req)
 			tc.verify(t, req)
+		})
+	}
+}
+
+func TestBuildUpdateVXCRequestFromPromptShutdownStatusDisplay(t *testing.T) {
+	responses := []string{
+		"no", // update name
+		"no", // update rate limit
+		"no", // update term
+		"no", // update cost centre
+		"no", // update shutdown
+		"no", // update A-End VLAN
+		"no", // update B-End VLAN
+		"no", // update A-End inner VLAN
+		"no", // update B-End inner VLAN
+		"no", // update A-End UID
+		"no", // update B-End UID
+		"no", // A-End VRouter config
+		"no", // B-End VRouter config
+	}
+
+	tests := []struct {
+		name           string
+		shutdown       bool
+		adminLocked    bool
+		expectedStatus string
+	}{
+		{
+			name:           "shutdown true but not admin locked shows shutdown status",
+			shutdown:       true,
+			adminLocked:    false,
+			expectedStatus: "Current shutdown status: Yes",
+		},
+		{
+			name:           "shutdown false but admin locked shows enabled status",
+			shutdown:       false,
+			adminLocked:    true,
+			expectedStatus: "Current shutdown status: No",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanup := mockPrompts(responses)
+			defer cleanup()
+
+			existingVXC := &megaport.VXC{
+				UID:                "vxc-uid-123",
+				Name:               "Old VXC",
+				RateLimit:          100,
+				ContractTermMonths: 12,
+				CostCentre:         "CC-001",
+				Shutdown:           tc.shutdown,
+				AdminLocked:        tc.adminLocked,
+				AEndConfiguration: megaport.VXCEndConfiguration{
+					UID:  "a-end-uid",
+					VLAN: 100,
+				},
+				BEndConfiguration: megaport.VXCEndConfiguration{
+					UID:  "b-end-uid",
+					VLAN: 200,
+				},
+			}
+
+			mockSvc := &MockVXCService{
+				GetVXCResponse: existingVXC,
+			}
+			mockClient := &megaport.Client{VXCService: mockSvc}
+
+			var req *megaport.UpdateVXCRequest
+			var err error
+			capturedOutput := output.CaptureOutput(func() {
+				req, err = buildUpdateVXCRequestFromPrompt(context.Background(), mockClient, "vxc-uid-123", true)
+			})
+
+			assert.NoError(t, err)
+			assert.NotNil(t, req)
+			assert.Contains(t, capturedOutput, tc.expectedStatus)
 		})
 	}
 }

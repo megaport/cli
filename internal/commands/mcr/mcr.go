@@ -477,11 +477,40 @@ func buildMCRLookingGlassCommands(rootCmd *cobra.Command) (lookingGlass *cobra.C
 		WithRootCmd(rootCmd).
 		Build()
 
+	lgPingCmd := cmdbuilder.NewCommand("ping", "Run a ping from the MCR to a destination").
+		WithArgs(cobra.ExactArgs(1)).
+		WithOutputFormatRunFunc(LookingGlassPing).
+		WithLongDesc("Run an ICMP ping from the MCR Looking Glass to a destination address.\n\nThis command starts a ping operation on the MCR, polls until it completes, then prints the result including RTT statistics and packet loss.").
+		WithFlag("destination", "", "Destination IP address to ping").
+		WithRequiredFlag("destination", "Destination IP address to ping").
+		WithFlag("source", "", "Source IP address to ping from").
+		WithIntFlag("packet-count", 0, "Number of packets to send (1-60)").
+		WithIntFlag("packet-size", 0, "Packet size in bytes (1-9186)").
+		WithExample("megaport-cli mcr looking-glass ping [mcrUID] --destination 8.8.8.8").
+		WithExample("megaport-cli mcr looking-glass ping [mcrUID] --destination 8.8.8.8 --source 10.0.0.1").
+		WithExample("megaport-cli mcr looking-glass ping [mcrUID] --destination 8.8.8.8 --packet-count 10 --packet-size 128").
+		WithRootCmd(rootCmd).
+		Build()
+
+	lgTracerouteCmd := cmdbuilder.NewCommand("traceroute", "Run a traceroute from the MCR to a destination").
+		WithArgs(cobra.ExactArgs(1)).
+		WithOutputFormatRunFunc(LookingGlassTraceroute).
+		WithLongDesc("Run a traceroute from the MCR Looking Glass to a destination address.\n\nThis command starts a traceroute operation on the MCR, polls until it completes, then prints the hops.").
+		WithFlag("destination", "", "Destination IP address to traceroute to").
+		WithRequiredFlag("destination", "Destination IP address to traceroute to").
+		WithFlag("source", "", "Source IP address to traceroute from").
+		WithExample("megaport-cli mcr looking-glass traceroute [mcrUID] --destination 8.8.8.8").
+		WithExample("megaport-cli mcr looking-glass traceroute [mcrUID] --destination 8.8.8.8 --source 10.0.0.1").
+		WithRootCmd(rootCmd).
+		Build()
+
 	lookingGlass.AddCommand(
 		lgIPRoutesCmd,
 		lgBGPRoutesCmd,
 		lgBGPSessionsCmd,
 		lgBGPNeighborRoutesCmd,
+		lgPingCmd,
+		lgTracerouteCmd,
 	)
 
 	return

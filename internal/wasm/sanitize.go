@@ -34,12 +34,12 @@ func SanitizeTerminalOutput(s string) string {
 	return sanitizeControlSequences(s, true)
 }
 
-// SanitizeTerminalText strips all C0/C1 controls, DEL, and ESC from a single
-// field value bound for the live prompt channel (see the WASM prompt bridge
-// in internal/utils/prompts_wasm.go). Prompt messages carry no color, so
-// nothing needs to be allowlisted, and callers insert their own structural
-// line breaks after sanitizing each field, so \n/\r/\t are stripped like any
-// other control byte.
+// SanitizeTerminalText strips all C0/C1 controls, DEL, and ESC from a value
+// bound for a channel that carries no color of its own: the live prompt channel
+// (see the WASM prompt bridge in internal/utils/prompts_wasm.go) and the async
+// result.error field, which the host renders as its own styled error line.
+// Nothing needs to be allowlisted, and \n/\r/\t are stripped like any other
+// control byte since callers supply their own structural line breaks.
 func SanitizeTerminalText(s string) string {
 	return sanitizeControlSequences(s, false)
 }

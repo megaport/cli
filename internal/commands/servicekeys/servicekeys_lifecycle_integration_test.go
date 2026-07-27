@@ -162,6 +162,9 @@ func newCreateServiceKeyCmdLifecycle() *cobra.Command {
 	cmd.Flags().Bool("active", false, "")
 	cmd.Flags().Bool("pre-approved", false, "")
 	cmd.Flags().Int("vlan", 0, "")
+	cmd.Flags().String("json", "", "")
+	cmd.Flags().String("json-file", "", "")
+	cmd.Flags().Bool("interactive", false, "")
 	return cmd
 }
 
@@ -172,6 +175,9 @@ func newUpdateServiceKeyCmdLifecycle() *cobra.Command {
 	cmd.Flags().Bool("single-use", false, "")
 	cmd.Flags().String("description", "", "")
 	cmd.Flags().Bool("active", false, "")
+	cmd.Flags().String("json", "", "")
+	cmd.Flags().String("json-file", "", "")
+	cmd.Flags().Bool("interactive", false, "")
 	return cmd
 }
 
