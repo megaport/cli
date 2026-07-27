@@ -20,12 +20,12 @@ import (
 // yield byte-identical output, not growing/duplicated help text.
 func TestWasmHelp_RepeatedInvocationsProduceIdenticalOutput(t *testing.T) {
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
 	first := wasm.WasmOutputBuffer.String()
 	assert.NotEmpty(t, first)
 
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
 	second := wasm.WasmOutputBuffer.String()
 
 	assert.Equal(t, first, second, "repeated --help calls must produce identical output, not accumulate coloring/suffixes")
@@ -35,13 +35,13 @@ func TestWasmHelp_RepeatedInvocationsProduceIdenticalOutput(t *testing.T) {
 // that a two-call comparison might miss.
 func TestWasmHelp_RepeatedInvocationsAcrossManyCalls(t *testing.T) {
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
 	baseline := wasm.WasmOutputBuffer.String()
 	assert.NotEmpty(t, baseline)
 
 	for i := 0; i < 5; i++ {
 		wasm.ResetOutputBuffers()
-		ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
+		_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
 		out := wasm.WasmOutputBuffer.String()
 		assert.Equal(t, baseline, out, "help output must not drift across repeated invocations")
 	}
@@ -52,12 +52,12 @@ func TestWasmHelp_RepeatedInvocationsAcrossManyCalls(t *testing.T) {
 // LongDesc string each time rather than a cached original.
 func TestWasmHelp_RootCommandRepeatedInvocationsProduceIdenticalOutput(t *testing.T) {
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "--help"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "--help"})
 	first := wasm.WasmOutputBuffer.String()
 	assert.NotEmpty(t, first)
 
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "--help"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "--help"})
 	second := wasm.WasmOutputBuffer.String()
 
 	assert.Equal(t, first, second, "repeated root --help calls must produce identical output")
