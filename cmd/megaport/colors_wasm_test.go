@@ -25,7 +25,7 @@ func TestWasmColor_DefaultRunEnablesColor(t *testing.T) {
 	color.NoColor = true // start from the hostile js/wasm default
 
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--output", "invalid"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--output", "invalid"})
 
 	assert.False(t, color.NoColor, "a default run should enable fatih color in the browser")
 }
@@ -39,7 +39,7 @@ func TestWasmColor_NoColorFlagDisablesColor(t *testing.T) {
 	color.NoColor = false
 
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--no-color", "--output", "invalid"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--no-color", "--output", "invalid"})
 
 	assert.True(t, color.NoColor, "--no-color should disable fatih color")
 }
@@ -52,12 +52,12 @@ func TestWasmColor_NoStaleFlagAcrossRuns(t *testing.T) {
 	defer func() { color.NoColor = orig }()
 
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--no-color", "--output", "invalid"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--no-color", "--output", "invalid"})
 	assert.True(t, color.NoColor, "sanity: --no-color run disables color")
 
 	// --help returns before PersistentPreRunE runs, so only the ExecuteWithArgs
 	// reset can clear the prior run's flag.
 	wasm.ResetOutputBuffers()
-	ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "ports", "list", "--help"})
 	assert.False(t, color.NoColor, "a subsequent non --no-color run must re-enable color")
 }

@@ -32,7 +32,7 @@ func TestReadOnlyModulesRegistered(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wasm.ResetOutputBuffers()
-			ExecuteWithArgs(tc.args)
+			_ = ExecuteWithArgs(tc.args)
 			out := wasm.GetCapturedOutput()
 			assert.NotContains(t, out, "unknown command", "%v should be a registered command", tc.args)
 			assert.Contains(t, out, tc.usage, "%v help should show its usage path", tc.args)
@@ -63,7 +63,7 @@ func TestAccountPartnerAdminModulesRegistered(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wasm.ResetOutputBuffers()
-			ExecuteWithArgs(tc.args)
+			_ = ExecuteWithArgs(tc.args)
 			out := wasm.GetCapturedOutput()
 			// An unregistered command falls back to root help, which lacks
 			// this command's Usage: block, so Contains is the real check.

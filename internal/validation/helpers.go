@@ -53,6 +53,18 @@ func ValidateIPv4(ip string, fieldName string) error {
 	return nil
 }
 
+// ValidateIPAddress validates that a string is a valid IPv4 or IPv6 address.
+// Returns a ValidationError if the string is empty or not a valid IP address.
+func ValidateIPAddress(ip string, fieldName string) error {
+	if ip == "" {
+		return NewValidationError(fieldName, ip, "cannot be empty")
+	}
+	if net.ParseIP(ip) == nil {
+		return NewValidationError(fieldName, ip, "must be a valid IPv4 or IPv6 address")
+	}
+	return nil
+}
+
 // ValidateCIDR validates that a string is in valid IPv4 CIDR notation.
 // Returns a ValidationError if the string is empty or not a valid IPv4 CIDR.
 func ValidateCIDR(cidr string, fieldName string) error {
