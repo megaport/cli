@@ -17,7 +17,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func ExecuteWithArgs(args []string) {
+// ExecuteWithArgs runs the command tree against args and returns the error the
+// host should surface as result.error, or nil. The error is returned only when
+// it hasn't already reached the user another way: the JSON envelope branch and
+// any path where output already streamed or was captured return nil, so the
+// host doesn't double-render a message the terminal already shows.
+func ExecuteWithArgs(args []string) error {
 	// Reset all flags on the command tree so that flag values from a previous
 	// execution don't leak into the current one. Cobra marks flags as "Changed"
 	// after parsing, and this state persists when the same command tree is reused
@@ -50,12 +55,11 @@ func ExecuteWithArgs(args []string) {
 		argsToUse = args[1:]
 	}
 
-	// Disable automatic usage on errors so we can control the output.
-	// Also reset SilenceErrors: a prior JSON-mode failure may have set it true
-	// via cmd.Root().SilenceErrors = true in a RunE wrapper, and the command
-	// tree is reused across WASM invocations.
+	// Own the failure output. SilenceErrors stops cobra writing "Error: ..." to
+	// the buffer before we can route it to result.error. Set unconditionally
+	// because the command tree is reused across invocations.
 	rootCmd.SilenceUsage = true
-	rootCmd.SilenceErrors = false
+	rootCmd.SilenceErrors = true
 
 	// Set the args on the root command
 	rootCmd.SetArgs(argsToUse)
@@ -66,51 +70,49 @@ func ExecuteWithArgs(args []string) {
 	// flag, used by WrapRunE / WrapColorAwareRunE).
 	executedCmd, err := rootCmd.ExecuteC()
 
-	if err != nil {
-		// When the error is a *CLIError returned by a RunE wrapper in JSON mode,
-		// the wrapper has already written the structured JSON error via
-		// PrintErrorJSON. Skip the plain-text block to avoid corrupting
-		// machine-readable output. We gate on *CLIError (not just the --output
-		// flag) because errors that occur before a wrapper runs (e.g., flag
-		// parse errors) are not *CLIError and still need the plain-text block.
-		var cliErr *exitcodes.CLIError
-		if errors.As(err, &cliErr) && resolveOutputFormat(executedCmd) == utils.FormatJSON {
-			// Reset the buffer to remove any plain-text output written before
-			// the error (commands may call output.PrintError etc. before
-			// returning), then re-emit a single clean JSON envelope so the
-			// buffer contains only valid JSON.
-			wasm.ResetOutputBuffers()
-			output.PrintErrorJSON(cliErr.Code, cliErr.Error())
-			return
-		}
-		// When a live-output handler is registered the error has already
-		// streamed during execution (the RunE wrapper's PrintError, or cobra's
-		// own error print). Streamed chunks cannot be retracted, so the
-		// reset-and-rewrite used by the capture path would double-render the
-		// error in the terminal. Skip it; only surface an error here if nothing
-		// streamed at all (e.g. a flag-parse failure on a command whose
-		// SilenceErrors latched true on a prior run), so the failure is not silent.
-		if wasm.HasOutputHandler() {
-			// Emit a fallback only when nothing streamed AND nothing was
-			// captured. If a wrapper or cobra already wrote the error into the
-			// buffer (e.g. a throwing handler failed to deliver it), completion
-			// returns that captured buffer, so appending here would duplicate it.
-			// Emitting only when the buffer is empty keeps the failure from being
-			// silent without doubling it up.
-			if !wasm.DidStreamOutput() && wasm.WasmOutputBuffer.String() == "" {
-				fmt.Fprintf(wasm.WasmOutputBuffer, "Error: %v\n\n", err)
-				fmt.Fprintf(wasm.WasmOutputBuffer, "Run 'megaport-cli --help' to see the list of available commands.\n")
-			}
-			return
-		}
-
-		// Capture path (no handler): clear anything written before the error and
-		// rewrite a single clean error block for the returned result.
-		wasm.ResetOutputBuffers()
-
-		fmt.Fprintf(wasm.WasmOutputBuffer, "Error: %v\n\n", err)
-		fmt.Fprintf(wasm.WasmOutputBuffer, "Run 'megaport-cli --help' to see the list of available commands.\n")
+	if err == nil {
+		return nil
 	}
+
+	// A *CLIError in JSON mode already wrote the structured envelope via
+	// PrintErrorJSON, so re-emit a clean one and return nil (routing it to
+	// result.error too would stack a red line on machine-readable output).
+	// Gate on *CLIError, not the flag: pre-wrapper errors (e.g. flag parse)
+	// aren't *CLIError and still need routing.
+	var cliErr *exitcodes.CLIError
+	if errors.As(err, &cliErr) && resolveOutputFormat(executedCmd) == utils.FormatJSON {
+		// Reset the buffer to remove any plain-text output written before
+		// the error (commands may call output.PrintError etc. before
+		// returning), then re-emit a single clean JSON envelope so the
+		// buffer contains only valid JSON.
+		wasm.ResetOutputBuffers()
+		output.PrintErrorJSON(cliErr.Code, cliErr.Error())
+		return nil
+	}
+	// When a live-output handler is registered the error may already have
+	// streamed during execution (the RunE wrapper's PrintError, or cobra's own
+	// error print). Streamed chunks cannot be retracted, so returning the error
+	// as result.error too would double-render it in the terminal.
+	if wasm.HasOutputHandler() {
+		// Only surface the error when nothing streamed AND nothing was captured
+		// (e.g. a flag-parse failure before any command ran): keep the usage
+		// hint in output and return the error so the host renders it and emits
+		// failure telemetry. Otherwise the error is already in the terminal or
+		// the captured buffer, so return nil to avoid duplicating it.
+		if !wasm.DidStreamOutput() && wasm.WasmOutputBuffer.String() == "" {
+			fmt.Fprintf(wasm.WasmOutputBuffer, "Run 'megaport-cli --help' to see the list of available commands.\n")
+			return err
+		}
+		return nil
+	}
+
+	// Capture path (no handler): clear anything written before the error and
+	// keep only the usage hint in output. The failure message itself is
+	// returned so the host can route it to result.error rather than burying it
+	// in result.output uncolored.
+	wasm.ResetOutputBuffers()
+	fmt.Fprintf(wasm.WasmOutputBuffer, "Run 'megaport-cli --help' to see the list of available commands.\n")
+	return err
 }
 
 // resolveOutputFormat returns the --output value for the command that ran.

@@ -216,6 +216,80 @@ func ToBGPNeighborRouteOutput(route *megaport.LookingGlassBGPNeighborRoute) (BGP
 	return out, nil
 }
 
+// PingResultOutput represents the output format for a ping result
+type PingResultOutput struct {
+	output.Output      `json:"-" header:"-"`
+	PacketsTransmitted string `json:"packets_transmitted,omitempty" header:"Packets Transmitted"`
+	PacketsReceived    string `json:"packets_received,omitempty" header:"Packets Received"`
+	PacketLossPct      string `json:"packet_loss_pct,omitempty" header:"Packet Loss %"`
+	RTTMinMs           string `json:"rtt_min_ms,omitempty" header:"RTT Min (ms)"`
+	RTTAvgMs           string `json:"rtt_avg_ms,omitempty" header:"RTT Avg (ms)"`
+	RTTMaxMs           string `json:"rtt_max_ms,omitempty" header:"RTT Max (ms)"`
+	RTTMdevMs          string `json:"rtt_mdev_ms,omitempty" header:"RTT Mdev (ms)"`
+	RawOutput          string `json:"raw_output,omitempty" header:"Raw Output"`
+}
+
+// ToPingResultOutput converts a megaport.LookingGlassPingResult to PingResultOutput
+func ToPingResultOutput(result *megaport.LookingGlassPingResult) (PingResultOutput, error) {
+	if result == nil {
+		return PingResultOutput{}, fmt.Errorf("invalid ping result: nil value")
+	}
+
+	out := PingResultOutput{
+		RawOutput: result.RawOutput,
+	}
+
+	if result.Statistics != nil {
+		stats := result.Statistics
+		out.PacketsTransmitted = fmt.Sprintf("%d", stats.PacketsTransmitted)
+		out.PacketsReceived = fmt.Sprintf("%d", stats.PacketsReceived)
+		out.PacketLossPct = fmt.Sprintf("%.1f", stats.PacketLossPct)
+		out.RTTMinMs = fmt.Sprintf("%.3f", stats.RTTMinMs)
+		out.RTTAvgMs = fmt.Sprintf("%.3f", stats.RTTAvgMs)
+		out.RTTMaxMs = fmt.Sprintf("%.3f", stats.RTTMaxMs)
+		out.RTTMdevMs = fmt.Sprintf("%.3f", stats.RTTMdevMs)
+	}
+
+	return out, nil
+}
+
+// TracerouteHopOutput represents the output format for a single traceroute hop
+type TracerouteHopOutput struct {
+	output.Output `json:"-" header:"-"`
+	Hop           string `json:"hop" header:"Hop"`
+	Probes        string `json:"probes,omitempty" header:"Probes"`
+}
+
+// ToTracerouteHopOutput converts a megaport.LookingGlassTracerouteHop to TracerouteHopOutput
+func ToTracerouteHopOutput(hop *megaport.LookingGlassTracerouteHop) (TracerouteHopOutput, error) {
+	if hop == nil {
+		return TracerouteHopOutput{}, fmt.Errorf("invalid traceroute hop: nil value")
+	}
+
+	out := TracerouteHopOutput{
+		Hop: hop.Hop,
+	}
+
+	if len(hop.Probes) > 0 {
+		probeStrs := make([]string, len(hop.Probes))
+		for i, probe := range hop.Probes {
+			if probe == nil {
+				probeStrs[i] = "*"
+				continue
+			}
+			host := probe.Host
+			if host == "" {
+				probeStrs[i] = "*"
+				continue
+			}
+			probeStrs[i] = fmt.Sprintf("%s (%.3fms)", host, probe.RTTMs)
+		}
+		out.Probes = strings.Join(probeStrs, ", ")
+	}
+
+	return out, nil
+}
+
 // Helper functions
 
 func boolToYesNo(b bool) string {
@@ -284,6 +358,33 @@ func printBGPNeighborRoutes(routes []*megaport.LookingGlassBGPNeighborRoute, for
 	outputs := make([]BGPNeighborRouteOutput, 0, len(routes))
 	for _, route := range routes {
 		out, err := ToBGPNeighborRouteOutput(route)
+		if err != nil {
+			return err
+		}
+		outputs = append(outputs, out)
+	}
+	return output.PrintOutput(outputs, format, noColor)
+}
+
+func printPingResult(result *megaport.LookingGlassPingResult, format string, noColor bool) error {
+	out, err := ToPingResultOutput(result)
+	if err != nil {
+		return err
+	}
+	return output.PrintOutput([]PingResultOutput{out}, format, noColor)
+}
+
+func printTracerouteResult(result *megaport.LookingGlassTracerouteResult, format string, noColor bool) error {
+	if result == nil {
+		return fmt.Errorf("invalid traceroute result: nil value")
+	}
+	outputs := make([]TracerouteHopOutput, 0, len(result.Hops))
+	for _, hop := range result.Hops {
+		if hop == nil {
+			outputs = append(outputs, TracerouteHopOutput{Hop: "*"})
+			continue
+		}
+		out, err := ToTracerouteHopOutput(hop)
 		if err != nil {
 			return err
 		}

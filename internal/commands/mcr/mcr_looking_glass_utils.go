@@ -31,3 +31,19 @@ var listBGPSessionsFunc = func(ctx context.Context, client *megaport.Client, mcr
 var listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
 	return client.MCRLookingGlassService.ListBGPNeighborRoutes(ctx, req)
 }
+
+var pingMCRFunc = func(ctx context.Context, client *megaport.Client, req *megaport.MCRPingRequest) (string, error) {
+	return client.MCRLookingGlassService.PingMCR(ctx, req)
+}
+
+var waitForMCRPingFunc = func(ctx context.Context, client *megaport.Client, mcrUID, operationID string) (*megaport.LookingGlassPingResult, error) {
+	return client.MCRLookingGlassService.WaitForMCRPing(ctx, mcrUID, operationID)
+}
+
+var tracerouteMCRFunc = func(ctx context.Context, client *megaport.Client, req *megaport.MCRTracerouteRequest) (string, error) {
+	return client.MCRLookingGlassService.TracerouteMCR(ctx, req)
+}
+
+var waitForMCRTracerouteFunc = func(ctx context.Context, client *megaport.Client, mcrUID, operationID string) (*megaport.LookingGlassTracerouteResult, error) {
+	return client.MCRLookingGlassService.WaitForMCRTraceroute(ctx, mcrUID, operationID)
+}

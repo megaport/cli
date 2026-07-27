@@ -98,6 +98,34 @@ func TestValidateIPv4(t *testing.T) {
 	}
 }
 
+func TestValidateIPAddress(t *testing.T) {
+	tests := []struct {
+		name    string
+		ip      string
+		wantErr bool
+	}{
+		{"standard ipv4 address", "192.168.1.1", false},
+		{"ipv6 loopback", "::1", false},
+		{"ipv6 full", "2001:db8::1", false},
+		{"ipv4-mapped ipv6", "::ffff:192.168.0.1", false},
+		{"empty rejected", "", true},
+		{"octet over 255", "256.1.1.1", true},
+		{"hostname rejected", "example.com", true},
+		{"with CIDR suffix rejected", "192.168.1.1/24", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateIPAddress(tt.ip, "ip")
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.IsType(t, &ValidationError{}, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateCIDR(t *testing.T) {
 	tests := []struct {
 		name    string

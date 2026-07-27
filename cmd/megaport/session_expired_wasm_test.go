@@ -57,7 +57,7 @@ func TestExecuteWithArgs_SessionExpired_StreamsMarkerToHandler(t *testing.T) {
 	rootCmd.AddCommand(cmd)
 	defer rootCmd.RemoveCommand(cmd)
 
-	ExecuteWithArgs([]string{"megaport-cli", "sessionexpiredtest"})
+	_ = ExecuteWithArgs([]string{"megaport-cli", "sessionexpiredtest"})
 
 	require.True(t, wasm.DidStreamOutput(), "the error was streamed to the handler")
 	assert.Contains(t, strings.Join(streamed, ""), utils.SessionExpiredMarker,
