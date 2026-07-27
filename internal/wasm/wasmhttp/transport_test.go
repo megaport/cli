@@ -137,6 +137,25 @@ func newFakeResponse(status int, body string) js.Value {
 	return resp
 }
 
+// newRejectingFetch returns fetch behavior that rejects immediately with an
+// Error carrying message. setCause, when non-nil, decorates that Error before
+// it is thrown, so a test can model Node's "fetch failed" plus a cause.
+func newRejectingFetch(message string, setCause func(err js.Value)) func(url string, opts js.Value) js.Value {
+	return func(url string, opts js.Value) js.Value {
+		var executor js.Func
+		executor = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer executor.Release()
+			err := js.Global().Get("Error").New(message)
+			if setCause != nil {
+				setCause(err)
+			}
+			args[1].Invoke(err)
+			return nil
+		})
+		return js.Global().Get("Promise").New(executor)
+	}
+}
+
 func newTestRequest(t *testing.T, ctx context.Context, url string) *http.Request {
 	t.Helper()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -206,6 +225,67 @@ func TestRoundTrip_TimeoutAbortsAndReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "timeout")
 	assert.Less(t, elapsed, 2*time.Second, "timeout error should arrive close to the configured timeout")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&aborted), "expected the browser fetch to be aborted on timeout")
+}
+
+func TestRoundTrip_FetchRejectionSurfacesCause(t *testing.T) {
+	objectCause := func(code, message string) func(js.Value) {
+		return func(err js.Value) {
+			cause := js.Global().Get("Object").New()
+			if code != "" {
+				cause.Set("code", code)
+			}
+			if message != "" {
+				cause.Set("message", message)
+			}
+			err.Set("cause", cause)
+		}
+	}
+
+	tests := []struct {
+		name     string
+		setCause func(js.Value)
+		want     string
+		noCause  bool
+	}{
+		{
+			name:     "prefers the cause message",
+			setCause: objectCause("ETIMEDOUT", "connect ETIMEDOUT 10.0.0.1:443"),
+			want:     "fetch failed (cause: connect ETIMEDOUT 10.0.0.1:443)",
+		},
+		{
+			name:     "falls back to the cause code",
+			setCause: objectCause("ENOTFOUND", ""),
+			want:     "fetch failed (cause: ENOTFOUND)",
+		},
+		{
+			name:     "string cause",
+			setCause: func(err js.Value) { err.Set("cause", "ECONNREFUSED") },
+			want:     "fetch failed (cause: ECONNREFUSED)",
+		},
+		{
+			name:    "no cause leaves the message alone",
+			want:    "fetch failed",
+			noCause: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			installMockFetch(t, newRejectingFetch("fetch failed", tt.setCause))
+
+			transport := &WasmHTTPTransport{Timeout: 5 * time.Second}
+			req := newTestRequest(t, context.Background(), "https://example.invalid/test")
+
+			resp, err := transport.RoundTrip(req)
+
+			assert.Nil(t, resp)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+			if tt.noCause {
+				assert.NotContains(t, err.Error(), "cause:")
+			}
+		})
+	}
 }
 
 func TestRoundTrip_SuccessNormalResponseUnaffected(t *testing.T) {

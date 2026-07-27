@@ -208,12 +208,17 @@ func (t *WasmHTTPTransport) doFetch(req *http.Request, options map[string]interf
 
 		errMsg := "unknown fetch error"
 		isAbort := false
-		if len(catchArgs) > 0 && !catchArgs[0].IsUndefined() {
+		if len(catchArgs) > 0 && !catchArgs[0].IsUndefined() && !catchArgs[0].IsNull() {
 			if name := catchArgs[0].Get("name"); !name.IsUndefined() && name.String() == "AbortError" {
 				isAbort = true
 			}
-			if msg := catchArgs[0].Get("message"); !msg.IsUndefined() {
+			if msg := catchArgs[0].Get("message"); msg.Type() == js.TypeString {
 				errMsg = msg.String()
+			}
+			// Node and some browsers report connection-level failures as a bare
+			// "fetch failed", with the real reason (ETIMEDOUT, ENOTFOUND) on cause.
+			if detail := fetchErrorCause(catchArgs[0]); detail != "" {
+				errMsg = fmt.Sprintf("%s (cause: %s)", errMsg, detail)
 			}
 		}
 
@@ -277,6 +282,25 @@ func (t *WasmHTTPTransport) doFetch(req *http.Request, options map[string]interf
 		abortController.Call("abort")
 		return nil, fmt.Errorf("fetch timeout after %v", timeout)
 	}
+}
+
+// fetchErrorCause pulls a human-readable reason off a rejected fetch's cause,
+// returning "" when there isn't one. Prefers the cause's message (it usually
+// carries the address too) and falls back to its code.
+func fetchErrorCause(rejection js.Value) string {
+	cause := rejection.Get("cause")
+	switch cause.Type() {
+	case js.TypeString:
+		return cause.String()
+	case js.TypeObject:
+		if msg := cause.Get("message"); msg.Type() == js.TypeString && msg.String() != "" {
+			return msg.String()
+		}
+		if code := cause.Get("code"); code.Type() == js.TypeString {
+			return code.String()
+		}
+	}
+	return ""
 }
 
 // extractHeaders extracts headers from the fetch Response object
