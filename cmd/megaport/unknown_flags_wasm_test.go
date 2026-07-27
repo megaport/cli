@@ -7,6 +7,7 @@ import (
 
 	"github.com/megaport/megaport-cli/internal/wasm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestExecuteWithArgs_RejectsUnknownFlags is the ESD-1634 regression test:
@@ -31,10 +32,13 @@ func TestExecuteWithArgs_RejectsUnknownFlags(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wasm.ResetOutputBuffers()
-			ExecuteWithArgs(tc.args)
-			out := wasm.GetCapturedOutput()
-			assert.Contains(t, out, "unknown flag", "%v should report the unknown flag", tc.args)
-			assert.NotContains(t, out, "required flag(s)", "%v should not fall through to a required-flag error", tc.args)
+			err := ExecuteWithArgs(tc.args)
+			require.Error(t, err, "%v should return an error", tc.args)
+			assert.Contains(t, err.Error(), "unknown flag", "%v should report the unknown flag", tc.args)
+			assert.NotContains(t, err.Error(), "required flag(s)", "%v should not fall through to a required-flag error", tc.args)
+			// The failure must land in result.error (the returned error), not be
+			// buried in result.output; only the usage hint stays in output.
+			assert.NotContains(t, wasm.GetCapturedOutput(), "unknown flag", "%v error text must not stay in output", tc.args)
 		})
 	}
 }
@@ -61,7 +65,7 @@ func TestExecuteWithArgs_ValidTraversalStillResolves(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wasm.ResetOutputBuffers()
-			ExecuteWithArgs(tc.args)
+			_ = ExecuteWithArgs(tc.args)
 			out := wasm.GetCapturedOutput()
 			assert.NotContains(t, out, "unknown flag", "%v should not be treated as an unknown flag", tc.args)
 			assert.NotContains(t, out, "unknown command", "%v should be a registered command", tc.args)

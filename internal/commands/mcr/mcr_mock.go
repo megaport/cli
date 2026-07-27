@@ -211,24 +211,42 @@ func (m *MockMCRService) WaitForMCRReady(_ context.Context, mcrID string, timeou
 
 // MockMCRLookingGlassService implements megaport.MCRLookingGlassService for testing.
 type MockMCRLookingGlassService struct {
-	ListIPRoutesResult              []*megaport.LookingGlassIPRoute
-	ListIPRoutesErr                 error
-	CapturedListIPRoutesMCRUID      string
-	ListIPRoutesWithFilterResult    []*megaport.LookingGlassIPRoute
-	ListIPRoutesWithFilterErr       error
-	CapturedListIPRoutesWithFilter  *megaport.ListIPRoutesRequest
-	ListBGPRoutesResult             []*megaport.LookingGlassBGPRoute
-	ListBGPRoutesErr                error
-	CapturedListBGPRoutesMCRUID     string
-	ListBGPRoutesWithFilterResult   []*megaport.LookingGlassBGPRoute
-	ListBGPRoutesWithFilterErr      error
-	CapturedListBGPRoutesWithFilter *megaport.ListBGPRoutesRequest
-	ListBGPSessionsResult           []*megaport.LookingGlassBGPSession
-	ListBGPSessionsErr              error
-	CapturedListBGPSessionsMCRUID   string
-	ListBGPNeighborRoutesResult     []*megaport.LookingGlassBGPNeighborRoute
-	ListBGPNeighborRoutesErr        error
-	CapturedListBGPNeighborRoutes   *megaport.ListBGPNeighborRoutesRequest
+	ListIPRoutesResult                 []*megaport.LookingGlassIPRoute
+	ListIPRoutesErr                    error
+	CapturedListIPRoutesMCRUID         string
+	ListIPRoutesWithFilterResult       []*megaport.LookingGlassIPRoute
+	ListIPRoutesWithFilterErr          error
+	CapturedListIPRoutesWithFilter     *megaport.ListIPRoutesRequest
+	ListBGPRoutesResult                []*megaport.LookingGlassBGPRoute
+	ListBGPRoutesErr                   error
+	CapturedListBGPRoutesMCRUID        string
+	ListBGPRoutesWithFilterResult      []*megaport.LookingGlassBGPRoute
+	ListBGPRoutesWithFilterErr         error
+	CapturedListBGPRoutesWithFilter    *megaport.ListBGPRoutesRequest
+	ListBGPSessionsResult              []*megaport.LookingGlassBGPSession
+	ListBGPSessionsErr                 error
+	CapturedListBGPSessionsMCRUID      string
+	ListBGPNeighborRoutesResult        []*megaport.LookingGlassBGPNeighborRoute
+	ListBGPNeighborRoutesErr           error
+	CapturedListBGPNeighborRoutes      *megaport.ListBGPNeighborRoutesRequest
+	PingMCRResult                      string
+	PingMCRErr                         error
+	CapturedPingMCRRequest             *megaport.MCRPingRequest
+	TracerouteMCRResult                string
+	TracerouteMCRErr                   error
+	CapturedTracerouteMCRRequest       *megaport.MCRTracerouteRequest
+	PingResultData                     *megaport.LookingGlassPingResult
+	PingResultDataErr                  error
+	TracerouteResultData               *megaport.LookingGlassTracerouteResult
+	TracerouteResultDataErr            error
+	WaitForMCRPingResult               *megaport.LookingGlassPingResult
+	WaitForMCRPingErr                  error
+	CapturedWaitForMCRPingMCRUID       string
+	CapturedWaitForMCRPingOpID         string
+	WaitForMCRTracerouteResult         *megaport.LookingGlassTracerouteResult
+	WaitForMCRTracerouteErr            error
+	CapturedWaitForMCRTracerouteMCRUID string
+	CapturedWaitForMCRTracerouteOpID   string
 }
 
 func (m *MockMCRLookingGlassService) ListIPRoutes(ctx context.Context, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
@@ -286,27 +304,33 @@ func (m *MockMCRLookingGlassService) WaitForAsyncBGPNeighborRoutes(ctx context.C
 }
 
 func (m *MockMCRLookingGlassService) PingMCR(ctx context.Context, req *megaport.MCRPingRequest) (string, error) {
-	return "", nil
+	m.CapturedPingMCRRequest = req
+	return m.PingMCRResult, m.PingMCRErr
 }
 
 func (m *MockMCRLookingGlassService) TracerouteMCR(ctx context.Context, req *megaport.MCRTracerouteRequest) (string, error) {
-	return "", nil
+	m.CapturedTracerouteMCRRequest = req
+	return m.TracerouteMCRResult, m.TracerouteMCRErr
 }
 
 func (m *MockMCRLookingGlassService) GetMCRPingResult(ctx context.Context, mcrUID, operationID string) (*megaport.LookingGlassPingResult, error) {
-	return nil, nil
+	return m.PingResultData, m.PingResultDataErr
 }
 
 func (m *MockMCRLookingGlassService) GetMCRTracerouteResult(ctx context.Context, mcrUID, operationID string) (*megaport.LookingGlassTracerouteResult, error) {
-	return nil, nil
+	return m.TracerouteResultData, m.TracerouteResultDataErr
 }
 
 func (m *MockMCRLookingGlassService) WaitForMCRPing(ctx context.Context, mcrUID, operationID string) (*megaport.LookingGlassPingResult, error) {
-	return nil, nil
+	m.CapturedWaitForMCRPingMCRUID = mcrUID
+	m.CapturedWaitForMCRPingOpID = operationID
+	return m.WaitForMCRPingResult, m.WaitForMCRPingErr
 }
 
 func (m *MockMCRLookingGlassService) WaitForMCRTraceroute(ctx context.Context, mcrUID, operationID string) (*megaport.LookingGlassTracerouteResult, error) {
-	return nil, nil
+	m.CapturedWaitForMCRTracerouteMCRUID = mcrUID
+	m.CapturedWaitForMCRTracerouteOpID = operationID
+	return m.WaitForMCRTracerouteResult, m.WaitForMCRTracerouteErr
 }
 
 func (m *MockMCRService) Reset() {

@@ -13,6 +13,7 @@ import (
 	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/wasm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestMain mirrors main()'s registration (minus the blocking channel wait):
@@ -33,6 +34,15 @@ func TestMain(m *testing.M) {
 	wasm.InitPromptSystem()
 	js.Global().Set("executeMegaportCommand", js.FuncOf(executeMegaportCommand))
 	js.Global().Set("executeMegaportCommandAsync", js.FuncOf(executeMegaportCommandAsync))
+
+	// The bare-node WASM test host has no localStorage, so the config-file and
+	// localStorage helpers, which call it directly, panic and take down the whole
+	// test binary. Install a minimal in-memory shim so those tests run for real
+	// under node; a browser host already provides localStorage, so only shim when
+	// it is absent.
+	if js.Global().Get("localStorage").IsUndefined() {
+		js.Global().Call("eval", `(function(){var s={};globalThis.localStorage={getItem:function(k){return Object.prototype.hasOwnProperty.call(s,k)?s[k]:null;},setItem:function(k,v){s[k]=String(v);},removeItem:function(k){delete s[k];},clear:function(){s={};}};})();`)
+	}
 
 	os.Exit(m.Run())
 }
@@ -126,6 +136,41 @@ func invokeAsyncAndWait(t *testing.T, cmd string) js.Value {
 	}
 }
 
+// TestExecuteMegaportCommandAsync_UnknownCommand_RoutesToError is the ESD-1666
+// bridge-level regression: an unknown command must populate result.error so the
+// Portal renders the red Error: line and emits the failure telemetry event,
+// rather than leaving the failure only in result.output (uncolored, uncounted).
+func TestExecuteMegaportCommandAsync_UnknownCommand_RoutesToError(t *testing.T) {
+	wasm.ResetOutputBuffers()
+
+	result := invokeAsyncAndWait(t, "location list")
+
+	errVal := result.Get("error")
+	require.False(t, errVal.IsUndefined(), "unknown command should populate result.error")
+	assert.Contains(t, errVal.String(), "unknown command")
+
+	if out := result.Get("output"); !out.IsUndefined() {
+		assert.NotContains(t, out.String(), "unknown command", "error text must not also be in result.output")
+	}
+}
+
+// TestExecuteMegaportCommandAsync_ErrorIsSanitized guards the security fix that
+// rides along with ESD-1666: a parser error echoes a user-typed flag name
+// verbatim (pflag's "unknown flag: --%s"), and the host writes result.error
+// straight to xterm. Routing that error to result.error must not bypass the
+// control-byte sanitization WasmOutputBuffer applies to result.output, or a
+// crafted flag name becomes a terminal-injection vector.
+func TestExecuteMegaportCommandAsync_ErrorIsSanitized(t *testing.T) {
+	wasm.ResetOutputBuffers()
+
+	// An unknown flag whose name embeds an ESC-based clear-screen sequence.
+	result := invokeAsyncAndWait(t, "locations list --\x1b[2Jevil")
+
+	errVal := result.Get("error")
+	require.False(t, errVal.IsUndefined(), "an unknown flag should populate result.error")
+	assert.NotContains(t, errVal.String(), "\x1b", "control bytes must be stripped from result.error")
+}
+
 // TestExecuteMegaportCommandAsync_Callback verifies async command with callback
 func TestExecuteMegaportCommandAsync_Callback(t *testing.T) {
 	wasm.ResetOutputBuffers()
@@ -181,8 +226,8 @@ func TestExecuteMegaportCommandAsync_InvalidCallback(t *testing.T) {
 
 // TestOutputBufferReset verifies output buffers reset between commands
 func TestOutputBufferReset(t *testing.T) {
-	result1 := invokeAsyncAndWait(t, "version")
-	assert.True(t, result1.Get("error").IsUndefined(), "version command returned an error: %v", result1.Get("error"))
+	result1 := invokeAsyncAndWait(t, "ports --help")
+	assert.True(t, result1.Get("error").IsUndefined(), "ports --help command returned an error: %v", result1.Get("error"))
 	output1 := result1.Get("output").String()
 
 	result2 := invokeAsyncAndWait(t, "--help")
@@ -431,7 +476,7 @@ func TestConcurrentCommands(t *testing.T) {
 		executeMegaportCmdAsync.Invoke(js.ValueOf(cmd), callback)
 	}
 
-	invoke("version")
+	invoke("ports --help")
 	invoke("--help")
 
 	results := make(map[string]string, 2)
@@ -444,7 +489,7 @@ func TestConcurrentCommands(t *testing.T) {
 		}
 	}
 
-	assert.NotEmpty(t, results["version"])
+	assert.NotEmpty(t, results["ports --help"])
 	assert.NotEmpty(t, results["--help"])
-	assert.NotEqual(t, results["version"], results["--help"])
+	assert.NotEqual(t, results["ports --help"], results["--help"])
 }

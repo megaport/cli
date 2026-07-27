@@ -40,4 +40,6 @@ megaport-cli mcr looking-glass [flags]
 * [bgp-routes](megaport-cli_mcr_looking-glass_bgp-routes.md)
 * [bgp-sessions](megaport-cli_mcr_looking-glass_bgp-sessions.md)
 * [ip-routes](megaport-cli_mcr_looking-glass_ip-routes.md)
+* [ping](megaport-cli_mcr_looking-glass_ping.md)
+* [traceroute](megaport-cli_mcr_looking-glass_traceroute.md)
 
