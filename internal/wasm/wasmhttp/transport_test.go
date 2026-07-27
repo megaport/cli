@@ -137,22 +137,31 @@ func newFakeResponse(status int, body string) js.Value {
 	return resp
 }
 
-// newRejectingFetch returns fetch behavior that rejects immediately with an
-// Error carrying message. setCause, when non-nil, decorates that Error before
-// it is thrown, so a test can model Node's "fetch failed" plus a cause.
-func newRejectingFetch(message string, setCause func(err js.Value)) func(url string, opts js.Value) js.Value {
+// newRejectingFetch returns fetch behavior that rejects immediately with
+// whatever newReason builds, so a test can model any rejection shape the
+// runtime might hand back, not just an Error.
+func newRejectingFetch(newReason func() js.Value) func(url string, opts js.Value) js.Value {
 	return func(url string, opts js.Value) js.Value {
 		var executor js.Func
 		executor = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer executor.Release()
-			err := js.Global().Get("Error").New(message)
-			if setCause != nil {
-				setCause(err)
-			}
-			args[1].Invoke(err)
+			args[1].Invoke(newReason())
 			return nil
 		})
 		return js.Global().Get("Promise").New(executor)
+	}
+}
+
+// newFetchError builds an Error carrying message. setCause, when non-nil,
+// decorates it before it is thrown, so a test can model Node's bare
+// "fetch failed" plus a cause.
+func newFetchError(message string, setCause func(err js.Value)) func() js.Value {
+	return func() js.Value {
+		err := js.Global().Get("Error").New(message)
+		if setCause != nil {
+			setCause(err)
+		}
+		return err
 	}
 }
 
@@ -227,17 +236,14 @@ func TestRoundTrip_TimeoutAbortsAndReturnsError(t *testing.T) {
 	assert.Equal(t, int32(1), atomic.LoadInt32(&aborted), "expected the browser fetch to be aborted on timeout")
 }
 
+// The cause shapes here were taken from real Node 22 fetch failures rather
+// than invented: a single-stack connect error carries both code and message,
+// a dual-stack one rejects with an AggregateError whose message is empty, and
+// a blocked port carries a message with no code at all.
 func TestRoundTrip_FetchRejectionSurfacesCause(t *testing.T) {
-	objectCause := func(code, message string) func(js.Value) {
+	objectCause := func(fields map[string]interface{}) func(js.Value) {
 		return func(err js.Value) {
-			cause := js.Global().Get("Object").New()
-			if code != "" {
-				cause.Set("code", code)
-			}
-			if message != "" {
-				cause.Set("message", message)
-			}
-			err.Set("cause", cause)
+			err.Set("cause", js.ValueOf(fields))
 		}
 	}
 
@@ -249,13 +255,18 @@ func TestRoundTrip_FetchRejectionSurfacesCause(t *testing.T) {
 	}{
 		{
 			name:     "prefers the cause message",
-			setCause: objectCause("ETIMEDOUT", "connect ETIMEDOUT 10.0.0.1:443"),
+			setCause: objectCause(map[string]interface{}{"code": "ETIMEDOUT", "message": "connect ETIMEDOUT 10.0.0.1:443"}),
 			want:     "fetch failed (cause: connect ETIMEDOUT 10.0.0.1:443)",
 		},
 		{
-			name:     "falls back to the cause code",
-			setCause: objectCause("ENOTFOUND", ""),
-			want:     "fetch failed (cause: ENOTFOUND)",
+			name:     "falls back to the code when an AggregateError leaves the message empty",
+			setCause: objectCause(map[string]interface{}{"code": "ECONNREFUSED", "message": ""}),
+			want:     "fetch failed (cause: ECONNREFUSED)",
+		},
+		{
+			name:     "message with no code",
+			setCause: objectCause(map[string]interface{}{"message": "bad port"}),
+			want:     "fetch failed (cause: bad port)",
 		},
 		{
 			name:     "string cause",
@@ -271,7 +282,7 @@ func TestRoundTrip_FetchRejectionSurfacesCause(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			installMockFetch(t, newRejectingFetch("fetch failed", tt.setCause))
+			installMockFetch(t, newRejectingFetch(newFetchError("fetch failed", tt.setCause)))
 
 			transport := &WasmHTTPTransport{Timeout: 5 * time.Second}
 			req := newTestRequest(t, context.Background(), "https://example.invalid/test")
@@ -284,6 +295,37 @@ func TestRoundTrip_FetchRejectionSurfacesCause(t *testing.T) {
 			if tt.noCause {
 				assert.NotContains(t, err.Error(), "cause:")
 			}
+		})
+	}
+}
+
+// A spec-compliant fetch always rejects with an Error, but a service worker or
+// a patched global can reject with anything. Reading a property off a
+// non-object panics, and that panic lands on a js.FuncOf goroutine where it
+// kills the whole WASM process, so these must degrade instead of crashing.
+func TestRoundTrip_NonObjectRejectionDoesNotPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason func() js.Value
+	}{
+		{name: "null", reason: js.Null},
+		{name: "undefined", reason: js.Undefined},
+		{name: "bare string", reason: func() js.Value { return js.ValueOf("boom") }},
+		{name: "number", reason: func() js.Value { return js.ValueOf(500) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			installMockFetch(t, newRejectingFetch(tt.reason))
+
+			transport := &WasmHTTPTransport{Timeout: 5 * time.Second}
+			req := newTestRequest(t, context.Background(), "https://example.invalid/test")
+
+			resp, err := transport.RoundTrip(req)
+
+			assert.Nil(t, resp)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "unknown fetch error")
 		})
 	}
 }

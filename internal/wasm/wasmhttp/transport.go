@@ -184,7 +184,7 @@ func (t *WasmHTTPTransport) doFetch(req *http.Request, options map[string]interf
 			defer textCatch.Release()
 
 			errMsg := "unknown error reading response body"
-			if len(textArgs) > 0 && !textArgs[0].IsUndefined() {
+			if len(textArgs) > 0 && textArgs[0].Type() == js.TypeObject {
 				if msg := textArgs[0].Get("message"); !msg.IsUndefined() {
 					errMsg = msg.String()
 				}
@@ -208,7 +208,10 @@ func (t *WasmHTTPTransport) doFetch(req *http.Request, options map[string]interf
 
 		errMsg := "unknown fetch error"
 		isAbort := false
-		if len(catchArgs) > 0 && !catchArgs[0].IsUndefined() && !catchArgs[0].IsNull() {
+		// Value.Get panics on any non-object, and a panic on a js.FuncOf
+		// goroutine takes the whole WASM process down, so gate on the type
+		// rather than excluding null and undefined one at a time.
+		if len(catchArgs) > 0 && catchArgs[0].Type() == js.TypeObject {
 			if name := catchArgs[0].Get("name"); !name.IsUndefined() && name.String() == "AbortError" {
 				isAbort = true
 			}
