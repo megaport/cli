@@ -95,7 +95,7 @@ func executeMegaportCommandAsync(this js.Value, args []js.Value) interface{} {
 			if r := recover(); r != nil {
 				once.Do(func() {
 					callback.Invoke(map[string]interface{}{
-						"error": fmt.Sprintf("Command panicked: %v", r),
+						"error": wasm.SanitizeTerminalText(fmt.Sprintf("Command panicked: %v", r)),
 					})
 				})
 			}
@@ -119,16 +119,25 @@ func executeMegaportCommandAsync(this js.Value, args []js.Value) interface{} {
 		// Ensure Cobra gets all our commands
 		megaport.EnsureRootCommandOutput(wasm.WasmOutputBuffer)
 
-		megaport.ExecuteWithArgs(originalArgs)
+		execErr := megaport.ExecuteWithArgs(originalArgs)
 
 		// When a live-output handler is registered the narrative has already
 		// streamed to the host; GetCompletionOutput returns only the structured
 		// document (or "") so the host does not double-render it.
 		result := wasm.GetCompletionOutput()
 		once.Do(func() {
-			callback.Invoke(map[string]interface{}{
+			resultObj := map[string]interface{}{
 				"output": result,
-			})
+			}
+			// Route failures to result.error so the host colors them and fires
+			// failure telemetry (ExecuteWithArgs returns nil when the error already
+			// reached the terminal, so no double-render). SanitizeTerminalText strips
+			// every control byte: the message can echo a user-typed flag verbatim
+			// and the host writes result.error straight to xterm under its own color.
+			if execErr != nil {
+				resultObj["error"] = wasm.SanitizeTerminalText(execErr.Error())
+			}
+			callback.Invoke(resultObj)
 		})
 	}()
 
