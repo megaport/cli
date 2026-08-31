@@ -176,6 +176,15 @@ var createTempFile = func() (*os.File, error) {
 	return os.CreateTemp("", "capture-stdout-*")
 }
 
+// setStderr reassigns os.Stderr under stdErrStreamMu (declared in common.go),
+// synchronizing the change against concurrent spinner writes. Held only for
+// the instant of the reassignment, never across the caller's function.
+func setStderr(f *os.File) {
+	stdErrStreamMu.Lock()
+	os.Stderr = f
+	stdErrStreamMu.Unlock()
+}
+
 // CaptureOutput runs f and returns everything it writes to stdout and stderr
 // combined. Status messages route to stderr and data to stdout, so a test that
 // wants all user-facing output captures both. Use CaptureStdout when asserting
@@ -197,8 +206,11 @@ func CaptureOutput(f func()) string {
 	defer tmp.Close()
 
 	os.Stdout = tmp
-	os.Stderr = tmp
-	defer func() { os.Stdout = oldOut; os.Stderr = oldErr }()
+	setStderr(tmp)
+	defer func() {
+		os.Stdout = oldOut
+		setStderr(oldErr)
+	}()
 
 	f()
 
@@ -254,8 +266,11 @@ func CaptureOutputErr(f func() error) (string, error) {
 	defer tmp.Close()
 
 	os.Stdout = tmp
-	os.Stderr = tmp
-	defer func() { os.Stdout = oldOut; os.Stderr = oldErr }()
+	setStderr(tmp)
+	defer func() {
+		os.Stdout = oldOut
+		setStderr(oldErr)
+	}()
 
 	runErr := f()
 
