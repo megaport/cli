@@ -481,6 +481,56 @@ func TestWrapOutputFormatRunE(t *testing.T) {
 	})
 }
 
+func TestRequireYesForJSONBuy(t *testing.T) {
+	newCmd := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "buy"}
+		cmd.Flags().String("json", "", "")
+		cmd.Flags().String("json-file", "", "")
+		cmd.Flags().Bool("yes", false, "")
+		return cmd
+	}
+
+	t.Run("json without yes is a usage error", func(t *testing.T) {
+		cmd := newCmd()
+		require.NoError(t, cmd.Flags().Set("json", `{"name":"test"}`))
+
+		yes, err := RequireYesForJSONBuy(cmd)
+		assert.False(t, yes)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--yes is required to confirm a purchase when using --json or --json-file")
+		var cliErr *exitcodes.CLIError
+		require.ErrorAs(t, err, &cliErr)
+		assert.Equal(t, exitcodes.Usage, cliErr.Code)
+	})
+
+	t.Run("json-file without yes is a usage error", func(t *testing.T) {
+		cmd := newCmd()
+		require.NoError(t, cmd.Flags().Set("json-file", "./config.json"))
+
+		yes, err := RequireYesForJSONBuy(cmd)
+		assert.False(t, yes)
+		require.Error(t, err)
+	})
+
+	t.Run("json with yes succeeds", func(t *testing.T) {
+		cmd := newCmd()
+		require.NoError(t, cmd.Flags().Set("json", `{"name":"test"}`))
+		require.NoError(t, cmd.Flags().Set("yes", "true"))
+
+		yes, err := RequireYesForJSONBuy(cmd)
+		assert.True(t, yes)
+		assert.NoError(t, err)
+	})
+
+	t.Run("no json and no yes succeeds, leaving confirmation to the caller", func(t *testing.T) {
+		cmd := newCmd()
+
+		yes, err := RequireYesForJSONBuy(cmd)
+		assert.False(t, yes)
+		assert.NoError(t, err)
+	})
+}
+
 func TestClassifyError(t *testing.T) {
 	tests := []struct {
 		name     string

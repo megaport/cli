@@ -76,7 +76,7 @@ func TestPromptForPortDetails_InvalidTerm(t *testing.T) {
 
 	_, err := promptForPortDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid term")
+	assert.Contains(t, err.Error(), "Invalid term")
 }
 
 func TestPromptForPortDetails_InvalidPortSpeed(t *testing.T) {
@@ -98,7 +98,7 @@ func TestPromptForPortDetails_InvalidLocationID(t *testing.T) {
 
 	_, err := promptForPortDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid location ID")
+	assert.Contains(t, err.Error(), "Invalid location ID")
 }
 
 func TestPromptForPortDetails_InvalidMarketplaceVisibility(t *testing.T) {
@@ -234,7 +234,7 @@ func TestPromptForUpdatePortDetails_InvalidTermNotNumeric(t *testing.T) {
 
 	_, err := promptForUpdatePortDetails("port-123", "", true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid term")
+	assert.Contains(t, err.Error(), "Invalid term")
 	assert.NotContains(t, err.Error(), "strconv")
 }
 
@@ -246,7 +246,7 @@ func TestPromptForLAGPortDetails_InvalidTerm(t *testing.T) {
 
 	_, err := promptForLAGPortDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid term")
+	assert.Contains(t, err.Error(), "Invalid term")
 	assert.NotContains(t, err.Error(), "strconv")
 }
 
@@ -258,6 +258,6 @@ func TestPromptForLAGPortDetails_InvalidLocationID(t *testing.T) {
 
 	_, err := promptForLAGPortDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid location ID")
+	assert.Contains(t, err.Error(), "Invalid location ID")
 	assert.NotContains(t, err.Error(), "strconv")
 }

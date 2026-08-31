@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/spf13/cobra"
@@ -16,8 +15,9 @@ import (
 // DocsDirectory is the fallback location for markdown documentation files
 var DocsDirectory = "./docs"
 
-// FindDocFile locates the markdown file for a specific command
-func FindDocFile(cmd *cobra.Command) (string, error) {
+// FindDocFile locates the markdown file for a specific command. The second
+// return value reports whether the path is a temp file the caller must remove.
+func FindDocFile(cmd *cobra.Command) (string, bool, error) {
 	cmdPath := getCommandPath(cmd)
 	docName := cmdPath + ".md"
 
@@ -30,18 +30,18 @@ func FindDocFile(cmd *cobra.Command) (string, error) {
 		// by path and the caller removes it after rendering.
 		tempFile, err := os.CreateTemp("", "megaport-docs-*.md")
 		if err != nil {
-			return "", fmt.Errorf("failed to create temporary file: %w", err)
+			return "", false, fmt.Errorf("failed to create temporary file: %w", err)
 		}
 		if _, err := tempFile.Write(content); err != nil {
 			_ = tempFile.Close()
 			_ = os.Remove(tempFile.Name())
-			return "", fmt.Errorf("failed to write to temporary file: %w", err)
+			return "", false, fmt.Errorf("failed to write to temporary file: %w", err)
 		}
 		if err := tempFile.Close(); err != nil {
 			_ = os.Remove(tempFile.Name())
-			return "", fmt.Errorf("failed to close temporary file: %w", err)
+			return "", false, fmt.Errorf("failed to close temporary file: %w", err)
 		}
-		return tempFile.Name(), nil
+		return tempFile.Name(), true, nil
 	}
 
 	// If embedded file not found, try local docs directory as fallback
@@ -49,10 +49,10 @@ func FindDocFile(cmd *cobra.Command) (string, error) {
 
 	// Check if the file exists
 	if _, err := os.Stat(docPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("documentation file not found for %s: %w", cmdPath, err)
+		return "", false, fmt.Errorf("documentation file not found for %s: %w", cmdPath, err)
 	}
 
-	return docPath, nil
+	return docPath, false, nil
 }
 
 // RenderDocFile reads and renders a markdown file using Glamour
@@ -83,13 +83,13 @@ func RenderDocFile(filePath string) (string, error) {
 
 // ShowDocumentation displays rendered documentation for a command
 func ShowDocumentation(cmd *cobra.Command) error {
-	docPath, err := FindDocFile(cmd)
+	docPath, isTemp, err := FindDocFile(cmd)
 	if err != nil {
 		return err
 	}
 
 	// If we created a temporary file, ensure it gets deleted
-	if strings.Contains(docPath, "megaport-docs-") {
+	if isTemp {
 		defer os.Remove(docPath)
 	}
 

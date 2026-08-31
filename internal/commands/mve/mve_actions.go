@@ -141,6 +141,11 @@ func BuyMVE(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
+	yes, err := utils.RequireYesForJSONBuy(cmd)
+	if err != nil {
+		return err
+	}
+
 	client, err := config.Login(ctx)
 	if err != nil {
 		output.PrintError("Failed to log in: %v", noColor, err)
@@ -165,10 +170,7 @@ func BuyMVE(cmd *cobra.Command, args []string, noColor bool) error {
 
 	output.PrintInfo("Validation successful", noColor)
 
-	jsonStr, _ := cmd.Flags().GetString("json")
-	jsonFile, _ := cmd.Flags().GetString("json-file")
-	yes, _ := cmd.Flags().GetBool("yes")
-	if !yes && jsonStr == "" && jsonFile == "" {
+	if !yes {
 		details := []utils.BuyConfirmDetail{
 			{Key: "Name", Value: req.Name},
 			{Key: "Term", Value: fmt.Sprintf("%d months", req.Term)},

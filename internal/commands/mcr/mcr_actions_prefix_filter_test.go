@@ -66,5 +66,5 @@ func TestUpdateMCRPrefixFilterList_NonNumericID_PrintsToStderr(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	assert.Contains(t, stderr, "invalid prefix filter list ID", "failing command must print its error to stderr")
+	assert.Contains(t, stderr, "Invalid prefix filter list ID", "failing command must print its error to stderr")
 }

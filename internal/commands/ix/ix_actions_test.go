@@ -1556,9 +1556,11 @@ func TestBuyIX_JSONStringMode(t *testing.T) {
 	cmd.Flags().String("promo-code", "", "Promo code")
 	cmd.Flags().String("json", "", "JSON string")
 	cmd.Flags().String("json-file", "", "JSON file")
+	cmd.Flags().Bool("yes", false, "Skip confirmation")
 
 	jsonInput := `{"productUid":"port-uid-json","productName":"JSON IX","networkServiceType":"Sydney IX","asn":65100,"macAddress":"AA:BB:CC:DD:EE:FF","rateLimit":2000,"vlan":200}`
 	_ = cmd.Flags().Set("json", jsonInput)
+	_ = cmd.Flags().Set("yes", "true")
 
 	var err error
 	var capturedStderr string
@@ -1735,13 +1737,23 @@ func TestBuyIX_Confirmation(t *testing.T) {
 			promptShouldBeCalled: false,
 		},
 		{
-			name: "json input skips confirmation",
+			name: "json input with yes skips confirmation",
 			flags: map[string]string{
 				"json": `{"productUid":"port-uid-123","productName":"Test IX","networkServiceType":"Los Angeles IX","asn":65000,"macAddress":"00:11:22:33:44:55","rateLimit":1000,"vlan":100}`,
+				"yes":  "true",
 			},
 			confirmResult:        false,
 			expectBuyCalled:      true,
 			expectedOutput:       "IX created",
+			promptShouldBeCalled: false,
+		},
+		{
+			name: "json input without yes is a usage error",
+			flags: map[string]string{
+				"json": `{"productUid":"port-uid-123","productName":"Test IX","networkServiceType":"Los Angeles IX","asn":65000,"macAddress":"00:11:22:33:44:55","rateLimit":1000,"vlan":100}`,
+			},
+			expectBuyCalled:      false,
+			expectedError:        "--yes is required to confirm a purchase when using --json or --json-file",
 			promptShouldBeCalled: false,
 		},
 	}

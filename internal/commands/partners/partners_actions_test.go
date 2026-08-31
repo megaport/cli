@@ -109,7 +109,7 @@ func TestFindPartners(t *testing.T) {
 				"",
 				"table",
 			},
-			expectedError: "invalid location ID",
+			expectedError: "Invalid location ID",
 			setupMock: func(t *testing.T, m *MockPartnerService) {
 				m.listPartnersResponse = []*megaport.PartnerMegaport{}
 				m.listPartnersErr = nil

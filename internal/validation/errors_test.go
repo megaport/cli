@@ -23,7 +23,7 @@ func TestValidationErrorError(t *testing.T) {
 	}{
 		{"int value", "rate limit", 0, "must be positive", "Invalid rate limit: 0 - must be positive"},
 		{"string value", "name", "x", "too short", "Invalid name: x - too short"},
-		{"empty string value", "name", "", "cannot be empty", "Invalid name:  - cannot be empty"},
+		{"empty string value", "name", "", "cannot be empty", "Invalid name: \"\" - cannot be empty"},
 		{"nil value", "peer ASN", nil, "is required", "Invalid peer ASN: <nil> - is required"},
 		{"bool value", "enabled", true, "bad", "Invalid enabled: true - bad"},
 		{"slice value", "terms", []int{1, 12}, "bad", "Invalid terms: [1 12] - bad"},

@@ -1,6 +1,9 @@
 package validation
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ValidationError represents an error that occurs during validation of user input.
 // It contains information about the field being validated, its value, and the reason for validation failure.
@@ -22,5 +25,10 @@ func NewValidationError(field string, value interface{}, reason string) *Validat
 // Error implements the error interface for ValidationError.
 // Returns a formatted string with field name, value, and reason for the validation error.
 func (e *ValidationError) Error() string {
+	// An empty or whitespace-only string value renders unambiguously when
+	// quoted; every other value keeps the plain %v rendering.
+	if s, ok := e.Value.(string); ok && strings.TrimSpace(s) == "" {
+		return fmt.Sprintf("Invalid %s: %q - %s", e.Field, s, e.Reason)
+	}
 	return fmt.Sprintf("Invalid %s: %v - %s", e.Field, e.Value, e.Reason)
 }

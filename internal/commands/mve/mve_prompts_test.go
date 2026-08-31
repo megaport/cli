@@ -151,7 +151,7 @@ func TestPromptMVEBaseDetails_InvalidTerm(t *testing.T) {
 
 	_, _, _, _, _, err := promptMVEBaseDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid term")
+	assert.Contains(t, err.Error(), "Invalid term")
 }
 
 func TestPromptMVEBaseDetails_InvalidLocationID(t *testing.T) {
@@ -162,7 +162,7 @@ func TestPromptMVEBaseDetails_InvalidLocationID(t *testing.T) {
 
 	_, _, _, _, _, err := promptMVEBaseDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid location ID")
+	assert.Contains(t, err.Error(), "Invalid location ID")
 }
 
 func TestPromptMVEBaseDetails_InvalidImageID(t *testing.T) {
@@ -176,7 +176,7 @@ func TestPromptMVEBaseDetails_InvalidImageID(t *testing.T) {
 
 	_, _, _, _, _, err := promptMVEBaseDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid image ID")
+	assert.Contains(t, err.Error(), "Invalid image ID")
 }
 
 // promptForUpdateMVEDetails tests
@@ -217,7 +217,7 @@ func TestPromptForUpdateMVEDetails_InvalidContractTerm(t *testing.T) {
 
 	_, err := promptForUpdateMVEDetails("mve-123", "", nil, true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid contract term")
+	assert.Contains(t, err.Error(), "Invalid contract term")
 }
 
 func TestPromptForUpdateMVEDetails_UpdateVnicDescriptions(t *testing.T) {
@@ -397,7 +397,7 @@ func TestPromptMVEVnics_InvalidVLAN(t *testing.T) {
 
 	_, err := promptMVEVnics(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid VLAN ID")
+	assert.Contains(t, err.Error(), "Invalid VLAN ID")
 }
 
 // promptMVEVendorConfig tests — cisco/palo_alto admin password handling

@@ -23,6 +23,7 @@ func CreateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 	interactive, _ := cmd.Flags().GetBool("interactive")
 	jsonStr, _ := cmd.Flags().GetString("json")
 	jsonFile, _ := cmd.Flags().GetString("json-file")
+	yes, _ := cmd.Flags().GetBool("yes")
 	flagsProvided := cmd.Flags().Changed("name") || cmd.Flags().Changed("term") ||
 		cmd.Flags().Changed("speed") || cmd.Flags().Changed("location-id") ||
 		cmd.Flags().Changed("session-count") || cmd.Flags().Changed("asn") ||
@@ -32,6 +33,10 @@ func CreateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 	if err := utils.CheckInteractiveConflict(interactive, utils.HasConflictingInputFlags(cmd)); err != nil {
 		output.PrintError("%v", noColor, err)
 		return err
+	}
+
+	if !yes && (jsonStr != "" || jsonFile != "") {
+		return exitcodes.NewUsageError(fmt.Errorf("--yes is required to confirm creating a NAT Gateway design when using --json or --json-file"))
 	}
 
 	var req *megaport.CreateNATGatewayRequest
@@ -53,8 +58,6 @@ func CreateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
-	yes, _ := cmd.Flags().GetBool("yes")
-
 	client, err := config.Login(ctx)
 	if err != nil {
 		output.PrintError("Failed to log in: %v", noColor, err)
@@ -66,7 +69,7 @@ func CreateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
-	if !yes && jsonStr == "" && jsonFile == "" {
+	if !yes {
 		details := []utils.BuyConfirmDetail{
 			{Key: "Name", Value: req.ProductName},
 			{Key: "Term", Value: fmt.Sprintf("%d months", req.Term)},

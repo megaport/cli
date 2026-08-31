@@ -351,3 +351,40 @@ func TestExitCodeFromError_CobraArgValidators(t *testing.T) {
 		})
 	}
 }
+
+// TestUnknownFlagIsTypedUsageError verifies that rootCmd.SetFlagErrorFunc
+// tags a flag-parse failure as a typed *exitcodes.CLIError at the point
+// cobra generates it, rather than relying on exitCodeFromError's message
+// substring match.
+func TestUnknownFlagIsTypedUsageError(t *testing.T) {
+	rootCmd.SetArgs([]string{"version", "--totally-bogus-flag"})
+	var execErr error
+	_ = output.CaptureOutput(func() {
+		execErr = rootCmd.Execute()
+	})
+
+	require.Error(t, execErr)
+	var cliErr *exitcodes.CLIError
+	require.True(t, errors.As(execErr, &cliErr), "expected a typed *exitcodes.CLIError, got %T: %v", execErr, execErr)
+	assert.Equal(t, exitcodes.Usage, cliErr.Code)
+}
+
+// TestMissingRequiredFlagIsTypedUsageError verifies that the proactive
+// cmd.ValidateRequiredFlags() check added to PersistentPreRunE tags a
+// missing-required-flag error as a typed *exitcodes.CLIError ahead of
+// cobra's own (redundant) ValidateRequiredFlags call.
+func TestMissingRequiredFlagIsTypedUsageError(t *testing.T) {
+	t.Setenv("MEGAPORT_CONFIG_DIR", t.TempDir())
+	defer output.ResetState()
+
+	rootCmd.SetArgs([]string{"billing-market", "set"})
+	var execErr error
+	_ = output.CaptureOutput(func() {
+		execErr = rootCmd.Execute()
+	})
+
+	require.Error(t, execErr)
+	var cliErr *exitcodes.CLIError
+	require.True(t, errors.As(execErr, &cliErr), "expected a typed *exitcodes.CLIError, got %T: %v", execErr, execErr)
+	assert.Equal(t, exitcodes.Usage, cliErr.Code)
+}

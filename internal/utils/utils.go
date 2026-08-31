@@ -337,6 +337,20 @@ func WrapOutputFormatRunE(fn func(cmd *cobra.Command, args []string, noColor boo
 	}
 }
 
+// RequireYesForJSONBuy enforces that a JSON-mode purchase (--json or
+// --json-file) also passes --yes, since JSON mode has no interactive
+// confirmation prompt to fall back on. Returns the resolved --yes value so
+// callers can reuse it for their own confirmation-prompt branch.
+func RequireYesForJSONBuy(cmd *cobra.Command) (bool, error) {
+	jsonStr, _ := cmd.Flags().GetString("json")
+	jsonFile, _ := cmd.Flags().GetString("json-file")
+	yes, _ := cmd.Flags().GetBool("yes")
+	if !yes && (jsonStr != "" || jsonFile != "") {
+		return false, exitcodes.NewUsageError(fmt.Errorf("--yes is required to confirm a purchase when using --json or --json-file"))
+	}
+	return yes, nil
+}
+
 // classifyError inspects an error message to determine the appropriate exit code.
 func classifyError(err error) int {
 	// Preserve exit codes already set by action functions

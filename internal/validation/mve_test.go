@@ -30,7 +30,7 @@ func TestValidateMVERequest(t *testing.T) {
 			term:        12,
 			locationID:  123,
 			wantErr:     true,
-			errText:     "Invalid MVE name:  - cannot be empty",
+			errText:     "Invalid MVE name: \"\" - cannot be empty",
 		},
 		{
 			name:        "Invalid term",
@@ -105,7 +105,7 @@ func TestValidateMVEVendor(t *testing.T) {
 			name:    "Empty vendor",
 			vendor:  "",
 			wantErr: true,
-			errText: fmt.Sprintf("Invalid MVE vendor:  - must be one of: %v", ValidMVEVendors), // Adjusted for empty value check if ValidateStringOneOf handles it
+			errText: fmt.Sprintf("Invalid MVE vendor: \"\" - must be one of: %v", ValidMVEVendors), // Adjusted for empty value check if ValidateStringOneOf handles it
 		},
 	}
 
@@ -176,7 +176,7 @@ func TestValidateMVENetworkInterfaces(t *testing.T) {
 				{Description: ""},
 			},
 			wantErr: true,
-			errText: "Invalid network interface 2:  - description cannot be empty", // Adjusted expected error
+			errText: "Invalid network interface 2: \"\" - description cannot be empty", // Adjusted expected error
 		},
 	}
 
@@ -249,7 +249,7 @@ func TestValidateMVENetworkInterfacesTyped(t *testing.T) {
 				{Description: ""},
 			},
 			wantErr: true,
-			errText: "Invalid network interface 2:  - description cannot be empty",
+			errText: "Invalid network interface 2: \"\" - description cannot be empty",
 		},
 	}
 
@@ -308,7 +308,7 @@ func TestValidateBuyMVERequest(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errText: "Invalid MVE name:  - cannot be empty",
+			errText: "Invalid MVE name: \"\" - cannot be empty",
 		},
 		{
 			name: "Missing location",
@@ -477,7 +477,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				ProductSize: "MEDIUM",
 			},
 			wantErr: true,
-			errText: "Invalid SSH public key:  - cannot be empty",
+			errText: "Invalid SSH public key: \"\" - cannot be empty",
 		},
 		// aruba - valid
 		{
@@ -503,7 +503,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				SystemTag:   "test-tag",
 			},
 			wantErr: true,
-			errText: "Invalid account name:  - cannot be empty",
+			errText: "Invalid account name: \"\" - cannot be empty",
 		},
 		// aviatrix - valid
 		{
@@ -525,7 +525,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				ProductSize: "MEDIUM",
 			},
 			wantErr: true,
-			errText: "Invalid cloud init:  - cannot be empty",
+			errText: "Invalid cloud init: \"\" - cannot be empty",
 		},
 		// cisco - valid
 		{
@@ -551,7 +551,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				ManageLocally: true,
 			},
 			wantErr: true,
-			errText: "Invalid admin SSH public key:  - cannot be empty",
+			errText: "Invalid admin SSH public key: \"\" - cannot be empty",
 		},
 		// fortinet - valid
 		{
@@ -577,7 +577,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				SSHPublicKey:      "ssh-rsa AAAA...",
 			},
 			wantErr: true,
-			errText: "Invalid license data:  - cannot be empty",
+			errText: "Invalid license data: \"\" - cannot be empty",
 		},
 		// paloalto - valid
 		{
@@ -603,7 +603,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				LicenseData:  "license-data",
 			},
 			wantErr: true,
-			errText: "Invalid admin password / admin password hash:  - at least one of admin password or admin password hash must be provided",
+			errText: "Invalid admin password / admin password hash: \"\" - at least one of admin password or admin password hash must be provided",
 		},
 		// paloalto - valid with plaintext admin password only
 		{
@@ -631,7 +631,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				LicenseData:       "license-data",
 			},
 			wantErr: true,
-			errText: "Invalid admin password / admin password hash:  - only one of admin password or admin password hash may be provided, not both",
+			errText: "Invalid admin password / admin password hash: \"\" - only one of admin password or admin password hash may be provided, not both",
 		},
 		// prisma - valid
 		{
@@ -655,7 +655,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				SecretKey:   "secret-key",
 			},
 			wantErr: true,
-			errText: "Invalid ION key:  - cannot be empty",
+			errText: "Invalid ION key: \"\" - cannot be empty",
 		},
 		// versa - valid
 		{
@@ -685,7 +685,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				SerialNumber:      "SN123456",
 			},
 			wantErr: true,
-			errText: "Invalid director address:  - cannot be empty",
+			errText: "Invalid director address: \"\" - cannot be empty",
 		},
 		// vmware - valid
 		{
@@ -713,7 +713,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				VcoActivationCode: "activation-code",
 			},
 			wantErr: true,
-			errText: "Invalid VCO address:  - cannot be empty",
+			errText: "Invalid VCO address: \"\" - cannot be empty",
 		},
 		// meraki - valid
 		{
@@ -735,7 +735,7 @@ func TestValidateMVEVendorConfig_AllVendors(t *testing.T) {
 				ProductSize: "MEDIUM",
 			},
 			wantErr: true,
-			errText: "Invalid token:  - cannot be empty",
+			errText: "Invalid token: \"\" - cannot be empty",
 		},
 	}
 
@@ -784,7 +784,7 @@ func TestValidateMVEVendorConfig(t *testing.T) {
 				// SSHPublicKey missing (zero value "")
 			},
 			wantErr: true,
-			errText: "Invalid SSH public key:  - cannot be empty", // Adjusted error
+			errText: "Invalid SSH public key: \"\" - cannot be empty", // Adjusted error
 		},
 		{
 			name: "Valid Cisco config",
@@ -813,7 +813,7 @@ func TestValidateMVEVendorConfig(t *testing.T) {
 				ManageLocally:     false, // Requires FMC fields (zero value "")
 			},
 			wantErr: true,
-			errText: "Invalid FMC IP address:  - cannot be empty when not managing locally", // Adjusted error
+			errText: "Invalid FMC IP address: \"\" - cannot be empty when not managing locally", // Adjusted error
 		},
 		{
 			name: "Invalid product size",
@@ -839,7 +839,7 @@ func TestValidateMVEVendorConfig(t *testing.T) {
 				ManageLocally:     true,             // Avoid FMC errors
 			},
 			wantErr: true,
-			errText: "Invalid SSH public key:  - cannot be empty", // Updated based on actual test failure output
+			errText: "Invalid SSH public key: \"\" - cannot be empty", // Updated based on actual test failure output
 		},
 		{
 			name: "Missing image ID (zero value)", // Renamed test
@@ -861,7 +861,7 @@ func TestValidateMVEVendorConfig(t *testing.T) {
 				ManageLocally: true, // Avoid FMC errors
 			},
 			wantErr: true,
-			errText: fmt.Sprintf("Invalid product size:  - must be one of: %v", ValidMVEProductSizes), // Updated error message prefix and adjusted for empty string check
+			errText: fmt.Sprintf("Invalid product size: \"\" - must be one of: %v", ValidMVEProductSizes), // Updated error message prefix and adjusted for empty string check
 		},
 	}
 

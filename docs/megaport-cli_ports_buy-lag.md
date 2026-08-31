@@ -85,5 +85,5 @@ megaport-cli ports buy-lag [flags]
 | `--resource-tags` |  |  | Resource tags as a JSON string (e.g. {"key1":"value1","key2":"value2"}) | false |
 | `--resource-tags-file` |  |  | Path to JSON file containing resource tags | false |
 | `--term` |  | `0` | The term of the port (1, 12, or 24 months) | true |
-| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase | false |
+| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase; required when using --json or --json-file | false |
 

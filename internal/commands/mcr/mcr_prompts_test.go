@@ -72,7 +72,7 @@ func TestPromptForMCRDetails_InvalidTerm(t *testing.T) {
 
 	_, err := promptForMCRDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid term")
+	assert.Contains(t, err.Error(), "Invalid term")
 }
 
 func TestPromptForMCRDetails_InvalidPortSpeed(t *testing.T) {
@@ -93,7 +93,7 @@ func TestPromptForMCRDetails_InvalidLocationID(t *testing.T) {
 
 	_, err := promptForMCRDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid location ID")
+	assert.Contains(t, err.Error(), "Invalid location ID")
 }
 
 func TestPromptForMCRDetails_MarketplaceVisibilityPromptError(t *testing.T) {
@@ -125,7 +125,7 @@ func TestPromptForMCRDetails_InvalidPortSpeedNotNumeric(t *testing.T) {
 
 	_, err := promptForMCRDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid port speed")
+	assert.Contains(t, err.Error(), "Invalid port speed")
 	assert.NotContains(t, err.Error(), "strconv")
 }
 
@@ -148,7 +148,7 @@ func TestPromptForMCRDetails_InvalidASN(t *testing.T) {
 
 	_, err := promptForMCRDetails(true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid ASN")
+	assert.Contains(t, err.Error(), "Invalid ASN")
 	assert.NotContains(t, err.Error(), "strconv")
 }
 
@@ -309,7 +309,7 @@ func TestPromptForUpdateMCRDetails_InvalidTermNotNumeric(t *testing.T) {
 
 	_, err := promptForUpdateMCRDetails("mcr-123", "", true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid term")
+	assert.Contains(t, err.Error(), "Invalid term")
 	assert.NotContains(t, err.Error(), "strconv")
 }
 
@@ -359,7 +359,7 @@ func TestPromptForUpdateMCRDetails_InvalidASN(t *testing.T) {
 
 	_, err := promptForUpdateMCRDetails("mcr-123", "", true)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid ASN")
+	assert.Contains(t, err.Error(), "Invalid ASN")
 	assert.NotContains(t, err.Error(), "strconv")
 }
 
@@ -515,7 +515,7 @@ func TestPromptForIPSecTunnelCount(t *testing.T) {
 		{"valid count 10", "10", 10, false, ""},
 		{"valid count 20", "20", 20, false, ""},
 		{"valid count 30", "30", 30, false, ""},
-		{"non-numeric input", "abc", 0, true, "invalid tunnel count"},
+		{"non-numeric input", "abc", 0, true, "Invalid tunnel count"},
 	}
 
 	for _, tt := range tests {
@@ -550,7 +550,7 @@ func TestPromptForIPSecTunnelCountUpdate(t *testing.T) {
 		{"valid count 30", "30", 30, false, ""},
 		{"zero disables IPSec", "0", 0, false, ""},
 		{"empty input requires value", "", 0, true, "tunnel count is required"},
-		{"non-numeric input", "abc", 0, true, "invalid tunnel count"},
+		{"non-numeric input", "abc", 0, true, "Invalid tunnel count"},
 	}
 
 	for _, tt := range tests {

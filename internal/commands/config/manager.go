@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -227,8 +228,37 @@ func (m *ConfigManager) Save() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	if err := os.WriteFile(configPath, configData, 0600); err != nil {
+
+	tmpFile, err := os.CreateTemp(filepath.Dir(configPath), ".megaport-config-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp config file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath) // no-op once the rename below succeeds
+
+	n, err := tmpFile.Write(configData)
+	if err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write temp config file: %w", err)
+	}
+	if n != len(configData) {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write temp config file: short write (%d of %d bytes)", n, len(configData))
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp config file: %w", err)
+	}
+	if err := chmodFile(tmpPath, 0600); err != nil {
+		return fmt.Errorf("failed to set permissions on temp config file: %w", err)
+	}
+	if err := renameFile(tmpPath, configPath); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	// Rename already carries over the temp file's 0600 mode, but re-tighten
+	// explicitly in case configPath pre-existed with looser permissions on a
+	// platform where rename doesn't replace the mode bits.
+	if err := chmodFile(configPath, 0600); err != nil {
+		return fmt.Errorf("failed to set permissions on config file: %w", err)
 	}
 	return nil
 }

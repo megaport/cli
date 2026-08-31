@@ -322,6 +322,9 @@ func GetLocation(cmd *cobra.Command, args []string, noColor bool, outputFormat s
 
 	var targetLocation *megaport.LocationV3
 	for _, loc := range locations {
+		if loc == nil {
+			continue
+		}
 		if loc.ID == locationID {
 			targetLocation = loc
 			break

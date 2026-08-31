@@ -95,5 +95,5 @@ megaport-cli vxc buy [flags]
 | `--resource-tags-file` |  |  | Path to JSON file containing resource tags | false |
 | `--service-key` |  |  | Service key | false |
 | `--term` |  | `0` | Contract term in months (1, 12, 24, 36, 48, or 60) | true |
-| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase | false |
+| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase; required when using --json or --json-file | false |
 

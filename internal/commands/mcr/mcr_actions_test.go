@@ -688,7 +688,7 @@ func TestGetMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 			mcrUID:          "mcr-123",
 			rawPrefixListID: "abc",
 			setupMock:       func(m *MockMCRService) {},
-			expectedError:   "invalid prefix filter list ID",
+			expectedError:   "Invalid prefix filter list ID",
 		},
 	}
 
@@ -793,7 +793,7 @@ func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 			rawPrefixListID: "abc",
 			force:           true,
 			setupMock:       func(m *MockMCRService) {},
-			expectedError:   "invalid prefix filter list ID",
+			expectedError:   "Invalid prefix filter list ID",
 		},
 	}
 
@@ -1098,6 +1098,7 @@ func TestBuyMCRCmd_WithMockClient(t *testing.T) {
 			name: "JSON string mode success",
 			flags: map[string]string{
 				"json": `{"name":"JSON MCR","term":24,"portSpeed":10000,"locationId":123,"mcrAsn":65000,"diversityZone":"green","costCentre":"cost-789","promoCode":"JSONPROMO","marketplaceVisibility":true}`,
+				"yes":  "true",
 			},
 			setupMock: func(m *MockMCRService) {
 				m.BuyMCRResult = &megaport.BuyMCRResponse{
@@ -2683,7 +2684,7 @@ func TestUpdateMCRPrefixFilterList(t *testing.T) {
 		{
 			name:          "invalid prefix filter list ID",
 			args:          []string{"mcr-123", "abc"},
-			expectedError: "invalid prefix filter list ID",
+			expectedError: "Invalid prefix filter list ID",
 		},
 		{
 			name: "API error",
@@ -3017,13 +3018,23 @@ func TestBuyMCR_Confirmation(t *testing.T) {
 			promptShouldBeCalled: false,
 		},
 		{
-			name: "json input skips confirmation",
+			name: "json input with yes skips confirmation",
 			flags: map[string]string{
 				"json": `{"name":"JSON MCR","term":12,"portSpeed":10000,"locationId":123,"mcrAsn":65000}`,
+				"yes":  "true",
 			},
 			confirmResult:        false,
 			expectBuyCalled:      true,
 			expectedOutput:       "MCR created",
+			promptShouldBeCalled: false,
+		},
+		{
+			name: "json input without yes is a usage error",
+			flags: map[string]string{
+				"json": `{"name":"JSON MCR","term":12,"portSpeed":10000,"locationId":123,"mcrAsn":65000}`,
+			},
+			expectBuyCalled:      false,
+			expectedError:        "--yes is required to confirm a purchase when using --json or --json-file",
 			promptShouldBeCalled: false,
 		},
 	}

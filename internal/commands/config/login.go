@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/megaport/megaport-cli/internal/base/exitcodes"
 	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/utils"
 	megaport "github.com/megaport/megaportgo"
@@ -154,24 +155,27 @@ var loginFuncWithOutput = func(ctx context.Context, outputFormat string) (*megap
 	} else {
 		// Credential selection: if --env flag is used, prefer env vars over profile
 		if utils.Env != "" {
-			// --env flag was explicitly set, prioritize environment variables
-			accessKey = os.Getenv("MEGAPORT_ACCESS_KEY")
-			secretKey = os.Getenv("MEGAPORT_SECRET_KEY")
+			// --env flag was explicitly set, prioritize environment variables, but
+			// never mix halves across sources: both keys must come from the
+			// environment, or both from the profile, never one from each.
+			envAccessKey := os.Getenv("MEGAPORT_ACCESS_KEY")
+			envSecretKey := os.Getenv("MEGAPORT_SECRET_KEY")
 
-			// If env vars are empty, fall back to profile
-			if accessKey == "" || secretKey == "" {
+			switch {
+			case envAccessKey != "" && envSecretKey != "":
+				accessKey = envAccessKey
+				secretKey = envSecretKey
+			case envAccessKey == "" && envSecretKey == "":
 				manager, err := NewConfigManager()
 				if err == nil {
 					profile, _, err := manager.GetCurrentProfile()
 					if err == nil {
-						if accessKey == "" {
-							accessKey = profile.AccessKey
-						}
-						if secretKey == "" {
-							secretKey = profile.SecretKey
-						}
+						accessKey = profile.AccessKey
+						secretKey = profile.SecretKey
 					}
 				}
+			default:
+				return nil, exitcodes.NewUsageError(fmt.Errorf("only one of MEGAPORT_ACCESS_KEY and MEGAPORT_SECRET_KEY is set; with --env, both must come from the environment or neither should be set"))
 			}
 		} else {
 			// No --env flag, use original priority: profile > env vars

@@ -198,6 +198,11 @@ func BuyIX(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
+	yes, err := utils.RequireYesForJSONBuy(cmd)
+	if err != nil {
+		return err
+	}
+
 	// Flag read errors are intentionally ignored — flags are registered by the command builder.
 	noWait, _ := cmd.Flags().GetBool("no-wait")
 	// Only the order submission is wrapped in WithOrderOnceRetry below, so the SDK
@@ -220,10 +225,7 @@ func BuyIX(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
-	jsonStr, _ := cmd.Flags().GetString("json")
-	jsonFile, _ := cmd.Flags().GetString("json-file")
-	yes, _ := cmd.Flags().GetBool("yes")
-	if !yes && jsonStr == "" && jsonFile == "" {
+	if !yes {
 		details := []utils.BuyConfirmDetail{
 			{Key: "Name", Value: req.Name},
 			{Key: "Network Service Type", Value: req.NetworkServiceType},
