@@ -61,7 +61,7 @@ func CreateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
-	if err := validateNATGatewaySpeedSessionMatrix(ctx, client, req, noColor); err != nil {
+	if err := validateNATGatewaySpeedSessionMatrix(ctx, client, req.Speed, req.Config.SessionCount, noColor); err != nil {
 		output.PrintError("Validation failed: %v", noColor, err)
 		return err
 	}
@@ -111,7 +111,7 @@ func CreateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 // fetch failure or an empty matrix is treated as non-fatal (fail open): the
 // API still enforces the same rule at order time, matching the Terraform
 // provider's handling.
-func validateNATGatewaySpeedSessionMatrix(ctx context.Context, client *megaport.Client, req *megaport.CreateNATGatewayRequest, noColor bool) error {
+func validateNATGatewaySpeedSessionMatrix(ctx context.Context, client *megaport.Client, speed, sessionCount int, noColor bool) error {
 	matrix, err := listNATGatewaySessionsFunc(ctx, client)
 	if err != nil {
 		output.PrintWarning("Could not validate speed/session count against the availability matrix: %v", noColor, err)
@@ -121,18 +121,18 @@ func validateNATGatewaySpeedSessionMatrix(ctx context.Context, client *megaport.
 		return nil
 	}
 
-	result := megaport.NATGatewaySpeedSessionSupported(matrix, req.Speed, req.Config.SessionCount)
+	result := megaport.NATGatewaySpeedSessionSupported(matrix, speed, sessionCount)
 	if result.Supported {
 		return nil
 	}
 	if !result.SpeedSupported {
-		return validation.NewValidationError("speed", req.Speed, fmt.Sprintf("not supported; supported speeds (Mbps): %v", result.SupportedSpeeds))
+		return validation.NewValidationError("speed", speed, fmt.Sprintf("not supported; supported speeds (Mbps): %v", result.SupportedSpeeds))
 	}
-	if req.Config.SessionCount == 0 {
+	if sessionCount == 0 {
 		return nil
 	}
-	return validation.NewValidationError("session count", req.Config.SessionCount,
-		fmt.Sprintf("not supported for %d Mbps; valid session counts: %v", req.Speed, result.SessionsAtSpeed))
+	return validation.NewValidationError("session count", sessionCount,
+		fmt.Sprintf("not supported for %d Mbps; valid session counts: %v", speed, result.SessionsAtSpeed))
 }
 
 // GetNATGateway handles the nat-gateway get command.
@@ -314,6 +314,18 @@ func UpdateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 	if err := validation.ValidateUpdateNATGatewayRequest(req); err != nil {
 		output.PrintError("Validation failed: %v", noColor, err)
 		return err
+	}
+
+	// Only re-validate against the matrix if speed or session count is
+	// actually changing. A grandfathered gateway may hold a speed/session
+	// pair the matrix no longer lists; leaving it untouched must not fail
+	// an update that only touches unrelated fields.
+	speedOrSessionChanged := req.Speed != originalGW.Speed || req.Config.SessionCount != originalGW.Config.SessionCount
+	if speedOrSessionChanged {
+		if err := validateNATGatewaySpeedSessionMatrix(ctx, client, req.Speed, req.Config.SessionCount, noColor); err != nil {
+			output.PrintError("Validation failed: %v", noColor, err)
+			return err
+		}
 	}
 
 	spinner := output.PrintResourceUpdating("NAT Gateway", uid, noColor)
