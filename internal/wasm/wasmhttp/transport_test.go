@@ -137,6 +137,58 @@ func newFakeResponse(status int, body string) js.Value {
 	return resp
 }
 
+// newRejectingFetch returns fetch behavior that rejects immediately with
+// whatever newReason builds, so a test can model any rejection shape the
+// runtime might hand back, not just an Error.
+func newRejectingFetch(newReason func() js.Value) func(url string, opts js.Value) js.Value {
+	return func(url string, opts js.Value) js.Value {
+		var executor js.Func
+		executor = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer executor.Release()
+			args[1].Invoke(newReason())
+			return nil
+		})
+		return js.Global().Get("Promise").New(executor)
+	}
+}
+
+// newTextRejectingFetch resolves with a response whose text() rejects with
+// whatever newReason builds, so a test can drive the body-read failure path.
+func newTextRejectingFetch(newReason func() js.Value) func(url string, opts js.Value) js.Value {
+	return func(url string, opts js.Value) js.Value {
+		var textFunc js.Func
+		textFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer textFunc.Release()
+			return js.Global().Get("Promise").Call("reject", newReason())
+		})
+
+		resp := js.ValueOf(map[string]interface{}{"status": 200})
+		resp.Set("headers", js.ValueOf(map[string]interface{}{}))
+		resp.Set("text", textFunc)
+
+		var executor js.Func
+		executor = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer executor.Release()
+			args[0].Invoke(resp)
+			return nil
+		})
+		return js.Global().Get("Promise").New(executor)
+	}
+}
+
+// newFetchError builds an Error carrying message. setCause, when non-nil,
+// decorates it before it is thrown, so a test can model Node's bare
+// "fetch failed" plus a cause.
+func newFetchError(message string, setCause func(err js.Value)) func() js.Value {
+	return func() js.Value {
+		err := js.Global().Get("Error").New(message)
+		if setCause != nil {
+			setCause(err)
+		}
+		return err
+	}
+}
+
 func newTestRequest(t *testing.T, ctx context.Context, url string) *http.Request {
 	t.Helper()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -206,6 +258,128 @@ func TestRoundTrip_TimeoutAbortsAndReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "timeout")
 	assert.Less(t, elapsed, 2*time.Second, "timeout error should arrive close to the configured timeout")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&aborted), "expected the browser fetch to be aborted on timeout")
+}
+
+// The cause shapes here came from real Node 22 fetch failures: undici's own
+// connect timeout carries both a code and a message, a dual-stack refusal
+// rejects with an AggregateError whose message is empty, and a blocked port
+// carries a message with no code at all.
+func TestRoundTrip_FetchRejectionSurfacesCause(t *testing.T) {
+	objectCause := func(fields map[string]interface{}) func(js.Value) {
+		return func(err js.Value) {
+			err.Set("cause", js.ValueOf(fields))
+		}
+	}
+
+	tests := []struct {
+		name     string
+		setCause func(js.Value)
+		want     string
+		noCause  bool
+	}{
+		{
+			name:     "prefers the cause message",
+			setCause: objectCause(map[string]interface{}{"code": "UND_ERR_CONNECT_TIMEOUT", "message": "Connect Timeout Error (attempted address: 10.0.0.1:443, timeout: 10000ms)"}),
+			want:     "fetch failed (cause: Connect Timeout Error (attempted address: 10.0.0.1:443, timeout: 10000ms))",
+		},
+		{
+			name:     "falls back to the code when an AggregateError leaves the message empty",
+			setCause: objectCause(map[string]interface{}{"code": "ECONNREFUSED", "message": ""}),
+			want:     "fetch failed (cause: ECONNREFUSED)",
+		},
+		{
+			name:     "message with no code",
+			setCause: objectCause(map[string]interface{}{"message": "bad port"}),
+			want:     "fetch failed (cause: bad port)",
+		},
+		{
+			name:     "string cause",
+			setCause: func(err js.Value) { err.Set("cause", "ECONNREFUSED") },
+			want:     "fetch failed (cause: ECONNREFUSED)",
+		},
+		{
+			name:    "no cause leaves the message alone",
+			want:    "fetch failed",
+			noCause: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			installMockFetch(t, newRejectingFetch(newFetchError("fetch failed", tt.setCause)))
+
+			transport := &WasmHTTPTransport{Timeout: 5 * time.Second}
+			req := newTestRequest(t, context.Background(), "https://example.invalid/test")
+
+			resp, err := transport.RoundTrip(req)
+
+			assert.Nil(t, resp)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+			if tt.noCause {
+				assert.NotContains(t, err.Error(), "cause:")
+			}
+		})
+	}
+}
+
+// A spec-compliant fetch always rejects with an Error, but a service worker or
+// a patched global can reject with anything; this guards the non-object
+// handling in doFetch's catch handler.
+func TestRoundTrip_NonObjectRejectionDoesNotPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason func() js.Value
+	}{
+		{name: "null", reason: js.Null},
+		{name: "undefined", reason: js.Undefined},
+		{name: "bare string", reason: func() js.Value { return js.ValueOf("boom") }},
+		{name: "number", reason: func() js.Value { return js.ValueOf(500) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			installMockFetch(t, newRejectingFetch(tt.reason))
+
+			transport := &WasmHTTPTransport{Timeout: 5 * time.Second}
+			req := newTestRequest(t, context.Background(), "https://example.invalid/test")
+
+			resp, err := transport.RoundTrip(req)
+
+			assert.Nil(t, resp)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "unknown fetch error")
+		})
+	}
+}
+
+// Same hazard one level down: response.text() can reject with anything too, so
+// the body-read catch handler needs the same type gating as the fetch one.
+func TestRoundTrip_NonObjectBodyRejectionDoesNotPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason func() js.Value
+	}{
+		{name: "bare string", reason: func() js.Value { return js.ValueOf("boom") }},
+		{name: "object with a non-string message", reason: func() js.Value {
+			return js.ValueOf(map[string]interface{}{"message": 42})
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			installMockFetch(t, newTextRejectingFetch(tt.reason))
+
+			transport := &WasmHTTPTransport{Timeout: 5 * time.Second}
+			req := newTestRequest(t, context.Background(), "https://example.invalid/test")
+
+			resp, err := transport.RoundTrip(req)
+
+			assert.Nil(t, resp)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "unknown error reading response body")
+		})
+	}
 }
 
 func TestRoundTrip_SuccessNormalResponseUnaffected(t *testing.T) {
