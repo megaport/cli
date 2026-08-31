@@ -400,6 +400,17 @@ func TestPromptMVEVnics_InvalidVLAN(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid VLAN ID")
 }
 
+func TestPromptMVEVnics_OutOfRangeVLAN(t *testing.T) {
+	original := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(original) }()
+
+	utils.SetResourcePrompt(mockPromptSequence([]string{"eth0", "4100"}))
+
+	_, err := promptMVEVnics(true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "VLAN ID")
+}
+
 // promptMVEVendorConfig tests — cisco/palo_alto admin password handling
 
 func TestPromptMVEVendorConfig_Cisco_WithAdminPassword(t *testing.T) {

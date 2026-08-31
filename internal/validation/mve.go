@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	megaport "github.com/megaport/megaportgo"
 )
@@ -89,7 +90,7 @@ func ValidateBuyMVERequest(req *megaport.BuyMVERequest) error {
 	if req.Name == "" {
 		return NewValidationError("MVE name", req.Name, "cannot be empty")
 	}
-	if len(req.Name) > MaxMVENameLength {
+	if utf8.RuneCountInString(req.Name) > MaxMVENameLength {
 		return NewValidationError("MVE name", req.Name, fmt.Sprintf("cannot exceed %d characters", MaxMVENameLength))
 	}
 	if err := ValidateContractTerm(req.Term); err != nil {
@@ -120,6 +121,7 @@ func ValidateBuyMVERequest(req *megaport.BuyMVERequest) error {
 //
 // Validation checks:
 //   - At least one updateable field must be provided (name, cost center, contract term, or vNICs)
+//   - If a name is provided, it cannot exceed the maximum length (MaxMVENameLength)
 //   - If contract term is provided, it must be valid (typically 1, 12, 24, 36, 48, or 60 months)
 //
 // Returns:
@@ -132,6 +134,10 @@ func ValidateUpdateMVERequest(req *megaport.ModifyMVERequest) error {
 	// that case; any new caller has to do the same.
 	if req.Name == "" && req.CostCentre == "" && req.ContractTermMonths == nil && len(req.Vnics) == 0 {
 		return NewValidationError("update request", req, "at least one field must be provided for update")
+	}
+
+	if req.Name != "" && utf8.RuneCountInString(req.Name) > MaxMVENameLength {
+		return NewValidationError("MVE name", req.Name, fmt.Sprintf("cannot exceed %d characters", MaxMVENameLength))
 	}
 
 	// If contract term is provided, validate it
@@ -173,7 +179,7 @@ func ValidateMVERequest(name string, term int, locationID int) error {
 	if name == "" {
 		return NewValidationError("MVE name", name, "cannot be empty")
 	}
-	if len(name) > MaxMVENameLength {
+	if utf8.RuneCountInString(name) > MaxMVENameLength {
 		return NewValidationError("MVE name", name, fmt.Sprintf("cannot exceed %d characters", MaxMVENameLength))
 	}
 	if err := ValidateContractTerm(term); err != nil {

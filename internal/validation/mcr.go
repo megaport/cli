@@ -2,6 +2,7 @@ package validation
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	megaport "github.com/megaport/megaportgo"
@@ -98,6 +99,7 @@ func ValidateMCRRequest(req *megaport.BuyMCRRequest) error {
 //   - At least one entry must be provided in the prefix filter list
 //   - For each entry:
 //   - Prefix cannot be empty
+//   - Prefix must be a valid CIDR consistent with the list's address family
 //   - Action must be "permit" or "deny"
 //
 // Returns:
@@ -117,16 +119,53 @@ func ValidatePrefixFilterListRequest(req *megaport.CreateMCRPrefixFilterListRequ
 		return NewValidationError("entries", req.PrefixFilterList.Entries, "must contain at least one entry")
 	}
 
-	// Validate each entry
-	for i, entry := range req.PrefixFilterList.Entries {
+	return validatePrefixFilterEntries(req.PrefixFilterList.Entries, req.PrefixFilterList.AddressFamily)
+}
+
+// validatePrefixFilterEntries validates each prefix filter entry's prefix as a
+// CIDR consistent with the list's declared address family, that the action is
+// permit or deny, and that any GE/LE bounds fit the family's prefix length
+// (GE/LE are optional; 0 means unset, matching their omitempty JSON encoding).
+func validatePrefixFilterEntries(entries []*megaport.MCRPrefixListEntry, addressFamily string) error {
+	var maxPrefixLen int
+	switch addressFamily {
+	case "IPv4":
+		maxPrefixLen = 32
+	case "IPv6":
+		maxPrefixLen = 128
+	default:
+		return NewValidationError("address family", addressFamily, "must be IPv4 or IPv6")
+	}
+	for i, entry := range entries {
+		if entry == nil {
+			return NewValidationError(fmt.Sprintf("entry index %d", i), nil, "entry cannot be nil")
+		}
 		if entry.Prefix == "" {
-			return NewValidationError("entry prefix index", i, "prefix cannot be empty")
+			return NewValidationError(fmt.Sprintf("entry prefix index %d", i), entry.Prefix, "prefix cannot be empty")
+		}
+		if addressFamily == "IPv4" {
+			if err := ValidateCIDR(entry.Prefix, fmt.Sprintf("entry prefix index %d", i)); err != nil {
+				return err
+			}
+		} else {
+			ip, _, err := net.ParseCIDR(entry.Prefix)
+			if err != nil || ip.To4() != nil {
+				return NewValidationError(fmt.Sprintf("entry prefix index %d", i), entry.Prefix, "must be a valid IPv6 CIDR notation")
+			}
 		}
 		if entry.Action != "permit" && entry.Action != "deny" {
 			return NewValidationError("entry action", entry.Action, "must be permit or deny")
 		}
+		if entry.Ge != 0 && (entry.Ge < 0 || entry.Ge > maxPrefixLen) {
+			return NewValidationError(fmt.Sprintf("entry GE index %d", i), entry.Ge, fmt.Sprintf("must be between 0 and %d for %s", maxPrefixLen, addressFamily))
+		}
+		if entry.Le != 0 && (entry.Le < 0 || entry.Le > maxPrefixLen) {
+			return NewValidationError(fmt.Sprintf("entry LE index %d", i), entry.Le, fmt.Sprintf("must be between 0 and %d for %s", maxPrefixLen, addressFamily))
+		}
+		if entry.Ge != 0 && entry.Le != 0 && entry.Ge > entry.Le {
+			return NewValidationError(fmt.Sprintf("entry GE index %d", i), entry.Ge, "must not exceed the LE value")
+		}
 	}
-
 	return nil
 }
 
@@ -138,26 +177,24 @@ func ValidatePrefixFilterListRequest(req *megaport.CreateMCRPrefixFilterListRequ
 //
 // Validation checks:
 //   - If entries are provided:
+//   - Address family must be provided and a valid value ("IPv4" or "IPv6")
 //   - For each entry:
 //   - Prefix cannot be empty
+//   - Prefix must be a valid CIDR consistent with the list's address family
 //   - Action must be "permit" or "deny"
 //
 // Returns:
 //   - A ValidationError if any validation check fails
 //   - nil if all validation checks pass
 func ValidateUpdatePrefixFilterList(prefixFilterList *megaport.MCRPrefixFilterList) error {
-	// If entries are provided, validate them
-	if len(prefixFilterList.Entries) > 0 {
-		// Validate each entry
-		for i, entry := range prefixFilterList.Entries {
-			if entry.Prefix == "" {
-				return NewValidationError("entry prefix index", i, "prefix cannot be empty")
-			}
-			if entry.Action != "permit" && entry.Action != "deny" {
-				return NewValidationError("entry action", entry.Action, "must be permit or deny")
-			}
-		}
+	if len(prefixFilterList.Entries) == 0 {
+		return nil
 	}
-
-	return nil
+	if prefixFilterList.AddressFamily == "" {
+		return NewValidationError("address family", prefixFilterList.AddressFamily, "cannot be empty")
+	}
+	if prefixFilterList.AddressFamily != "IPv4" && prefixFilterList.AddressFamily != "IPv6" {
+		return NewValidationError("address family", prefixFilterList.AddressFamily, "must be IPv4 or IPv6")
+	}
+	return validatePrefixFilterEntries(prefixFilterList.Entries, prefixFilterList.AddressFamily)
 }

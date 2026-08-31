@@ -393,6 +393,9 @@ func promptMVEVnics(noColor bool) ([]megaport.MVENetworkInterface, error) {
 			if err != nil {
 				return nil, err
 			}
+			if err := validation.ValidateVLAN(vlan); err != nil {
+				return nil, err
+			}
 		}
 
 		vnics = append(vnics, megaport.MVENetworkInterface{

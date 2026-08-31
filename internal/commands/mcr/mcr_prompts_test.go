@@ -503,6 +503,38 @@ func TestPromptForPrefixFilterListDetails_NoEntries(t *testing.T) {
 	assert.Contains(t, err.Error(), "at least one entry is required")
 }
 
+func TestPromptForPrefixFilterListDetails_InvalidPrefix(t *testing.T) {
+	originalPrompt := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(originalPrompt) }()
+
+	// Prefix that isn't a CIDR passes the entry prompt but must fail
+	// request-level validation before anything reaches the API.
+	utils.SetResourcePrompt(mockPromptSequence([]string{
+		"My PFL", "IPv4",
+		"banana", "permit", "", "",
+		"", // stop adding entries
+	}))
+
+	_, err := promptForPrefixFilterListDetails("mcr-123", true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a valid IPv4 CIDR notation")
+}
+
+func TestPromptForPrefixFilterListDetails_WrongFamilyPrefix(t *testing.T) {
+	originalPrompt := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(originalPrompt) }()
+
+	utils.SetResourcePrompt(mockPromptSequence([]string{
+		"My PFL", "IPv6",
+		"10.0.0.0/8", "permit", "", "",
+		"", // stop adding entries
+	}))
+
+	_, err := promptForPrefixFilterListDetails("mcr-123", true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a valid IPv6 CIDR notation")
+}
+
 func TestPromptForIPSecTunnelCount(t *testing.T) {
 	tests := []struct {
 		name        string

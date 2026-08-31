@@ -3,7 +3,6 @@ package vxc
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/megaport/megaport-cli/internal/utils"
@@ -98,8 +97,11 @@ func promptAWSConfig(noColor bool) (*megaport.VXCPartnerConfigAWS, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ownerAccount == "" {
+		return nil, fmt.Errorf("owner account ID is required")
+	}
 
-	connectionName, err := utils.ResourcePrompt("vxc", "Enter connection name (required): ", noColor)
+	connectionName, err := utils.ResourcePrompt("vxc", "Enter connection name (optional, defaults to MEGAPORT): ", noColor)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +110,12 @@ func promptAWSConfig(noColor bool) (*megaport.VXCPartnerConfigAWS, error) {
 	if err != nil {
 		return nil, err
 	}
-	var asn int
-	if asnStr != "" {
-		asn, err = validation.ParseInt("ASN", asnStr)
-		if err != nil {
-			return nil, err
-		}
+	if asnStr == "" {
+		return nil, fmt.Errorf("ASN is required")
+	}
+	asn, err := validation.ParseInt("ASN", asnStr)
+	if err != nil {
+		return nil, err
 	}
 
 	amazonASNStr, err := utils.ResourcePrompt("vxc", "Enter Amazon ASN (optional): ", noColor)
@@ -176,6 +178,9 @@ func promptAzureConfig(ctx context.Context, svc megaport.VXCService, noColor boo
 	serviceKey, err := utils.ResourcePrompt("vxc", "Enter service key (required): ", noColor)
 	if err != nil {
 		return nil, "", err
+	}
+	if serviceKey == "" {
+		return nil, "", fmt.Errorf("service key is required")
 	}
 
 	portChoice, err := utils.ResourcePrompt("vxc", "Enter port choice (primary/secondary, optional, default value is primary): ", noColor)
@@ -268,9 +273,15 @@ func promptAzurePeeringConfig(noColor bool) (megaport.PartnerOrderAzurePeeringCo
 	if err != nil {
 		return megaport.PartnerOrderAzurePeeringConfig{}, err
 	}
-	vlan, err := strconv.Atoi(vlanStr)
-	if err != nil {
-		vlan = 0
+	var vlan int
+	if vlanStr != "" {
+		vlan, err = validation.ParseInt("VLAN ID", vlanStr)
+		if err != nil {
+			return megaport.PartnerOrderAzurePeeringConfig{}, err
+		}
+		if err := validation.ValidateVLAN(vlan); err != nil {
+			return megaport.PartnerOrderAzurePeeringConfig{}, err
+		}
 	}
 
 	return megaport.PartnerOrderAzurePeeringConfig{
@@ -289,6 +300,9 @@ func promptGoogleConfig(ctx context.Context, svc megaport.VXCService, noColor bo
 	if err != nil {
 		return nil, "", err
 	}
+	if pairingKey == "" {
+		return nil, "", fmt.Errorf("pairing key is required")
+	}
 
 	uid, err := getPartnerPortUID(ctx, svc, pairingKey, "GOOGLE")
 	if err != nil {
@@ -305,6 +319,9 @@ func promptOracleConfig(ctx context.Context, svc megaport.VXCService, noColor bo
 	virtualCircuitId, err := utils.ResourcePrompt("vxc", "Enter virtual circuit ID (required): ", noColor)
 	if err != nil {
 		return nil, "", err
+	}
+	if virtualCircuitId == "" {
+		return nil, "", fmt.Errorf("virtual circuit ID is required")
 	}
 
 	uid, err := getPartnerPortUID(ctx, svc, virtualCircuitId, "ORACLE")
@@ -323,24 +340,25 @@ func promptIBMConfig(noColor bool) (*megaport.VXCPartnerConfigIBM, error) {
 	if err != nil {
 		return nil, err
 	}
+	if accountID == "" {
+		return nil, fmt.Errorf("account ID is required")
+	}
 
-	name, err := utils.ResourcePrompt("vxc", "Enter name (required): ", noColor)
+	name, err := utils.ResourcePrompt("vxc", "Enter name (optional, defaults to MEGAPORT): ", noColor)
 	if err != nil {
 		return nil, err
 	}
-	if name == "" {
-		return nil, fmt.Errorf("name is required")
-	}
-
-	var customerASN int
 
 	customerASNStr, err := utils.ResourcePrompt("vxc", "Enter customer ASN (required if opposite end is not an MCR): ", noColor)
 	if err != nil {
 		return nil, err
 	}
-	customerASN, err = validation.ParseInt("customer ASN", customerASNStr)
-	if err != nil {
-		return nil, err
+	var customerASN int
+	if customerASNStr != "" {
+		customerASN, err = validation.ParseInt("customer ASN", customerASNStr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	customerIPAddress, err := utils.ResourcePrompt("vxc", "Enter customer IP address (optional): ", noColor)
