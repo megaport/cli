@@ -137,14 +137,14 @@ export interface MegaportWASM {
    * Does NOT use localStorage to prevent XSS attacks
    * @param accessKey - Megaport API access key
    * @param secretKey - Megaport API secret key
-   * @param environment - Environment (production, staging, development)
-   * @returns Result object with success status
+   * @param environment - Environment (production, staging, development; case- and whitespace-insensitive). Anything else is rejected rather than defaulting to production
+   * @returns On success: `{ success: true, environment }` where `environment` is the normalized bucket. On failure: `{ success: false, error }`
    */
   setAuthCredentials(
     accessKey: string,
     secretKey: string,
     environment: string
-  ): { success: boolean; error?: string };
+  ): { success: boolean; error?: string; environment?: string };
 
   /**
    * Set authentication using an existing token from the portal session,
@@ -333,7 +333,7 @@ declare global {
       accessKey: string,
       secretKey: string,
       environment: string
-    ) => { success: boolean; error?: string };
+    ) => { success: boolean; error?: string; environment?: string };
     setAuthToken?: (
       token: string,
       hostname: string,

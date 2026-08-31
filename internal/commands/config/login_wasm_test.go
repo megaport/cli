@@ -5,6 +5,7 @@ package config
 import (
 	"context"
 	"net/http"
+	"os"
 	"syscall/js"
 	"testing"
 	"time"
@@ -13,6 +14,91 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestLoginFunc_UnknownEnvironmentFailsClosed verifies that the credential
+// login path rejects an unrecognized MEGAPORT_ENVIRONMENT instead of
+// silently coercing it to production, since accessKey/secretKey callers
+// only reach this switch via setAuthCredentials, which is expected to have
+// already bucketed the value into production/staging/development.
+func TestLoginFunc_UnknownEnvironmentFailsClosed(t *testing.T) {
+	origAccessKey := os.Getenv("MEGAPORT_ACCESS_KEY")
+	origSecretKey := os.Getenv("MEGAPORT_SECRET_KEY")
+	origEnv := os.Getenv("MEGAPORT_ENVIRONMENT")
+	defer func() {
+		os.Setenv("MEGAPORT_ACCESS_KEY", origAccessKey)
+		os.Setenv("MEGAPORT_SECRET_KEY", origSecretKey)
+		os.Setenv("MEGAPORT_ENVIRONMENT", origEnv)
+	}()
+
+	js.Global().Delete("megaportToken")
+	js.Global().Delete("megaportCredentials")
+
+	os.Setenv("MEGAPORT_ACCESS_KEY", "test-access-key")
+	os.Setenv("MEGAPORT_SECRET_KEY", "test-secret-key")
+	os.Setenv("MEGAPORT_ENVIRONMENT", "not-a-real-environment")
+
+	client, err := loginFunc(context.Background())
+
+	assert.Nil(t, client, "no client should be created for an unrecognized environment")
+	assert.ErrorContains(t, err, "unknown environment")
+	assert.ErrorContains(t, err, "not-a-real-environment")
+}
+
+// TestLoginFunc_TokenPathUnknownEnvironmentFailsClosed verifies the bearer-token
+// login path also fails closed on an unrecognized environment instead of silently
+// routing the token to production, matching the credential path's behavior.
+func TestLoginFunc_TokenPathUnknownEnvironmentFailsClosed(t *testing.T) {
+	t.Setenv("MEGAPORT_ACCESS_TOKEN", "test-token-12345")
+	t.Setenv("MEGAPORT_API_URL", "")
+	t.Setenv("MEGAPORT_ENVIRONMENT", "not-a-real-environment")
+
+	setTamperedTokenGlobal("not-a-real-environment", "")
+	defer js.Global().Delete("megaportToken")
+
+	client, err := loginFunc(context.Background())
+
+	assert.Nil(t, client, "no client should be created for an unrecognized token environment")
+	assert.ErrorContains(t, err, "unknown environment")
+	assert.ErrorContains(t, err, "not-a-real-environment")
+}
+
+// TestLoginFunc_CredentialGlobalDoesNotOverrideValidatedEnv verifies the
+// credential path ignores the page-writable megaportCredentials global when the
+// trusted MEGAPORT_ENVIRONMENT bucket is already set, so a script that can write
+// the global cannot redirect validated credentials to a different environment.
+func TestLoginFunc_CredentialGlobalDoesNotOverrideValidatedEnv(t *testing.T) {
+	js.Global().Delete("megaportToken")
+
+	t.Setenv("MEGAPORT_ACCESS_TOKEN", "")
+	t.Setenv("MEGAPORT_API_URL", "")
+	t.Setenv("MEGAPORT_ACCESS_KEY", "test-access-key")
+	t.Setenv("MEGAPORT_SECRET_KEY", "test-secret-key")
+	t.Setenv("MEGAPORT_ENVIRONMENT", "staging")
+
+	// Global claims production; the validated env-var bucket (staging) must win.
+	credsObj := js.Global().Get("Object").New()
+	credsObj.Set("environment", "production")
+	js.Global().Set("megaportCredentials", credsObj)
+	defer js.Global().Delete("megaportCredentials")
+
+	// A cached token short-circuits the network Authorize() call.
+	setTokenManager(t, "cached-token")
+
+	// The credential success path logs location.origin, absent in the node
+	// test host; stub it so loginFunc can run to completion.
+	loc := js.Global().Get("Object").New()
+	loc.Set("origin", "https://portal.megaport.com")
+	js.Global().Set("location", loc)
+	defer js.Global().Delete("location")
+
+	client, err := loginFunc(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, client)
+	require.NotNil(t, client.BaseURL)
+
+	assert.Equal(t, "api-staging.megaport.com", client.BaseURL.Host,
+		"credential login must use the validated env-var bucket, not the page-writable global")
+}
 
 // setTamperedTokenGlobal publishes a window.megaportToken global whose apiURL
 // field has been overwritten to an attacker-controlled host, mimicking a script

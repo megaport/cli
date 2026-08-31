@@ -85,6 +85,26 @@ func environmentFromHostname(hostname string) (string, bool) {
 	return "", false
 }
 
+// restrictEnvironmentNameStrict buckets an environment name into one of the
+// three canonical values that downstream consumers of MEGAPORT_ENVIRONMENT
+// understand ("production" / "staging" / "development"). "prod" is accepted
+// as an alias for "production". Unlike restrictEnvironmentName, it reports
+// whether the input matched a known bucket instead of silently defaulting,
+// so callers that must reject unrecognized environments (e.g.
+// setAuthCredentials) can fail closed.
+func restrictEnvironmentNameStrict(env string) (string, bool) {
+	switch env {
+	case "production", "prod":
+		return "production", true
+	case "staging":
+		return "staging", true
+	case "development":
+		return "development", true
+	default:
+		return "", false
+	}
+}
+
 // restrictEnvironmentName collapses an environment name into one of the three
 // canonical values that downstream consumers of MEGAPORT_ENVIRONMENT understand
 // ("production" / "staging" / "development"). "prod" is accepted as an alias
@@ -100,11 +120,8 @@ func environmentFromHostname(hostname string) (string, bool) {
 // difference is intentional and the divergence is exercised by tests in both
 // packages.
 func restrictEnvironmentName(env string) string {
-	if env == "production" || env == "prod" {
-		return "production"
-	}
-	if env == "staging" {
-		return "staging"
+	if bucket, ok := restrictEnvironmentNameStrict(env); ok {
+		return bucket
 	}
 	return "development"
 }
@@ -873,6 +890,12 @@ func loadFromLocalStorage(this js.Value, args []js.Value) interface{} {
 // 1. Go environment variables (for os.Getenv calls)
 // 2. JavaScript global object (for direct access)
 // This avoids localStorage which is vulnerable to XSS attacks
+//
+// The environment argument is normalized (lowercased, trimmed) and must
+// resolve to one of "production"/"staging"/"development" (see
+// restrictEnvironmentNameStrict); anything else is rejected rather than
+// stored, since an unrecognized value previously fell through to
+// login_wasm.go's default case and routed credentials to production.
 func setAuthCredentials(this js.Value, args []js.Value) interface{} {
 	if len(args) < 3 {
 		return map[string]interface{}{
@@ -883,13 +906,21 @@ func setAuthCredentials(this js.Value, args []js.Value) interface{} {
 
 	accessKey := args[0].String()
 	secretKey := args[1].String()
-	environment := args[2].String()
+	environment := strings.ToLower(strings.TrimSpace(args[2].String()))
+
+	bucket, ok := restrictEnvironmentNameStrict(environment)
+	if !ok {
+		return map[string]interface{}{
+			"success": false,
+			"error":   `environment must be one of "production", "staging", or "development"`,
+		}
+	}
 
 	// Store credentials only in Go-side environment variables.
 	// Do NOT mirror them into JS globals — any script on the page can read those.
 	os.Setenv("MEGAPORT_ACCESS_KEY", accessKey)
 	os.Setenv("MEGAPORT_SECRET_KEY", secretKey)
-	os.Setenv("MEGAPORT_ENVIRONMENT", environment)
+	os.Setenv("MEGAPORT_ENVIRONMENT", bucket)
 
 	// Clear any token left over from a prior setAuthToken call: loginFunc
 	// checks the token path first, so a stale token would otherwise keep
@@ -900,13 +931,14 @@ func setAuthCredentials(this js.Value, args []js.Value) interface{} {
 
 	// Expose only the non-secret environment name so the UI can reflect it.
 	credentialsObj := js.Global().Get("Object").New()
-	credentialsObj.Set("environment", environment)
+	credentialsObj.Set("environment", bucket)
 	js.Global().Set("megaportCredentials", credentialsObj)
 
 	js.Global().Get("console").Call("log", "🔐 Credentials set (in-memory only)")
 
 	return map[string]interface{}{
-		"success": true,
+		"success":     true,
+		"environment": bucket,
 	}
 }
 

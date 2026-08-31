@@ -10,6 +10,7 @@ package wasm
 import (
 	"bytes"
 	"math"
+	"os"
 	"strings"
 	"syscall/js"
 	"testing"
@@ -896,6 +897,105 @@ func TestRestrictEnvironmentName(t *testing.T) {
 			assert.Equal(t, tt.expected, restrictEnvironmentName(tt.env))
 		})
 	}
+}
+
+// TestRestrictEnvironmentNameStrict verifies the strict variant used by
+// setAuthCredentials: known buckets (plus the "prod" alias) resolve, and
+// anything else is reported as unrecognized rather than defaulted.
+func TestRestrictEnvironmentNameStrict(t *testing.T) {
+	tests := []struct {
+		env      string
+		expected string
+		ok       bool
+	}{
+		{"production", "production", true},
+		{"prod", "production", true},
+		{"staging", "staging", true},
+		{"development", "development", true},
+		{"qa", "", false},
+		{"uat", "", false},
+		{"mpone-dev", "", false},
+		{"Production", "", false}, // caller must normalize case before calling
+		{"", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.env, func(t *testing.T) {
+			bucket, ok := restrictEnvironmentNameStrict(tt.env)
+			assert.Equal(t, tt.ok, ok)
+			assert.Equal(t, tt.expected, bucket)
+		})
+	}
+}
+
+// TestSetAuthCredentials verifies that setAuthCredentials rejects any
+// environment outside production/staging/development (normalizing case and
+// whitespace first) instead of storing it verbatim, since login_wasm.go's
+// credential path used to fall through to production for anything unrecognized.
+func TestSetAuthCredentials(t *testing.T) {
+	RegisterJSFunctions()
+	defer js.Global().Get("clearAuthCredentials").Invoke()
+
+	tests := []struct {
+		name           string
+		environment    string
+		expectError    bool
+		expectedBucket string
+	}{
+		{name: "production", environment: "production", expectedBucket: "production"},
+		{name: "staging", environment: "staging", expectedBucket: "staging"},
+		{name: "development", environment: "development", expectedBucket: "development"},
+		{name: "prod alias", environment: "prod", expectedBucket: "production"},
+		{name: "uppercase is normalized", environment: "STAGING", expectedBucket: "staging"},
+		{name: "surrounding whitespace is trimmed", environment: "  production  ", expectedBucket: "production"},
+		{name: "unknown environment is rejected, not routed to production", environment: "dev", expectError: true},
+		{name: "unrecognized bucket-like value is rejected", environment: "qa", expectError: true},
+		{name: "value that only partially matches a known bucket is rejected", environment: "production2", expectError: true},
+		{name: "empty environment is rejected", environment: "", expectError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			js.Global().Get("clearAuthCredentials").Invoke()
+
+			setFunc := js.Global().Get("setAuthCredentials")
+			result := setFunc.Invoke("test-access-key", "test-secret-key", tt.environment)
+
+			success := result.Get("success").Bool()
+			if tt.expectError {
+				assert.False(t, success, "should reject an unrecognized environment")
+				assert.NotEmpty(t, result.Get("error").String(), "error message should be set on failure")
+				assert.Empty(t, os.Getenv("MEGAPORT_ENVIRONMENT"), "MEGAPORT_ENVIRONMENT must not be set on failure")
+				assert.Empty(t, os.Getenv("MEGAPORT_ACCESS_KEY"), "credentials must not be stored when the environment is rejected")
+			} else {
+				assert.True(t, success, "should accept a recognized environment")
+				assert.Equal(t, tt.expectedBucket, result.Get("environment").String())
+				assert.Equal(t, tt.expectedBucket, os.Getenv("MEGAPORT_ENVIRONMENT"))
+				assert.Equal(t, "test-access-key", os.Getenv("MEGAPORT_ACCESS_KEY"))
+
+				credsGlobal := js.Global().Get("megaportCredentials")
+				assert.False(t, credsGlobal.IsUndefined())
+				assert.Equal(t, tt.expectedBucket, credsGlobal.Get("environment").String())
+			}
+		})
+	}
+}
+
+// TestSetAuthCredentials_MissingArgs verifies setAuthCredentials rejects a
+// call missing accessKey, secretKey, or environment without touching any
+// stored credentials.
+func TestSetAuthCredentials_MissingArgs(t *testing.T) {
+	RegisterJSFunctions()
+	defer js.Global().Get("clearAuthCredentials").Invoke()
+	js.Global().Get("clearAuthCredentials").Invoke()
+
+	setFunc := js.Global().Get("setAuthCredentials")
+	result := setFunc.Invoke("test-access-key", "test-secret-key")
+
+	assert.False(t, result.Get("success").Bool())
+	assert.NotEmpty(t, result.Get("error").String())
+	assert.Empty(t, os.Getenv("MEGAPORT_ENVIRONMENT"))
+	assert.Empty(t, os.Getenv("MEGAPORT_ACCESS_KEY"))
 }
 
 // TestAuthMethodPriority verifies that token auth takes precedence over API key auth
