@@ -79,7 +79,11 @@ func (t *WasmHTTPTransport) buildFetchOptions(req *http.Request) (map[string]int
 			continue
 		}
 		if len(values) > 0 {
-			headers[key] = values[0] // fetch expects single string values
+			// fetch's Headers init dict accepts one string per key, so combine
+			// multi-value headers the same way HTTP field values are combined
+			// (RFC 7230 3.2.2). Cookie combines with "; " instead, but the SDK
+			// never sets a multi-value Cookie header through this transport.
+			headers[key] = strings.Join(values, ", ")
 		}
 	}
 
@@ -99,7 +103,11 @@ func (t *WasmHTTPTransport) buildFetchOptions(req *http.Request) (map[string]int
 		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 		if len(bodyBytes) > 0 {
-			fetchOpts["body"] = string(bodyBytes)
+			// Pass raw bytes as a Uint8Array rather than a Go string, which fetch
+			// would otherwise treat as UTF-8 text and mangle a binary body.
+			jsBody := js.Global().Get("Uint8Array").New(len(bodyBytes))
+			js.CopyBytesToJS(jsBody, bodyBytes)
+			fetchOpts["body"] = jsBody
 		}
 	}
 

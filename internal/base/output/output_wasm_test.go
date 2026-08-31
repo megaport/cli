@@ -165,6 +165,121 @@ func TestPrintCSV_WASM_SpecialCharacters(t *testing.T) {
 	assert.Contains(t, output, "Item with")
 }
 
+// TestPrintJSON_WASM_AccumulatesMultipleCalls verifies that a command emitting
+// more than one JSON document in a single invocation has all of them captured,
+// not just the last (ESD-1650).
+func TestPrintJSON_WASM_AccumulatesMultipleCalls(t *testing.T) {
+	first := []SimpleStruct{{ID: 1, Name: "First", Active: true}}
+	second := []SimpleStruct{{ID: 2, Name: "Second", Active: false}}
+
+	WasmJSONWriter.Reset()
+	js.Global().Delete("wasmJSONOutput")
+
+	assert.NoError(t, printJSON(first, currentPrintOptions()))
+	assert.NoError(t, printJSON(second, currentPrintOptions()))
+
+	output := WasmJSONWriter.String()
+	assert.Contains(t, output, "First", "first document must survive a second call")
+	assert.Contains(t, output, "Second", "second document must also be present")
+
+	global := js.Global().Get("wasmJSONOutput")
+	assert.Equal(t, output, global.String(), "global must reflect the full accumulated buffer")
+
+	WasmJSONWriter.Reset()
+	js.Global().Delete("wasmJSONOutput")
+}
+
+// TestPrintCSV_WASM_AccumulatesMultipleCalls mirrors the JSON accumulation
+// test for CSV output.
+func TestPrintCSV_WASM_AccumulatesMultipleCalls(t *testing.T) {
+	first := []SimpleStruct{{ID: 1, Name: "First", Active: true}}
+	second := []SimpleStruct{{ID: 2, Name: "Second", Active: false}}
+
+	WasmCSVWriter.Reset()
+	js.Global().Delete("wasmCSVOutput")
+
+	assert.NoError(t, printCSV(first, currentPrintOptions()))
+	assert.NoError(t, printCSV(second, currentPrintOptions()))
+
+	output := WasmCSVWriter.String()
+	assert.Contains(t, output, "First", "first document must survive a second call")
+	assert.Contains(t, output, "Second", "second document must also be present")
+
+	global := js.Global().Get("wasmCSVOutput")
+	assert.Equal(t, output, global.String(), "global must reflect the full accumulated buffer")
+
+	WasmCSVWriter.Reset()
+	js.Global().Delete("wasmCSVOutput")
+}
+
+// TestPrintXML_WASM verifies basic XML output capture in WASM, a case not
+// previously covered by this suite.
+func TestPrintXML_WASM(t *testing.T) {
+	data := []SimpleStruct{
+		{ID: 1, Name: "Item 1", Active: true},
+	}
+
+	WasmXMLWriter.Reset()
+	js.Global().Delete("wasmXMLOutput")
+
+	err := printXML(data, currentPrintOptions())
+	assert.NoError(t, err)
+
+	output := WasmXMLWriter.String()
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "<items>")
+	assert.Contains(t, output, "<item>")
+	assert.Contains(t, output, "<name>Item 1</name>")
+
+	global := js.Global().Get("wasmXMLOutput")
+	assert.False(t, global.IsUndefined())
+	assert.Equal(t, output, global.String())
+
+	WasmXMLWriter.Reset()
+	js.Global().Delete("wasmXMLOutput")
+}
+
+// TestPrintXML_WASM_AccumulatesMultipleCalls mirrors the JSON/CSV
+// accumulation tests for XML output.
+func TestPrintXML_WASM_AccumulatesMultipleCalls(t *testing.T) {
+	first := []SimpleStruct{{ID: 1, Name: "First", Active: true}}
+	second := []SimpleStruct{{ID: 2, Name: "Second", Active: false}}
+
+	WasmXMLWriter.Reset()
+	js.Global().Delete("wasmXMLOutput")
+
+	assert.NoError(t, printXML(first, currentPrintOptions()))
+	assert.NoError(t, printXML(second, currentPrintOptions()))
+
+	output := WasmXMLWriter.String()
+	assert.Contains(t, output, "<name>First</name>", "first document must survive a second call")
+	assert.Contains(t, output, "<name>Second</name>", "second document must also be present")
+
+	global := js.Global().Get("wasmXMLOutput")
+	assert.Equal(t, output, global.String(), "global must reflect the full accumulated buffer")
+
+	WasmXMLWriter.Reset()
+	js.Global().Delete("wasmXMLOutput")
+}
+
+// TestResetWasmStructuredBuffers_ClearsAllBuffers verifies the between-
+// invocation reset hook (wired through output.ResetState) clears every
+// structured-output buffer, so state never bleeds from one WASM command
+// invocation into the next.
+func TestResetWasmStructuredBuffers_ClearsAllBuffers(t *testing.T) {
+	WasmJSONWriter.WriteString("stale json")
+	WasmCSVWriter.WriteString("stale csv")
+	WasmXMLWriter.WriteString("stale xml")
+	WasmTableWriter.WriteString("stale table")
+
+	ResetState()
+
+	assert.Empty(t, WasmJSONWriter.String())
+	assert.Empty(t, WasmCSVWriter.String())
+	assert.Empty(t, WasmXMLWriter.String())
+	assert.Empty(t, WasmTableWriter.String())
+}
+
 // TestPrintOutput_WASM_Formats verifies all output formats
 func TestPrintOutput_WASM_Formats(t *testing.T) {
 	data := []SimpleStruct{

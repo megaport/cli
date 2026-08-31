@@ -3,6 +3,7 @@
 package wasmhttp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -291,4 +292,40 @@ func TestBuildFetchOptions_NoForbiddenAcceptEncodingHeader(t *testing.T) {
 
 	_, exists := headers["Accept-Encoding"]
 	assert.False(t, exists, "Accept-Encoding is a forbidden fetch header and must not be set")
+}
+
+func TestBuildFetchOptions_MultiValueHeaderJoined(t *testing.T) {
+	transport := &WasmHTTPTransport{}
+	req, err := http.NewRequest(http.MethodGet, "https://example.invalid/test", nil)
+	require.NoError(t, err)
+	req.Header.Add("X-Custom", "first")
+	req.Header.Add("X-Custom", "second")
+
+	opts, err := transport.buildFetchOptions(req)
+	require.NoError(t, err)
+
+	headers, ok := opts["headers"].(map[string]interface{})
+	require.True(t, ok)
+
+	assert.Equal(t, "first, second", headers["X-Custom"],
+		"every value of a multi-value header should be forwarded, not just the first")
+}
+
+func TestBuildFetchOptions_BinaryBodyPreservedAsBytes(t *testing.T) {
+	transport := &WasmHTTPTransport{}
+	binary := []byte{0x00, 0xff, 0xfe, 'h', 'i', 0x80, 0x81}
+	req, err := http.NewRequest(http.MethodPost, "https://example.invalid/test", bytes.NewReader(binary))
+	require.NoError(t, err)
+
+	opts, err := transport.buildFetchOptions(req)
+	require.NoError(t, err)
+
+	jsBody, ok := opts["body"].(js.Value)
+	require.True(t, ok, "body should be passed as a js.Value (Uint8Array), not a Go string")
+	assert.Equal(t, "Uint8Array", jsBody.Get("constructor").Get("name").String())
+
+	length := jsBody.Get("length").Int()
+	got := make([]byte, length)
+	js.CopyBytesToGo(got, jsBody)
+	assert.Equal(t, binary, got, "binary body bytes must round-trip without UTF-8 mangling")
 }

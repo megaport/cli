@@ -183,6 +183,11 @@ func init() {
 		}
 	}
 
+	// The command tree persists across WASM invocations in a browser session, so cache each
+	// command's pristine Long text the first time it's seen. Without this, repeated --help
+	// calls would feed the already-colored, already-suffixed cmd.Long back into the builder.
+	originalLongs := make(map[*cobra.Command]string)
+
 	// Create a help function that runs the help.CommandHelpBuilder with the current noColor setting
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		// For the root command, regenerate the help text completely
@@ -190,11 +195,16 @@ func init() {
 			rootHelp := getRootHelpBuilder(noColor)
 			cmd.Long = rootHelp.Build(rootCmd)
 		} else if cmd.Long != "" {
+			original, cached := originalLongs[cmd]
+			if !cached {
+				original = cmd.Long
+				originalLongs[cmd] = original
+			}
 			// For non-root commands, modify the existing help text only if there is a Long description
 			helpBuilder := &help.CommandHelpBuilder{
 				CommandName:  cmd.UseLine(),
 				ShortDesc:    cmd.Short,
-				LongDesc:     cmd.Long,
+				LongDesc:     original,
 				DisableColor: noColor,
 			}
 			cmd.Long = helpBuilder.Build(rootCmd)

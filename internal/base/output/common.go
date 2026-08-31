@@ -154,11 +154,17 @@ func ResetErrorEmitted() {
 	errorEmittedMu.Unlock()
 }
 
+// resetWasmStructuredBuffers clears the WASM structured-output buffers
+// (JSON/CSV/XML/table) between command invocations. It is a no-op on native
+// builds; output_wasm.go's init overrides it.
+var resetWasmStructuredBuffers = func() {}
+
 // ResetState clears all output configuration back to defaults.
 // Intended for the WASM entry point to prevent state bleed between invocations.
 func ResetState() {
 	ApplyOutputConfig(defaultOutputConfig())
 	ResetErrorEmitted()
+	resetWasmStructuredBuffers()
 }
 
 // printOptions is the per-call snapshot of the field/query/header/template
