@@ -84,6 +84,7 @@ func InitializeCommon() {
 	rootCmd.PersistentFlags().IntVar(&utils.MaxRetries, "max-retries", 3, "Maximum number of retries for transient API failures")
 	rootCmd.PersistentFlags().BoolVar(&noHeader, "no-header", false, "Suppress table and CSV column headers (useful for scripting)")
 	rootCmd.PersistentFlags().BoolVar(&noPager, "no-pager", false, "Disable pager for long table output (no-op in browser version)")
+	rootCmd.PersistentFlags().StringVar(&utils.ManagedAccountUID, "on-behalf-of", "", "Act on behalf of a managed account: company UID sent as the X-Call-Context header on every authenticated request (falls back to MEGAPORT_MANAGED_ACCOUNT_UID)")
 	rootCmd.MarkFlagsMutuallyExclusive("quiet", "verbose")
 	rootCmd.SuggestionsMinimumDistance = 2
 

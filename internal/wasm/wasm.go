@@ -891,6 +891,17 @@ func setAuthCredentials(this js.Value, args []js.Value) interface{} {
 	os.Setenv("MEGAPORT_SECRET_KEY", secretKey)
 	os.Setenv("MEGAPORT_ENVIRONMENT", environment)
 
+	// Optional 4th arg: act on behalf of a managed account. Always reset it so a
+	// call without the arg clears a UID left over from a prior call. Only treat
+	// an actual string as a UID: a JS caller passing undefined/null would
+	// otherwise stringify to "<undefined>"/"<null>" and set a bogus header.
+	os.Unsetenv("MEGAPORT_MANAGED_ACCOUNT_UID")
+	if len(args) > 3 && args[3].Type() == js.TypeString {
+		if uid := args[3].String(); uid != "" {
+			os.Setenv("MEGAPORT_MANAGED_ACCOUNT_UID", uid)
+		}
+	}
+
 	// Clear any token left over from a prior setAuthToken call: loginFunc
 	// checks the token path first, so a stale token would otherwise keep
 	// silently overriding these credentials.
@@ -917,6 +928,7 @@ func clearAuthCredentials(this js.Value, args []js.Value) interface{} {
 	os.Unsetenv("MEGAPORT_ENVIRONMENT")
 	os.Unsetenv("MEGAPORT_ACCESS_TOKEN")
 	os.Unsetenv("MEGAPORT_API_URL")
+	os.Unsetenv("MEGAPORT_MANAGED_ACCOUNT_UID")
 
 	js.Global().Delete("megaportCredentials")
 	js.Global().Delete("megaportToken")
@@ -1108,6 +1120,10 @@ func setAuthToken(this js.Value, args []js.Value) interface{} {
 	// Clear any existing API key credentials to avoid confusion
 	os.Setenv("MEGAPORT_ACCESS_KEY", "")
 	os.Setenv("MEGAPORT_SECRET_KEY", "")
+	// Also clear any managed-account UID left by a prior setAuthCredentials call:
+	// a token session's on-behalf-of context must come from the --on-behalf-of
+	// flag, not a stale env var from a different auth session.
+	os.Unsetenv("MEGAPORT_MANAGED_ACCOUNT_UID")
 
 	// Expose only metadata (not the raw token) in the JS global so the UI can
 	// reflect the current session state without re-exposing the bearer token.

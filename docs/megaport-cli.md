@@ -56,6 +56,7 @@ megaport-cli [flags]
 | `--no-header` |  | `false` | Suppress table and CSV column headers (useful for scripting) | false |
 | `--no-pager` |  | `false` | Disable pager for long table output | false |
 | `--no-retry` |  | `false` | Disable automatic retry on transient API failures | false |
+| `--on-behalf-of` |  |  | Act on behalf of a managed account: company UID sent as the X-Call-Context header on every authenticated request (falls back to MEGAPORT_MANAGED_ACCOUNT_UID) | false |
 | `--output` | `-o` | `table` | Output format (table, json, csv, xml, go-template; requires --template when using go-template) | false |
 | `--profile` |  |  | Use a specific config profile for this command | false |
 | `--query` |  |  | JMESPath query to filter JSON output (requires --output json) | false |
