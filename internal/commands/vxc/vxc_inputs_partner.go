@@ -676,6 +676,11 @@ func parseBGPConnections(raw interface{}, ifaceIndex int) ([]megaport.BgpConnect
 		} else if ok {
 			conn.PeerType = v
 		}
+		if v, ok, err := boolField("asOverride"); err != nil {
+			return nil, err
+		} else if ok {
+			conn.AsOverride = &v
+		}
 
 		conns = append(conns, conn)
 	}
