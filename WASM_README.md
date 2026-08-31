@@ -88,9 +88,8 @@ Instead, whenever the API rejects a request with 401/403, whether that's because
 token expired or because the host revoked it, the failing command's output contains
 the substring `MEGAPORT_SESSION_EXPIRED`. The host is responsible for watching command
 output for this marker and, on a match, prompting the user to re-authenticate and
-calling `setAuthToken` again with a fresh token. See
-[`frontend-integration/types/megaport-wasm.d.ts`](frontend-integration/types/megaport-wasm.d.ts)
-for the full type signature and doc comments.
+calling `setAuthToken` again with a fresh token. The registration and doc comments
+for `setAuthToken` live inline in `internal/wasm/wasm.go`.
 
 Separately, the browser-cached OAuth token used by credentials-based logins
 (`window.tokenManager.getToken(environment)`, checked to avoid re-authenticating on
@@ -120,43 +119,102 @@ always returns `{ error: "synchronous execution is not supported; use executeMeg
 It will be removed in a future release; new integrations should not call it.
 
 Full type definitions for the whole JS surface (auth, config file, prompts, telemetry)
-live in [`frontend-integration/types/megaport-wasm.d.ts`](frontend-integration/types/megaport-wasm.d.ts).
+are documented inline in `internal/wasm/`; there is no separate reference front end in
+this repo. Front-end integrators (e.g. the Portal) own their own wrapper around the
+`window.executeMegaportCommandAsync` API described above.
+
+## Interactive Mode
+
+Some commands prompt for input (interactive `buy`/`update` flows, confirmations, secrets).
+In the browser there is no stdin, so the WASM asks the host page for each value through a
+small set of JavaScript functions. Wire these up and run the command through
+`executeMegaportCommandAsync` (see [JavaScript API](#javascript-api)), or interactive
+commands will never receive a response.
+
+### Host functions
+
+The WASM registers these on `window` at startup:
+
+| Function | Purpose |
+|---|---|
+| `registerPromptHandler(cb)` | Register a callback the WASM invokes with each prompt request. |
+| `submitPromptResponse(id, response)` | Reply to the prompt `id` with the user's input (a string). |
+| `cancelPrompt(id)` | Cancel the prompt `id`. A value prompt fails with a "prompt cancelled by user" error; a confirmation is treated as declined. |
+
+### Prompt request shape
+
+Your handler receives a single object:
+
+```js
+{
+  id: "prompt_1_1700000000000000000", // unique id; echo it back in submit/cancel
+  message: "Enter port name:",         // text to show the user
+  type: "text",                        // "text" | "confirm" | "password" | "resource"
+  resourceType: "port"                 // set for resource and secret-resource prompts (port, mcr, vxc, ...), else ""
+}
+```
+
+Mask the input when `type === "password"`: render an `<input type="password">` or otherwise
+hide the characters. Password prompts and secret-resource prompts (for example VXC/MVE
+passwords and pre-shared keys) set this type. Note that some other secret-bearing inputs
+(such as partner auth/service/shared keys and MVE registration keys) are currently sent as
+`type === "resource"`, so don't rely on the password type alone if you want to mask every
+possible secret.
+
+### Lifecycle
+
+```js
+registerPromptHandler((request) => {
+  const masked = request.type === 'password';
+  showPrompt(request.message, { masked }).then((answer) => {
+    if (answer === null) {
+      cancelPrompt(request.id);        // user dismissed the prompt
+    } else {
+      submitPromptResponse(request.id, answer);
+    }
+  });
+});
+
+executeMegaportCommandAsync('vxc buy --interactive', (result) => {
+  console.log(result.output || result.error);
+});
+```
+
+A prompt left unanswered times out after 10 minutes and the command receives an error.
+
+### Live output streaming
+
+By default a command's output arrives once, in the async callback's result. To render
+output as it is produced instead, register a handler before running the command:
+
+```js
+registerOutputHandler((chunk) => terminal.write(chunk)); // chunk is a string
+```
+
+The contract:
+
+- Only narrative output (progress and status messages) streams. Structured document
+  output (table/JSON/CSV/XML) is never streamed; it arrives once in the completion result.
+- If your handler received at least one chunk without throwing, the completion result does
+  **not** repeat the streamed narrative, so don't render both.
+- If the handler throws or no chunk was delivered, streaming is disabled for the rest of
+  that command and the completion result falls back to the full captured output
+  (already-streamed chunks may then appear twice).
 
 ## Building
-
-The browser CLI is two pieces: the WASM binary and the Vue front end that hosts it.
 
 ```bash
 # WASM binary only (writes web/megaport.wasm)
 make wasm
 
-# Full static site: WASM + Vue front end, assembled into web/vue-demo/
+# WASM binary + wasm_exec.js loader, assembled into web/dist/
 make web-static          # or: ./scripts/build-web.sh
 ```
 
-`web-static` needs the Go toolchain and Node/npm on `PATH`. It produces a self-contained
-**`web/vue-demo/`** directory (Vue build + `megaport.wasm` + `wasm_exec.js`) ready to
-publish to a CDN. See [`web/README.md`](web/README.md) for the wasm pre-compression and
-cache-header details.
-
-## Local Development
-
-The front end lives in `frontend-integration/` and has its own Vite dev server. The dev
-server serves files from that directory's root and has no `public/` dir, so build the wasm
-and copy the loader into `frontend-integration/` first, then start the server:
-
-```bash
-# From the repo root: build the wasm + loader into the dev server's root.
-GOOS=js GOARCH=wasm go build -tags js,wasm -o frontend-integration/megaport.wasm .
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" frontend-integration/wasm_exec.js
-
-cd frontend-integration
-npm install
-npm run dev:demo
-```
-
-Vite serves `megaport.wasm` with the correct `application/wasm` MIME type and reloads the
-front end on change. Rerun the build command above after changing Go code.
+`web-static` needs the Go toolchain on `PATH`. It produces a self-contained
+**`web/dist/`** directory (`megaport.wasm` + `wasm_exec.js`) ready to publish to a CDN.
+See [`web/README.md`](web/README.md) for the wasm pre-compression and cache-header
+details.
 
 ## Enabling a Module for WASM
 
@@ -230,16 +288,13 @@ aws s3 cp web/megaport.wasm s3://media.megaport.com/portal/megaport-cli/megaport
 aws s3 cp web/wasm_exec.js  s3://media.megaport.com/portal/megaport-cli/wasm_exec.js
 ```
 
-For CDN hosting (S3 + CloudFront) of the full static site, sync the assembled
-`web/vue-demo/` directory and serve it from the site root:
-
-```bash
-make web-static
-aws s3 sync web/vue-demo/ s3://<bucket>/<prefix>/ --delete
-```
-
-`--delete` prunes stale hashed assets from old builds, so point it at a prefix dedicated
-to this site, since it removes anything else under that prefix.
+For CDN hosting (S3 + CloudFront), publish via the `.github/workflows/wasm-publish.yaml`
+workflow rather than a plain sync. It runs `make web-static`, brotli pre-compresses the
+wasm (`cmd/wasmcompress`), then uploads `megaport.wasm` with `Content-Encoding: br` and
+pins `Content-Type` on both the wasm and `wasm_exec.js`. It syncs only the remaining
+static assets, so a bare `aws s3 sync web/dist/` would instead serve the wasm
+uncompressed and let the CDN mis-infer its MIME type, which breaks
+`WebAssembly.instantiateStreaming`.
 
 ## Troubleshooting
 

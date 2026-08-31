@@ -1,6 +1,7 @@
 name: Publish WASM to S3
 
-# Builds the browser/WASM CLI static site and publishes it to S3 + CloudFront.
+# Builds the browser/WASM CLI's static assets (megaport.wasm + wasm_exec.js) and
+# publishes them to S3 + CloudFront.
 #
 # CONFIGURATION REQUIRED BEFORE MERGE (ESD-1506):
 #   AWS access is provisioned via the shared github_runners_iam Terraform module in
@@ -27,10 +28,9 @@ name: Publish WASM to S3
 #   See the "Check required configuration" step, which fails early with a clear message.
 #
 # WHAT GETS PUBLISHED:
-#   Stable filenames under each prefix: megaport.wasm (brotli, Content-Encoding: br),
-#   wasm_exec.js, and the rest of the static site. The portal references megaport.wasm
-#   and wasm_exec.js by URL, so the names are kept stable rather than content-hashed;
-#   the version/latest prefix provides the cache-busting instead.
+#   Stable filenames under each prefix: megaport.wasm (brotli, Content-Encoding: br) and
+#   wasm_exec.js. The portal references both by URL, so the names are kept stable rather
+#   than content-hashed; the version/latest prefix provides the cache-busting instead.
 #
 # PORTAL INTEGRATION:
 #   Point the portal's wasmUrl/wasmExecUrl at the latest/ alias while iterating, then
@@ -108,12 +108,6 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend-integration/package-lock.json
-
       - name: Resolve version label
         id: version
         env:
@@ -142,7 +136,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $version"
 
-      - name: Build static site
+      - name: Build static assets
         run: make web-static
 
       - name: Compress WASM
@@ -151,7 +145,7 @@ jobs:
           # cmd/wasmcompress writes .br (and .gz) next to the source file (ESD-1268).
           # CloudFront auto-compression caps at 10 MB; the raw wasm is well over that,
           # so it must be pre-compressed at origin and served with Content-Encoding: br.
-          GOWORK=off go run ./cmd/wasmcompress web/vue-demo/megaport.wasm
+          GOWORK=off go run ./cmd/wasmcompress web/dist/megaport.wasm
 
       - name: Compute integrity hashes
         id: hashes
@@ -215,15 +209,14 @@ jobs:
           PUBLISH_LATEST: ${{ inputs.publish_latest }}
         run: |
           set -euo pipefail
-          src=web/vue-demo
+          src=web/dist
 
           publish() {
             local dest="s3://${BUCKET}/${PREFIX}/$1"
             local cache="$2"
             echo "==> Publishing to ${dest}"
-            # Sync the static site; the wasm and wasm_exec.js are uploaded separately below
-            # so we can pin their Content-Type/Content-Encoding instead of relying on
-            # aws s3 sync's MIME inference.
+            # The wasm and wasm_exec.js are uploaded separately below so we can pin their
+            # Content-Type/Content-Encoding instead of relying on aws s3 sync's MIME inference.
             aws s3 sync "$src/" "$dest/" --delete \
               --exclude 'megaport.wasm' \
               --exclude 'megaport.wasm.br' \

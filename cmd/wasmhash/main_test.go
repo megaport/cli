@@ -58,8 +58,8 @@ func TestHashFileDeterministicAndContentSensitive(t *testing.T) {
 }
 
 func TestInsertHash(t *testing.T) {
-	got := insertHash(filepath.FromSlash("web/vue-demo/megaport.wasm"), "abcd1234")
-	want := filepath.FromSlash("web/vue-demo/megaport.abcd1234.wasm")
+	got := insertHash(filepath.FromSlash("web/dist/megaport.wasm"), "abcd1234")
+	want := filepath.FromSlash("web/dist/megaport.abcd1234.wasm")
 	if got != want {
 		t.Fatalf("insertHash = %q, want %q", got, want)
 	}
