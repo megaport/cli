@@ -1289,7 +1289,7 @@ func TestBuildVXCRequestFromJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := buildVXCRequestFromJSON(tt.jsonStr, tt.jsonFilePath)
+			result, err := buildVXCRequestFromJSON(tt.jsonStr, tt.jsonFilePath, context.Background(), &MockVXCService{})
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedError)
@@ -1311,7 +1311,7 @@ func TestBuildVXCRequestFromJSON_RejectsEmptyTagKey(t *testing.T) {
 	const payload = `{"portUid":"port-1","vxcName":"Test VXC","rateLimit":1000,"term":12,"resourceTags":{"":"x"},"bEndConfiguration":{"productUID":"port-2"}}`
 
 	t.Run("via json", func(t *testing.T) {
-		_, err := buildVXCRequestFromJSON(payload, "")
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), &MockVXCService{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "tag key must not be empty")
 
@@ -1328,7 +1328,7 @@ func TestBuildVXCRequestFromJSON_RejectsEmptyTagKey(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, tmp.Close())
 
-		_, err = buildVXCRequestFromJSON("", tmp.Name())
+		_, err = buildVXCRequestFromJSON("", tmp.Name(), context.Background(), &MockVXCService{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "tag key must not be empty")
 
@@ -1343,13 +1343,112 @@ func TestBuildVXCRequestFromJSON_EndpointConfigMalformedField(t *testing.T) {
 	// top-level field checks in buildVXCRequestFromJSON.
 	payload := `{"portUid":"port-1","rateLimit":1000,"term":12,"aEndConfiguration":{"vlan":"not-a-number"}}`
 
-	_, err := buildVXCRequestFromJSON(payload, "")
+	_, err := buildVXCRequestFromJSON(payload, "", context.Background(), &MockVXCService{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "A-End")
 
 	var cliErr *exitcodes.CLIError
 	require.True(t, errors.As(err, &cliErr))
 	assert.Equal(t, exitcodes.Usage, cliErr.Code)
+}
+
+func TestBuildVXCRequestFromJSON_PartnerPortResolution(t *testing.T) {
+	t.Run("A-End portUid resolved from partner config when omitted", func(t *testing.T) {
+		payload := `{"vxcName":"Test VXC","rateLimit":1000,"term":12,"aEndConfiguration":{"partnerConfig":{"connectType":"AZURE","serviceKey":"azure-key"}},"bEndConfiguration":{"productUID":"port-2"}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsResponse: &megaport.LookupPartnerPortsResponse{ProductUID: "resolved-a-end"},
+		}
+
+		req, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.NoError(t, err)
+		assert.Equal(t, "resolved-a-end", req.PortUID)
+	})
+
+	t.Run("A-End portUid lookup failure surfaces as error", func(t *testing.T) {
+		payload := `{"vxcName":"Test VXC","rateLimit":1000,"term":12,"aEndConfiguration":{"partnerConfig":{"connectType":"AZURE","serviceKey":"azure-key"}},"bEndConfiguration":{"productUID":"port-2"}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsError: fmt.Errorf("lookup failed"),
+		}
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to look up A-End Partner Port")
+	})
+
+	t.Run("malformed rateLimit fails before A-End partner-port lookup", func(t *testing.T) {
+		payload := `{"vxcName":"Test VXC","rateLimit":1000.5,"term":12,"aEndConfiguration":{"partnerConfig":{"connectType":"AZURE","serviceKey":"azure-key"}},"bEndConfiguration":{"productUID":"port-2"}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsError: fmt.Errorf("lookup should not have been called"),
+		}
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "rateLimit must be a whole number")
+	})
+
+	t.Run("missing vxcName fails before A-End partner-port lookup", func(t *testing.T) {
+		payload := `{"rateLimit":1000,"term":12,"aEndConfiguration":{"partnerConfig":{"connectType":"AZURE","serviceKey":"azure-key"}},"bEndConfiguration":{"productUID":"port-2"}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsError: fmt.Errorf("lookup should not have been called"),
+		}
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "VXC name")
+	})
+
+	t.Run("missing vxcName fails before B-End partner-port lookup", func(t *testing.T) {
+		payload := `{"portUid":"port-1","rateLimit":1000,"term":12,"bEndConfiguration":{"partnerConfig":{"connectType":"GOOGLE","pairingKey":"google-key"}}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsError: fmt.Errorf("lookup should not have been called"),
+		}
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "VXC name")
+	})
+
+	t.Run("B-End productUID resolved from partner config when omitted", func(t *testing.T) {
+		payload := `{"portUid":"port-1","vxcName":"Test VXC","rateLimit":1000,"term":12,"bEndConfiguration":{"partnerConfig":{"connectType":"GOOGLE","pairingKey":"google-key"}}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsResponse: &megaport.LookupPartnerPortsResponse{ProductUID: "resolved-b-end"},
+		}
+
+		req, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.NoError(t, err)
+		assert.Equal(t, "resolved-b-end", req.BEndConfiguration.ProductUID)
+	})
+
+	t.Run("B-End productUID lookup failure surfaces as error", func(t *testing.T) {
+		payload := `{"portUid":"port-1","vxcName":"Test VXC","rateLimit":1000,"term":12,"bEndConfiguration":{"partnerConfig":{"connectType":"GOOGLE","pairingKey":"google-key"}}}`
+		svc := &MockVXCService{
+			LookupPartnerPortsError: fmt.Errorf("lookup failed"),
+		}
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), svc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to look up B-End Partner Port")
+	})
+
+	t.Run("A-End partner config that resolves to no UID still requires portUid", func(t *testing.T) {
+		payload := `{"vxcName":"Test VXC","rateLimit":1000,"term":12,"aEndConfiguration":{"partnerConfig":{"connectType":"AWS","ownerAccount":"123"}},"bEndConfiguration":{"productUID":"port-2"}}`
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), &MockVXCService{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Port UID is required")
+	})
+
+	t.Run("B-End partner config that resolves to no UID still requires productUID", func(t *testing.T) {
+		payload := `{"portUid":"port-1","vxcName":"Test VXC","rateLimit":1000,"term":12,"bEndConfiguration":{"partnerConfig":{"connectType":"AWS","ownerAccount":"123"}}}`
+
+		_, err := buildVXCRequestFromJSON(payload, "", context.Background(), &MockVXCService{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "productUID was neither provided nor could be looked up")
+
+		var cliErr *exitcodes.CLIError
+		require.True(t, errors.As(err, &cliErr), "expected a *exitcodes.CLIError, got %T: %v", err, err)
+		assert.Equal(t, exitcodes.Usage, cliErr.Code)
+	})
 }
 
 func TestBuildUpdateVXCRequestFromJSON_PartnerConfigs(t *testing.T) {

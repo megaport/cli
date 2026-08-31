@@ -89,11 +89,14 @@ func processFlagCreateNATGatewayInput(cmd *cobra.Command) (*megaport.CreateNATGa
 	if resourceTagsStr != "" || resourceTagsFile != "" {
 		tagData, err := utils.ReadJSONInput(resourceTagsStr, resourceTagsFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read resource tags: %w", err)
+			return nil, exitcodes.NewUsageError(fmt.Errorf("failed to read resource tags: %w", err))
 		}
 		var tagsMap map[string]string
 		if err := json.Unmarshal(tagData, &tagsMap); err != nil {
-			return nil, fmt.Errorf("failed to parse resource tags JSON: %w", err)
+			return nil, exitcodes.NewUsageError(fmt.Errorf("failed to parse resource tags JSON: %w", err))
+		}
+		if err := utils.RejectEmptyTagKeys(tagsMap); err != nil {
+			return nil, exitcodes.NewUsageError(err)
 		}
 		for k, v := range tagsMap {
 			resourceTags = append(resourceTags, megaport.ResourceTag{Key: k, Value: v})
@@ -132,15 +135,18 @@ func processFlagCreateNATGatewayInput(cmd *cobra.Command) (*megaport.CreateNATGa
 // BGPShutdownDefault *bool) get a corresponding entry here because their zero
 // value is ambiguous. Fields with genuinely invalid zero values
 // (LocationID, Speed, Term — all must be positive) do not need tracking
-// because 0 can only mean "omitted". Fields with omitempty on the SDK request
-// (PromoCode, ServiceLevelReference, ResourceTags) are safe to leave as plain
-// strings/slices because the API ignores empty/nil values for those.
+// because 0 can only mean "omitted". PromoCode and ServiceLevelReference are
+// likewise plain strings; mergeUpdateDefaults inherits them from the original
+// resource when left blank rather than relying on server-side omitempty
+// behavior.
 type updateExplicitFields struct {
-	AutoRenewTerm      bool // was autoRenewTerm present in input?
-	BGPShutdownDefault bool // was bgpShutdownDefault present in input?
-	ASN                bool // was asn present in JSON input? (no flag path for ASN)
-	SessionCount       bool // was sessionCount present in JSON input?
-	DiversityZone      bool // was diversityZone present in JSON input?
+	AutoRenewTerm         bool // was autoRenewTerm present in input?
+	BGPShutdownDefault    bool // was bgpShutdownDefault present in input?
+	ASN                   bool // was asn present in JSON input? (no flag path for ASN)
+	SessionCount          bool // was sessionCount present in JSON input?
+	DiversityZone         bool // was diversityZone present in JSON input?
+	PromoCode             bool // was promoCode present in input?
+	ServiceLevelReference bool // was serviceLevelReference present in input?
 }
 
 // processJSONUpdateNATGatewayInput parses a JSON update request and returns the
@@ -148,8 +154,10 @@ type updateExplicitFields struct {
 // zero value could be a valid intentional value (bool, int for ASN/SessionCount,
 // string for DiversityZone) use pointer types in the raw struct so nil means
 // "not provided" and mergeUpdateDefaults will inherit from the original resource.
-// Fields with genuinely invalid zero values (LocationID, Speed, Term) or omitempty
-// in the SDK request (PromoCode, ServiceLevelReference) use plain types.
+// Fields with genuinely invalid zero values (LocationID, Speed, Term) use plain
+// types. PromoCode and ServiceLevelReference use pointer types too: they carry
+// omitempty in the SDK request, so an explicit "" is dropped from the wire and
+// the server clears the field, but only if we don't inherit the original first.
 func processJSONUpdateNATGatewayInput(jsonStr, jsonFile, uid string) (*megaport.UpdateNATGatewayRequest, updateExplicitFields, error) {
 	jsonData, err := utils.ReadJSONInput(jsonStr, jsonFile)
 	if err != nil {
@@ -166,8 +174,8 @@ func processJSONUpdateNATGatewayInput(jsonStr, jsonFile, uid string) (*megaport.
 		ASN                   *int              `json:"asn"`
 		BGPShutdownDefault    *bool             `json:"bgpShutdownDefault"`
 		AutoRenewTerm         *bool             `json:"autoRenewTerm"`
-		PromoCode             string            `json:"promoCode"`
-		ServiceLevelReference string            `json:"serviceLevelReference"`
+		PromoCode             *string           `json:"promoCode"`
+		ServiceLevelReference *string           `json:"serviceLevelReference"`
 		ResourceTags          map[string]string `json:"resourceTags"`
 	}
 	if err := json.Unmarshal(jsonData, &raw); err != nil {
@@ -175,15 +183,17 @@ func processJSONUpdateNATGatewayInput(jsonStr, jsonFile, uid string) (*megaport.
 	}
 
 	if err := utils.RejectEmptyTagKeys(raw.ResourceTags); err != nil {
-		return nil, updateExplicitFields{}, err
+		return nil, updateExplicitFields{}, exitcodes.NewUsageError(err)
 	}
 
 	explicit := updateExplicitFields{
-		AutoRenewTerm:      raw.AutoRenewTerm != nil,
-		BGPShutdownDefault: raw.BGPShutdownDefault != nil,
-		ASN:                raw.ASN != nil,
-		SessionCount:       raw.SessionCount != nil,
-		DiversityZone:      raw.DiversityZone != nil,
+		AutoRenewTerm:         raw.AutoRenewTerm != nil,
+		BGPShutdownDefault:    raw.BGPShutdownDefault != nil,
+		ASN:                   raw.ASN != nil,
+		SessionCount:          raw.SessionCount != nil,
+		DiversityZone:         raw.DiversityZone != nil,
+		PromoCode:             raw.PromoCode != nil,
+		ServiceLevelReference: raw.ServiceLevelReference != nil,
 	}
 
 	var autoRenew, bgpShutdown bool
@@ -204,6 +214,13 @@ func processJSONUpdateNATGatewayInput(jsonStr, jsonFile, uid string) (*megaport.
 	if raw.DiversityZone != nil {
 		diversityZone = *raw.DiversityZone
 	}
+	var promoCode, serviceLevelRef string
+	if raw.PromoCode != nil {
+		promoCode = *raw.PromoCode
+	}
+	if raw.ServiceLevelReference != nil {
+		serviceLevelRef = *raw.ServiceLevelReference
+	}
 
 	req := &megaport.UpdateNATGatewayRequest{
 		ProductUID:            uid,
@@ -212,8 +229,8 @@ func processJSONUpdateNATGatewayInput(jsonStr, jsonFile, uid string) (*megaport.
 		Speed:                 raw.Speed,
 		Term:                  raw.Term,
 		AutoRenewTerm:         autoRenew,
-		PromoCode:             raw.PromoCode,
-		ServiceLevelReference: raw.ServiceLevelReference,
+		PromoCode:             promoCode,
+		ServiceLevelReference: serviceLevelRef,
 		Config: megaport.NATGatewayNetworkConfig{
 			ASN:                asn,
 			BGPShutdownDefault: bgpShutdown,
@@ -253,11 +270,14 @@ func processFlagUpdateNATGatewayInput(cmd *cobra.Command, uid string) (*megaport
 	if resourceTagsStr != "" || resourceTagsFile != "" {
 		tagData, err := utils.ReadJSONInput(resourceTagsStr, resourceTagsFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read resource tags: %w", err)
+			return nil, exitcodes.NewUsageError(fmt.Errorf("failed to read resource tags: %w", err))
 		}
 		var tagsMap map[string]string
 		if err := json.Unmarshal(tagData, &tagsMap); err != nil {
-			return nil, fmt.Errorf("failed to parse resource tags JSON: %w", err)
+			return nil, exitcodes.NewUsageError(fmt.Errorf("failed to parse resource tags JSON: %w", err))
+		}
+		if err := utils.RejectEmptyTagKeys(tagsMap); err != nil {
+			return nil, exitcodes.NewUsageError(err)
 		}
 		for k, v := range tagsMap {
 			resourceTags = append(resourceTags, megaport.ResourceTag{Key: k, Value: v})

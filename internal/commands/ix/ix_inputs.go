@@ -83,6 +83,9 @@ func buildUpdateIXRequestFromFlags(cmd *cobra.Command) (*megaport.UpdateIXReques
 
 	if cmd.Flags().Changed("name") {
 		name, _ := cmd.Flags().GetString("name")
+		if name == "" {
+			return nil, validation.NewValidationError("name", name, "cannot be empty")
+		}
 		req.Name = &name
 	}
 
@@ -154,14 +157,17 @@ func buildUpdateIXRequestFromFlags(cmd *cobra.Command) (*megaport.UpdateIXReques
 func buildUpdateIXRequestFromJSON(jsonStr, jsonFile string) (*megaport.UpdateIXRequest, error) {
 	jsonData, err := utils.ReadJSONInput(jsonStr, jsonFile)
 	if err != nil {
-		return nil, err
+		return nil, exitcodes.NewUsageError(err)
 	}
 
 	req := &megaport.UpdateIXRequest{}
 	if err := json.Unmarshal(jsonData, req); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		return nil, exitcodes.NewUsageError(fmt.Errorf("failed to parse JSON: %w", err))
 	}
 
+	if req.Name != nil && *req.Name == "" {
+		return nil, validation.NewValidationError("name", "", "cannot be empty")
+	}
 	if req.ASN != nil {
 		if err := validation.ValidateASN(*req.ASN); err != nil {
 			return nil, err
@@ -181,6 +187,12 @@ func buildUpdateIXRequestFromJSON(jsonStr, jsonFile string) (*megaport.UpdateIXR
 		if err := validation.ValidateVLAN(*req.VLAN); err != nil {
 			return nil, err
 		}
+	}
+
+	if req.Name == nil && req.RateLimit == nil && req.CostCentre == nil && req.VLAN == nil &&
+		req.MACAddress == nil && req.ASN == nil && req.Password == nil && req.PublicGraph == nil &&
+		req.ReverseDns == nil && req.AEndProductUid == nil && req.Shutdown == nil {
+		return nil, exitcodes.NewUsageError(fmt.Errorf("at least one field must be updated"))
 	}
 
 	return req, nil

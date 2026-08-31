@@ -29,11 +29,12 @@ func TestFindPartners(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name          string
-		prompts       []string
-		expectedError string
-		setupMock     func(*testing.T, *MockPartnerService)
-		expectedCount int
+		name           string
+		prompts        []string
+		expectedError  string
+		setupMock      func(*testing.T, *MockPartnerService)
+		expectedCount  int
+		expectedFormat string
 	}{
 		{
 			name: "successful search with all filters",
@@ -129,6 +130,70 @@ func TestFindPartners(t *testing.T) {
 			},
 			expectedCount: 0,
 		},
+		{
+			name: "uppercase format is normalized",
+			prompts: []string{
+				"", "", "", "", "",
+				"JSON",
+			},
+			expectedError: "",
+			setupMock: func(t *testing.T, m *MockPartnerService) {
+				m.listPartnersResponse = []*megaport.PartnerMegaport{
+					{ProductName: "Test Product", ConnectType: "AWS", CompanyName: "Amazon", LocationId: 123, DiversityZone: "blue"},
+				}
+				m.listPartnersErr = nil
+			},
+			expectedCount:  1,
+			expectedFormat: "json",
+		},
+		{
+			name: "format with surrounding whitespace is normalized",
+			prompts: []string{
+				"", "", "", "", "",
+				"  table  ",
+			},
+			expectedError: "",
+			setupMock: func(t *testing.T, m *MockPartnerService) {
+				m.listPartnersResponse = []*megaport.PartnerMegaport{
+					{ProductName: "Test Product", ConnectType: "AWS", CompanyName: "Amazon", LocationId: 123, DiversityZone: "blue"},
+				}
+				m.listPartnersErr = nil
+			},
+			expectedCount:  1,
+			expectedFormat: "table",
+		},
+		{
+			name: "csv format is honored",
+			prompts: []string{
+				"", "", "", "", "",
+				"csv",
+			},
+			expectedError: "",
+			setupMock: func(t *testing.T, m *MockPartnerService) {
+				m.listPartnersResponse = []*megaport.PartnerMegaport{
+					{ProductName: "Test Product", ConnectType: "AWS", CompanyName: "Amazon", LocationId: 123, DiversityZone: "blue"},
+				}
+				m.listPartnersErr = nil
+			},
+			expectedCount:  1,
+			expectedFormat: "csv",
+		},
+		{
+			name: "unrecognized format falls back to table",
+			prompts: []string{
+				"", "", "", "", "",
+				"yaml",
+			},
+			expectedError: "",
+			setupMock: func(t *testing.T, m *MockPartnerService) {
+				m.listPartnersResponse = []*megaport.PartnerMegaport{
+					{ProductName: "Test Product", ConnectType: "AWS", CompanyName: "Amazon", LocationId: 123, DiversityZone: "blue"},
+				}
+				m.listPartnersErr = nil
+			},
+			expectedCount:  1,
+			expectedFormat: "table",
+		},
 	}
 
 	for _, tt := range tests {
@@ -158,8 +223,10 @@ func TestFindPartners(t *testing.T) {
 			})
 
 			var capturedPartners []*megaport.PartnerMegaport
+			var capturedFormat string
 			printPartnersFunc = func(partners []*megaport.PartnerMegaport, format string, noColor bool) error {
 				capturedPartners = partners
+				capturedFormat = format
 				return nil
 			}
 
@@ -173,6 +240,9 @@ func TestFindPartners(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, len(tt.prompts), promptIndex, "not all prompts were used")
 				assert.Equal(t, tt.expectedCount, len(capturedPartners), "incorrect number of filtered partners")
+				if tt.expectedFormat != "" {
+					assert.Equal(t, tt.expectedFormat, capturedFormat, "output format not normalized as expected")
+				}
 			}
 		})
 	}

@@ -298,6 +298,8 @@ func UpdateNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 		explicit.AutoRenewTerm = cmd.Flags().Changed("auto-renew")
 		explicit.SessionCount = cmd.Flags().Changed("session-count")
 		explicit.DiversityZone = cmd.Flags().Changed("diversity-zone")
+		explicit.PromoCode = cmd.Flags().Changed("promo-code")
+		explicit.ServiceLevelReference = cmd.Flags().Changed("service-level-reference")
 		// ASN and BGPShutdownDefault have no flag path; never explicit in flag mode.
 	} else if interactive {
 		req, explicit, err = promptForUpdateNATGatewayDetails(uid, noColor)
@@ -362,6 +364,16 @@ func mergeUpdateDefaults(req *megaport.UpdateNATGatewayRequest, original *megapo
 	}
 	if req.Term == 0 {
 		req.Term = original.Term
+	}
+	// PromoCode and ServiceLevelReference carry omitempty, so an explicit "" is
+	// dropped from the wire and the server clears the field. Only inherit the
+	// original when the caller didn't provide the field, so a deliberate clear
+	// isn't overwritten with the stale value.
+	if !explicit.PromoCode && req.PromoCode == "" {
+		req.PromoCode = original.PromoCode
+	}
+	if !explicit.ServiceLevelReference && req.ServiceLevelReference == "" {
+		req.ServiceLevelReference = original.ServiceLevelReference
 	}
 	if !explicit.SessionCount && req.Config.SessionCount == 0 {
 		req.Config.SessionCount = original.Config.SessionCount

@@ -19,7 +19,7 @@ var buildVXCRequestFromFlags = func(cmd *cobra.Command, ctx context.Context, svc
 
 	name, _ := cmd.Flags().GetString("name")
 	if name == "" {
-		return nil, fmt.Errorf("name is required")
+		return nil, exitcodes.NewUsageError(validation.NewValidationError("VXC name", name, "cannot be empty"))
 	}
 
 	rateLimit, _ := cmd.Flags().GetInt("rate-limit")
@@ -212,7 +212,7 @@ func parseVXCEndpointConfig(endConfigRaw map[string]interface{}, endLabel string
 	return config, nil
 }
 
-func buildVXCRequestFromJSON(jsonStr string, jsonFilePath string) (*megaport.BuyVXCRequest, error) {
+func buildVXCRequestFromJSON(jsonStr string, jsonFilePath string, ctx context.Context, svc megaport.VXCService) (*megaport.BuyVXCRequest, error) {
 	if jsonStr == "" && jsonFilePath == "" {
 		return nil, exitcodes.NewUsageError(fmt.Errorf("either json or json-file must be provided"))
 	}
@@ -228,42 +228,85 @@ func buildVXCRequestFromJSON(jsonStr string, jsonFilePath string) (*megaport.Buy
 		return nil, exitcodes.NewUsageError(fmt.Errorf("failed to parse JSON: %w", err))
 	}
 
+	// Parse A-End configuration early: its partner config, if present, can
+	// resolve a missing top-level portUid the same way flags mode does.
+	var aEndConfig megaport.VXCOrderEndpointConfiguration
+	if aEndConfigRaw, present, err := utils.JSONObject(rawData, "aEndConfiguration"); err != nil {
+		return nil, exitcodes.NewUsageError(err)
+	} else if present {
+		aEndConfig, err = parseVXCEndpointConfig(aEndConfigRaw, "A-End")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Parse and format-check vxcName/rateLimit/term before any partner-port
+	// lookup, so malformed JSON fails fast without an API round-trip.
+	vxcName, _, err := utils.JSONString(rawData, "vxcName")
+	if err != nil {
+		return nil, exitcodes.NewUsageError(err)
+	}
+
+	rateLimit, _, err := utils.JSONNumber(rawData, "rateLimit")
+	if err != nil {
+		return nil, exitcodes.NewUsageError(err)
+	}
+	if rateLimit != math.Trunc(rateLimit) {
+		return nil, exitcodes.NewUsageError(fmt.Errorf("rateLimit must be a whole number, got %v", rateLimit))
+	}
+
+	term, _, err := utils.JSONNumber(rawData, "term")
+	if err != nil {
+		return nil, exitcodes.NewUsageError(err)
+	}
+	if term != math.Trunc(term) {
+		return nil, exitcodes.NewUsageError(fmt.Errorf("term must be a whole number, got %v", term))
+	}
+
+	// Required fields the buy request can't do without, checked before any
+	// partner-port lookup so a partial JSON body fails fast rather than
+	// spending an API round-trip on a request that will fail validation anyway.
+	requireBuyFields := func() error {
+		if vxcName == "" {
+			return exitcodes.NewUsageError(validation.NewValidationError("VXC name", vxcName, "cannot be empty"))
+		}
+		if err := validation.ValidateRateLimit(int(rateLimit)); err != nil {
+			return exitcodes.NewUsageError(err)
+		}
+		if err := validation.ValidateContractTerm(int(term)); err != nil {
+			return exitcodes.NewUsageError(err)
+		}
+		return nil
+	}
+
 	portUID, present, err := utils.JSONString(rawData, "portUid")
 	if err != nil {
 		return nil, exitcodes.NewUsageError(err)
 	}
 	if !present {
-		return nil, exitcodes.NewUsageError(validation.NewValidationError("portUid", "", "Port UID is required"))
+		if aEndConfig.PartnerConfig == nil {
+			return nil, exitcodes.NewUsageError(validation.NewValidationError("portUid", "", "Port UID is required"))
+		}
+		if err := requireBuyFields(); err != nil {
+			return nil, err
+		}
+		uid, err := resolvePartnerPortUID(ctx, svc, aEndConfig.PartnerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to look up A-End Partner Port: %w", err)
+		}
+		if uid == "" {
+			return nil, exitcodes.NewUsageError(validation.NewValidationError("portUid", "", "Port UID is required"))
+		}
+		portUID = uid
 	}
 
 	// Create the base request
 	req := &megaport.BuyVXCRequest{
-		PortUID: portUID,
-	}
-
-	// Set simple fields
-	if vxcName, present, err := utils.JSONString(rawData, "vxcName"); err != nil {
-		return nil, exitcodes.NewUsageError(err)
-	} else if present {
-		req.VXCName = vxcName
-	}
-
-	if rateLimit, present, err := utils.JSONNumber(rawData, "rateLimit"); err != nil {
-		return nil, exitcodes.NewUsageError(err)
-	} else if present {
-		if rateLimit != math.Trunc(rateLimit) {
-			return nil, exitcodes.NewUsageError(fmt.Errorf("rateLimit must be a whole number, got %v", rateLimit))
-		}
-		req.RateLimit = int(rateLimit)
-	}
-
-	if term, present, err := utils.JSONNumber(rawData, "term"); err != nil {
-		return nil, exitcodes.NewUsageError(err)
-	} else if present {
-		if term != math.Trunc(term) {
-			return nil, exitcodes.NewUsageError(fmt.Errorf("term must be a whole number, got %v", term))
-		}
-		req.Term = int(term)
+		PortUID:           portUID,
+		AEndConfiguration: aEndConfig,
+		VXCName:           vxcName,
+		RateLimit:         int(rateLimit),
+		Term:              int(term),
 	}
 
 	if shutdown, present, err := utils.JSONBool(rawData, "shutdown"); err != nil {
@@ -301,24 +344,28 @@ func buildVXCRequestFromJSON(jsonStr string, jsonFilePath string) (*megaport.Buy
 		req.ResourceTags = tags
 	}
 
-	// Handle A-End configuration
-	if aEndConfigRaw, present, err := utils.JSONObject(rawData, "aEndConfiguration"); err != nil {
-		return nil, exitcodes.NewUsageError(err)
-	} else if present {
-		aEndConfig, err := parseVXCEndpointConfig(aEndConfigRaw, "A-End")
-		if err != nil {
-			return nil, err
-		}
-		req.AEndConfiguration = aEndConfig
-	}
-
-	// Handle B-End configuration
+	// Handle B-End configuration. Resolve a missing productUID from the
+	// partner config the same way flags mode does, so the same logical
+	// purchase succeeds through either input mode.
 	if bEndConfigRaw, present, err := utils.JSONObject(rawData, "bEndConfiguration"); err != nil {
 		return nil, exitcodes.NewUsageError(err)
 	} else if present {
 		bEndConfig, err := parseVXCEndpointConfig(bEndConfigRaw, "B-End")
 		if err != nil {
 			return nil, err
+		}
+		if bEndConfig.ProductUID == "" && bEndConfig.PartnerConfig != nil {
+			if err := requireBuyFields(); err != nil {
+				return nil, err
+			}
+			uid, err := resolvePartnerPortUID(ctx, svc, bEndConfig.PartnerConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to look up B-End Partner Port: %w", err)
+			}
+			if uid == "" {
+				return nil, exitcodes.NewUsageError(fmt.Errorf("bEndConfiguration.productUID was neither provided nor could be looked up"))
+			}
+			bEndConfig.ProductUID = uid
 		}
 		req.BEndConfiguration = bEndConfig
 	}

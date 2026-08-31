@@ -685,9 +685,15 @@ func processJSONUpdateMVEInput(jsonStr, jsonFilePath, mveUID string) (*megaport.
 		MVEID: mveUID,
 	}
 
+	// Gate on presence, not a non-empty value, so an explicit "name": "" is
+	// rejected deterministically instead of being silently treated the same
+	// as the key being absent, matching the flag path.
 	if name, present, err := utils.JSONString(jsonData, "name"); err != nil {
 		return nil, false, err
-	} else if present && name != "" {
+	} else if present {
+		if name == "" {
+			return nil, false, validation.NewValidationError("name", name, "cannot be empty")
+		}
 		req.Name = name
 	}
 
@@ -748,7 +754,13 @@ func processFlagUpdateMVEInput(cmd *cobra.Command, mveUID string) (*megaport.Mod
 		MVEID: mveUID,
 	}
 
-	if name != "" {
+	// Gate on Changed, not a non-empty value, so an explicit --name "" is
+	// rejected deterministically instead of being silently treated the same
+	// as the flag not being passed at all.
+	if cmd.Flags().Changed("name") {
+		if name == "" {
+			return nil, false, validation.NewValidationError("name", name, "cannot be empty")
+		}
 		req.Name = name
 	}
 
