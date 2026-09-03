@@ -63,7 +63,7 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 
 	if err != nil {
 		output.PrintError("Failed to list IP routes: %v", noColor, err)
-		return fmt.Errorf("error listing IP routes: %v", err)
+		return fmt.Errorf("error listing IP routes: %w", err)
 	}
 
 	routes = filterIPRoutesByProtocol(routes, protocol)
@@ -111,7 +111,7 @@ func ListLookingGlassBGPRoutes(cmd *cobra.Command, args []string, noColor bool, 
 
 	if err != nil {
 		output.PrintError("Failed to list BGP routes: %v", noColor, err)
-		return fmt.Errorf("error listing BGP routes: %v", err)
+		return fmt.Errorf("error listing BGP routes: %w", err)
 	}
 
 	if len(routes) == 0 {
@@ -166,7 +166,7 @@ func ListLookingGlassBGPNeighborRoutes(cmd *cobra.Command, args []string, noColo
 
 	if err != nil {
 		output.PrintError("Failed to list BGP neighbor routes: %v", noColor, err)
-		return fmt.Errorf("error listing BGP neighbor routes: %v", err)
+		return fmt.Errorf("error listing BGP neighbor routes: %w", err)
 	}
 
 	routes = filterBGPRoutesByIP(routes, want)
