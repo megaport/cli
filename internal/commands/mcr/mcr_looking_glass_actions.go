@@ -24,7 +24,7 @@ const mcrDiagnosticsPollTimeout = 5 * time.Minute
 func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
 	output.SetOutputFormat(outputFormat)
 
-	ctx, cancel := utils.ContextFromCmd(cmd)
+	ctx, cancel := utils.ContextFromCmdWithDefault(cmd, mcrDiagnosticsPollTimeout)
 	defer cancel()
 
 	client, err := config.Login(ctx)
@@ -73,7 +73,7 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 func ListLookingGlassBGPRoutes(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
 	output.SetOutputFormat(outputFormat)
 
-	ctx, cancel := utils.ContextFromCmd(cmd)
+	ctx, cancel := utils.ContextFromCmdWithDefault(cmd, mcrDiagnosticsPollTimeout)
 	defer cancel()
 
 	client, err := config.Login(ctx)
@@ -139,7 +139,7 @@ func ListLookingGlassBGPNeighborRoutes(cmd *cobra.Command, args []string, noColo
 		}
 	}
 
-	ctx, cancel := utils.ContextFromCmd(cmd)
+	ctx, cancel := utils.ContextFromCmdWithDefault(cmd, mcrDiagnosticsPollTimeout)
 	defer cancel()
 
 	client, err := config.Login(ctx)
