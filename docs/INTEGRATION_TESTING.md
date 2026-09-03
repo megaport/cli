@@ -41,7 +41,7 @@ The read-only integration tests cover `billing_market`, `locations`, `managed_ac
 
 ### MCR routing coverage
 
-The MCR lifecycle tests cover prefix filter lists for both IPv4 and IPv6 (create/get/update/delete). The CLI exposes no standalone command to configure static IP routes or BGP peering on an MCR, so there is no MCR route/BGP lifecycle test: that configuration is set through a VXC's A-end MCR partner config. Static IP routes are exercised by the VXC MCR-vrouter integration test; BGP peering is configured the same way but is not yet covered by an integration test. The MCR looking-glass `ip-routes`/`bgp-routes`/`bgp-neighbor-routes` commands are read-only diagnostics, not routing config.
+The MCR lifecycle tests cover prefix filter lists for both IPv4 and IPv6 (create/get/update/delete). The CLI exposes no standalone command to configure static IP routes or BGP peering on an MCR, so there is no MCR route/BGP lifecycle test: that configuration is set through a VXC's A-end MCR partner config. Static IP routes are exercised by the VXC MCR-vrouter integration test; BGP peering is configured the same way but is not yet covered by an integration test. The MCR looking-glass `ip-routes`/`bgp-routes`/`bgp-neighbor-routes` commands are read-only diagnostics, not routing config, and are covered by a read-only smoke test that skips the neighbor-routes case when no VXC has a BGP peer configured.
 
 ## Build tag
 
