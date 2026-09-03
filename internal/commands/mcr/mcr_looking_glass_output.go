@@ -14,7 +14,7 @@ type IPRouteOutput struct {
 	Prefix        string `json:"prefix" header:"Prefix"`
 	NextHop       string `json:"next_hop" header:"Next Hop"`
 	Protocol      string `json:"protocol" header:"Protocol"`
-	Distance      int    `json:"distance" header:"Distance"`
+	Distance      int    `json:"distance,omitempty" header:"Distance"`
 	Metric        int    `json:"metric" header:"Metric"`
 	VXCName       string `json:"vxc_name,omitempty" header:"VXC Name"`
 }
