@@ -66,8 +66,11 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 			}
 			for _, iface := range vRouter.Interfaces {
 				for _, bgp := range iface.BGPConnections {
-					if bgp.PeerIpAddress != "" {
-						return bgp.PeerIpAddress
+					// A configured peer address can carry a prefix length. The
+					// neighbor-routes command takes a bare IP.
+					peer, _, _ := strings.Cut(bgp.PeerIpAddress, "/")
+					if peer != "" {
+						return peer
 					}
 				}
 			}
