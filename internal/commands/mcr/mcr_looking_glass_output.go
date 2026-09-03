@@ -48,6 +48,7 @@ type BGPRouteOutput struct {
 	Origin        string `json:"origin,omitempty" header:"Origin"`
 	Source        string `json:"source,omitempty" header:"Source"`
 	Communities   string `json:"communities,omitempty" header:"Communities"`
+	AdvertisedTo  string `json:"advertised_to,omitempty" header:"Advertised To"`
 	Valid         string `json:"valid" header:"Valid"`
 	Best          string `json:"best" header:"Best"`
 	External      string `json:"external" header:"External"`
@@ -62,20 +63,21 @@ func ToBGPRouteOutput(route *megaport.LookingGlassBGPRoute) (BGPRouteOutput, err
 	}
 
 	return BGPRouteOutput{
-		Prefix:      route.Prefix,
-		NextHop:     route.NextHop.IP,
-		ASPath:      route.ASPath,
-		LocalPref:   route.LocalPref,
-		MED:         route.MED,
-		Weight:      route.Weight,
-		Origin:      route.Origin,
-		Source:      route.Source,
-		Communities: strings.Join(route.Communities, ", "),
-		Valid:       boolToYesNo(route.Valid),
-		Best:        boolToYesNo(route.Best),
-		External:    boolToYesNo(route.External),
-		VXCName:     route.NextHop.VXC.Name,
-		Since:       route.Since,
+		Prefix:       route.Prefix,
+		NextHop:      route.NextHop.IP,
+		ASPath:       route.ASPath,
+		LocalPref:    route.LocalPref,
+		MED:          route.MED,
+		Weight:       route.Weight,
+		Origin:       route.Origin,
+		Source:       route.Source,
+		Communities:  strings.Join(route.Communities, ", "),
+		AdvertisedTo: strings.Join(route.AdvertisedTo, ", "),
+		Valid:        boolToYesNo(route.Valid),
+		Best:         boolToYesNo(route.Best),
+		External:     boolToYesNo(route.External),
+		VXCName:      route.NextHop.VXC.Name,
+		Since:        route.Since,
 	}, nil
 }
 

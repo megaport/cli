@@ -63,19 +63,20 @@ func sampleIPRoutes() []*megaport.LookingGlassIPRoute {
 
 func sampleBGPRoute() *megaport.LookingGlassBGPRoute {
 	return &megaport.LookingGlassBGPRoute{
-		Prefix:      "10.0.0.0/24",
-		ASPath:      "65001 65002",
-		Origin:      "IGP",
-		Source:      "EBGP",
-		LocalPref:   100,
-		MED:         50,
-		Weight:      0,
-		Best:        true,
-		External:    true,
-		Valid:       true,
-		Since:       "2026-09-01T00:00:00Z",
-		Communities: []string{"65001:100", "65001:200"},
-		NextHop:     megaport.LookingGlassRouteNextHop{IP: "192.168.1.1", VXC: megaport.LookingGlassRouteVXCRef{ID: "vxc-1", Name: "Test VXC"}},
+		Prefix:       "10.0.0.0/24",
+		ASPath:       "65001 65002",
+		Origin:       "IGP",
+		Source:       "EBGP",
+		LocalPref:    100,
+		MED:          50,
+		Weight:       0,
+		Best:         true,
+		External:     true,
+		Valid:        true,
+		Since:        "2026-09-01T00:00:00Z",
+		Communities:  []string{"65001:100", "65001:200"},
+		AdvertisedTo: []string{"192.168.200.1"},
+		NextHop:      megaport.LookingGlassRouteNextHop{IP: "192.168.1.1", VXC: megaport.LookingGlassRouteVXCRef{ID: "vxc-1", Name: "Test VXC"}},
 	}
 }
 
@@ -514,20 +515,21 @@ func TestToBGPRouteOutput(t *testing.T) {
 	out, err := ToBGPRouteOutput(sampleBGPRoute())
 	assert.NoError(t, err)
 	assert.Equal(t, BGPRouteOutput{
-		Prefix:      "10.0.0.0/24",
-		NextHop:     "192.168.1.1",
-		ASPath:      "65001 65002",
-		LocalPref:   100,
-		MED:         50,
-		Weight:      0,
-		Origin:      "IGP",
-		Source:      "EBGP",
-		Communities: "65001:100, 65001:200",
-		Valid:       "Yes",
-		Best:        "Yes",
-		External:    "Yes",
-		VXCName:     "Test VXC",
-		Since:       "2026-09-01T00:00:00Z",
+		Prefix:       "10.0.0.0/24",
+		NextHop:      "192.168.1.1",
+		ASPath:       "65001 65002",
+		LocalPref:    100,
+		MED:          50,
+		Weight:       0,
+		Origin:       "IGP",
+		Source:       "EBGP",
+		Communities:  "65001:100, 65001:200",
+		AdvertisedTo: "192.168.200.1",
+		Valid:        "Yes",
+		Best:         "Yes",
+		External:     "Yes",
+		VXCName:      "Test VXC",
+		Since:        "2026-09-01T00:00:00Z",
 	}, out)
 }
 
@@ -537,6 +539,7 @@ func TestToBGPRouteOutput_MinimalFields(t *testing.T) {
 	assert.Equal(t, "10.0.0.0/24", out.Prefix)
 	assert.Empty(t, out.ASPath)
 	assert.Empty(t, out.Communities)
+	assert.Empty(t, out.AdvertisedTo)
 	assert.Equal(t, "No", out.Valid)
 	assert.Equal(t, "No", out.Best)
 	assert.Equal(t, "No", out.External)
