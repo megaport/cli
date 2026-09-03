@@ -12,6 +12,7 @@ import (
 	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/testutil"
 	megaport "github.com/megaport/megaportgo"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -75,6 +76,17 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 	return ""
 }
 
+// smokeTestTimeout bounds each route action below well under the
+// mcrDiagnosticsPollTimeout default: the readonly integration run shares a
+// single 5-minute go test -timeout across the whole mcr package.
+const smokeTestTimeout = 60 * time.Second
+
+func routeFlagsCmdWithTimeout(protocol, ip string) *cobra.Command {
+	cmd := routeFlagsCmd(protocol, ip)
+	cmd.Flags().Duration("timeout", smokeTestTimeout, "")
+	return cmd
+}
+
 // TestIntegration_MCRLookingGlassReadOnly is a fast read-only smoke test
 // against the configured environment (staging by default): ip-routes and
 // bgp-routes on the account's first MCR, plus bgp-neighbor-routes when a BGP
@@ -90,7 +102,7 @@ func TestIntegration_MCRLookingGlassReadOnly(t *testing.T) {
 	t.Run("ip-routes", func(t *testing.T) {
 		var err error
 		out := output.CaptureStdout(func() {
-			err = ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{mcrUID}, true, "json")
+			err = ListLookingGlassIPRoutes(routeFlagsCmdWithTimeout("", ""), []string{mcrUID}, true, "json")
 		})
 		require.NoError(t, err)
 		var routes []map[string]interface{}
@@ -100,7 +112,7 @@ func TestIntegration_MCRLookingGlassReadOnly(t *testing.T) {
 	t.Run("bgp-routes", func(t *testing.T) {
 		var err error
 		out := output.CaptureStdout(func() {
-			err = ListLookingGlassBGPRoutes(routeFlagsCmd("", ""), []string{mcrUID}, true, "json")
+			err = ListLookingGlassBGPRoutes(routeFlagsCmdWithTimeout("", ""), []string{mcrUID}, true, "json")
 		})
 		require.NoError(t, err)
 		var routes []map[string]interface{}
@@ -115,7 +127,7 @@ func TestIntegration_MCRLookingGlassReadOnly(t *testing.T) {
 
 		var err error
 		out := output.CaptureStdout(func() {
-			err = ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{mcrUID, peerIP, "received"}, true, "json")
+			err = ListLookingGlassBGPNeighborRoutes(routeFlagsCmdWithTimeout("", ""), []string{mcrUID, peerIP, "received"}, true, "json")
 		})
 		require.NoError(t, err)
 		var routes []map[string]interface{}
