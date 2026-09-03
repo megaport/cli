@@ -49,7 +49,7 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 	t.Helper()
 
 	client := testutil.SharedIntegrationClient(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	mcr, err := client.MCRService.GetMCR(ctx, mcrUID)
@@ -82,7 +82,7 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 // smokeTestTimeout bounds each route action below well under the
 // mcrDiagnosticsPollTimeout default: the readonly integration run shares a
 // single 5-minute go test -timeout across the whole mcr package.
-const smokeTestTimeout = 60 * time.Second
+const smokeTestTimeout = 30 * time.Second
 
 func routeFlagsCmdWithTimeout(protocol, ip string) *cobra.Command {
 	cmd := routeFlagsCmd(protocol, ip)
