@@ -15,9 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// mcrDiagnosticsPollTimeout mirrors the SDK's own poll timeout for
-// WaitForMCRPing/WaitForMCRTraceroute so the CLI's context doesn't cut the
-// wait short before the SDK gives up on its own.
+// mcrDiagnosticsPollTimeout mirrors the SDK's own poll timeout for the
+// looking-glass operations so the CLI's context doesn't cut the wait short
+// before the SDK gives up on its own.
 const mcrDiagnosticsPollTimeout = 5 * time.Minute
 
 // ListLookingGlassIPRoutes lists IP routes from the MCR Looking Glass
