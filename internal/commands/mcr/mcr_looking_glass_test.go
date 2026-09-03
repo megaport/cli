@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/commands/config"
 	megaport "github.com/megaport/megaportgo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test helpers for the route commands
@@ -92,8 +94,40 @@ func TestListLookingGlassIPRoutes(t *testing.T) {
 		return sampleIPRoutes(), nil
 	}
 
-	err := ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	var err error
+	out := output.CaptureOutput(func() {
+		err = ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	})
 	assert.NoError(t, err)
+	assert.Contains(t, out, `"prefix": "10.0.0.0/24"`)
+	assert.Contains(t, out, `"next_hop": "192.168.1.1"`)
+	assert.Contains(t, out, `"protocol": "BGP"`)
+	assert.Contains(t, out, `"distance": 20`)
+	assert.Contains(t, out, `"metric": 100`)
+	assert.Contains(t, out, `"vxc_name": "Test VXC"`)
+}
+
+// TestListLookingGlassIPRoutes_DefaultTimeout locks in that this action uses
+// mcrDiagnosticsPollTimeout (5m), not the package-wide 90s default, when
+// --timeout is not set.
+func TestListLookingGlassIPRoutes_DefaultTimeout(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	var capturedCtx context.Context
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		capturedCtx = ctx
+		return sampleIPRoutes(), nil
+	}
+
+	start := time.Now()
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	require.NoError(t, err)
+
+	deadline, ok := capturedCtx.Deadline()
+	require.True(t, ok)
+	assert.WithinDuration(t, start.Add(mcrDiagnosticsPollTimeout), deadline, 5*time.Second)
 }
 
 func TestListLookingGlassIPRoutes_ProtocolFilterIsLocal(t *testing.T) {
@@ -114,8 +148,13 @@ func TestListLookingGlassIPRoutes_ProtocolFilterIsLocal(t *testing.T) {
 		return nil, nil
 	}
 
-	err := ListLookingGlassIPRoutes(routeFlagsCmd("bgp", ""), []string{"test-mcr-uid"}, true, "json")
+	var err error
+	out := output.CaptureOutput(func() {
+		err = ListLookingGlassIPRoutes(routeFlagsCmd("bgp", ""), []string{"test-mcr-uid"}, true, "json")
+	})
 	assert.NoError(t, err)
+	assert.Contains(t, out, "10.0.0.0/24")
+	assert.NotContains(t, out, "172.16.0.0/16")
 }
 
 func TestListLookingGlassIPRoutes_InvalidProtocol(t *testing.T) {
@@ -387,8 +426,13 @@ func TestListLookingGlassBGPNeighborRoutes_IPFilterIsLocal(t *testing.T) {
 		return []*megaport.LookingGlassBGPRoute{inside, outside}, nil
 	}
 
-	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	var err error
+	out := output.CaptureOutput(func() {
+		err = ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	})
 	assert.NoError(t, err)
+	assert.Contains(t, out, inside.Prefix)
+	assert.NotContains(t, out, outside.Prefix)
 	// The request carries no filter: the API has no ip_address parameter on this endpoint.
 	assert.Equal(t, &megaport.ListBGPNeighborRoutesRequest{
 		MCRID:         "test-mcr-uid",
