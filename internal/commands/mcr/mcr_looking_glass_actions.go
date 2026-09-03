@@ -2,6 +2,8 @@ package mcr
 
 import (
 	"fmt"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/megaport/megaport-cli/internal/base/exitcodes"
@@ -33,7 +35,8 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 
 	mcrUID := args[0]
 
-	// Get optional filters
+	// --ip is a query parameter on the API. --protocol is not, so it is applied
+	// to the returned slice below.
 	protocol, _ := cmd.Flags().GetString("protocol")
 	ipFilter, _ := cmd.Flags().GetString("ip")
 
@@ -41,15 +44,11 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 
 	var routes []*megaport.LookingGlassIPRoute
 
-	if protocol != "" || ipFilter != "" {
-		req := &megaport.ListIPRoutesRequest{
+	if ipFilter != "" {
+		routes, err = listIPRoutesWithFilterFunc(ctx, client, &megaport.ListIPRoutesRequest{
 			MCRID:    mcrUID,
 			IPFilter: ipFilter,
-		}
-		if protocol != "" {
-			req.Protocol = megaport.RouteProtocol(protocol)
-		}
-		routes, err = listIPRoutesWithFilterFunc(ctx, client, req)
+		})
 	} else {
 		routes, err = listIPRoutesFunc(ctx, client, mcrUID)
 	}
@@ -60,6 +59,8 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 		output.PrintError("Failed to list IP routes: %v", noColor, err)
 		return fmt.Errorf("error listing IP routes: %v", err)
 	}
+
+	routes = filterIPRoutesByProtocol(routes, protocol)
 
 	if len(routes) == 0 {
 		output.PrintWarning("No IP routes found", noColor)
@@ -114,43 +115,30 @@ func ListLookingGlassBGPRoutes(cmd *cobra.Command, args []string, noColor bool, 
 	return printBGPRoutes(routes, outputFormat, noColor)
 }
 
-// ListLookingGlassBGPSessions lists BGP sessions from the MCR Looking Glass
-func ListLookingGlassBGPSessions(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
-	output.SetOutputFormat(outputFormat)
-
-	ctx, cancel := utils.ContextFromCmd(cmd)
-	defer cancel()
-
-	client, err := config.Login(ctx)
-	if err != nil {
-		output.PrintError("Failed to log in: %v", noColor, err)
-		return fmt.Errorf("error logging in: %v", err)
-	}
-
-	mcrUID := args[0]
-
-	spinner := output.PrintResourceListing("BGP sessions", noColor)
-
-	sessions, err := listBGPSessionsFunc(ctx, client, mcrUID)
-
-	spinner.Stop()
-
-	if err != nil {
-		output.PrintError("Failed to list BGP sessions: %v", noColor, err)
-		return fmt.Errorf("error listing BGP sessions: %v", err)
-	}
-
-	if len(sessions) == 0 {
-		output.PrintWarning("No BGP sessions found", noColor)
-	}
-
-	return printBGPSessions(sessions, outputFormat, noColor)
-}
-
-// ListLookingGlassBGPNeighborRoutes lists routes advertised to or received from a specific BGP neighbor
+// ListLookingGlassBGPNeighborRoutes lists routes advertised to or received from one BGP peer
 func ListLookingGlassBGPNeighborRoutes(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
 	output.SetOutputFormat(outputFormat)
 
+	mcrUID := args[0]
+	peerIP := args[1]
+	direction, err := parseBGPRouteDirection(args[2])
+	if err != nil {
+		return exitcodes.NewUsageError(err)
+	}
+	if err := validation.ValidateIPAddress(peerIP, "peer IP"); err != nil {
+		return exitcodes.NewUsageError(err)
+	}
+
+	// The neighbor endpoint has no ip_address query parameter, so --ip is
+	// applied to the returned slice.
+	ipFilter, _ := cmd.Flags().GetString("ip")
+	var want netip.Prefix
+	if ipFilter != "" {
+		if want, err = parseIPFilter(ipFilter); err != nil {
+			return exitcodes.NewUsageError(err)
+		}
+	}
+
 	ctx, cancel := utils.ContextFromCmd(cmd)
 	defer cancel()
 
@@ -160,28 +148,13 @@ func ListLookingGlassBGPNeighborRoutes(cmd *cobra.Command, args []string, noColo
 		return fmt.Errorf("error logging in: %v", err)
 	}
 
-	mcrUID := args[0]
-	sessionID := args[1]
-	direction := args[2]
-
-	// Validate direction
-	if direction != "advertised" && direction != "received" {
-		return fmt.Errorf("direction must be 'advertised' or 'received', got: %s", direction)
-	}
-
-	// Get optional filter
-	ipFilter, _ := cmd.Flags().GetString("ip")
-
 	spinner := output.PrintResourceListing("BGP neighbor routes", noColor)
 
-	req := &megaport.ListBGPNeighborRoutesRequest{
-		MCRID:     mcrUID,
-		SessionID: sessionID,
-		Direction: megaport.LookingGlassRouteDirection(direction),
-		IPFilter:  ipFilter,
-	}
-
-	routes, err := listBGPNeighborRoutesFunc(ctx, client, req)
+	routes, err := listBGPNeighborRoutesFunc(ctx, client, &megaport.ListBGPNeighborRoutesRequest{
+		MCRID:         mcrUID,
+		PeerIPAddress: peerIP,
+		Direction:     direction,
+	})
 
 	spinner.Stop()
 
@@ -190,11 +163,74 @@ func ListLookingGlassBGPNeighborRoutes(cmd *cobra.Command, args []string, noColo
 		return fmt.Errorf("error listing BGP neighbor routes: %v", err)
 	}
 
+	routes = filterBGPRoutesByIP(routes, want)
+
 	if len(routes) == 0 {
 		output.PrintWarning("No BGP neighbor routes found", noColor)
 	}
 
-	return printBGPNeighborRoutes(routes, outputFormat, noColor)
+	return printBGPRoutes(routes, outputFormat, noColor)
+}
+
+// parseBGPRouteDirection maps the CLI's lower-case direction argument to the API enum.
+func parseBGPRouteDirection(arg string) (string, error) {
+	switch arg {
+	case "advertised":
+		return megaport.BGPRouteDirectionAdvertised, nil
+	case "received":
+		return megaport.BGPRouteDirectionReceived, nil
+	}
+	return "", fmt.Errorf("direction must be 'advertised' or 'received', got: %s", arg)
+}
+
+// filterIPRoutesByProtocol keeps the routes whose protocol matches, ignoring
+// case. An empty protocol keeps every route.
+func filterIPRoutesByProtocol(routes []*megaport.LookingGlassIPRoute, protocol string) []*megaport.LookingGlassIPRoute {
+	if protocol == "" {
+		return routes
+	}
+	kept := make([]*megaport.LookingGlassIPRoute, 0, len(routes))
+	for _, r := range routes {
+		if r != nil && strings.EqualFold(r.Protocol, protocol) {
+			kept = append(kept, r)
+		}
+	}
+	return kept
+}
+
+// parseIPFilter accepts a single address or a prefix. A single address becomes
+// a host prefix.
+func parseIPFilter(filter string) (netip.Prefix, error) {
+	if p, err := netip.ParsePrefix(filter); err == nil {
+		return p.Masked(), nil
+	}
+	if a, err := netip.ParseAddr(filter); err == nil {
+		return netip.PrefixFrom(a, a.BitLen()), nil
+	}
+	return netip.Prefix{}, fmt.Errorf("--ip must be an IP address or prefix, got: %s", filter)
+}
+
+// filterBGPRoutesByIP keeps the routes whose prefix contains the filter address,
+// or falls inside the filter prefix. An invalid (zero) prefix keeps every route.
+func filterBGPRoutesByIP(routes []*megaport.LookingGlassBGPRoute, want netip.Prefix) []*megaport.LookingGlassBGPRoute {
+	if !want.IsValid() {
+		return routes
+	}
+	kept := make([]*megaport.LookingGlassBGPRoute, 0, len(routes))
+	for _, r := range routes {
+		if r == nil {
+			continue
+		}
+		have, err := netip.ParsePrefix(r.Prefix)
+		if err != nil {
+			continue
+		}
+		have = have.Masked()
+		if have.Contains(want.Addr()) || want.Contains(have.Addr()) {
+			kept = append(kept, r)
+		}
+	}
+	return kept
 }
 
 // LookingGlassPing runs an ICMP ping from the MCR Looking Glass to a destination
