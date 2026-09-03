@@ -118,6 +118,21 @@ func TestListLookingGlassIPRoutes_ProtocolFilterIsLocal(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestListLookingGlassIPRoutes_InvalidProtocol(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		t.Fatal("the API must not be called for an invalid protocol")
+		return nil, nil
+	}
+
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("bpg", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid protocol")
+}
+
 func TestListLookingGlassIPRoutes_WithIPFilter(t *testing.T) {
 	mockLogin(t)
 	originalFunc := listIPRoutesWithFilterFunc

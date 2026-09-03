@@ -89,7 +89,7 @@ func TestIntegration_MCRLookingGlassReadOnly(t *testing.T) {
 
 	t.Run("ip-routes", func(t *testing.T) {
 		var err error
-		out := output.CaptureOutput(func() {
+		out := output.CaptureStdout(func() {
 			err = ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{mcrUID}, true, "json")
 		})
 		require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestIntegration_MCRLookingGlassReadOnly(t *testing.T) {
 
 	t.Run("bgp-routes", func(t *testing.T) {
 		var err error
-		out := output.CaptureOutput(func() {
+		out := output.CaptureStdout(func() {
 			err = ListLookingGlassBGPRoutes(routeFlagsCmd("", ""), []string{mcrUID}, true, "json")
 		})
 		require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestIntegration_MCRLookingGlassReadOnly(t *testing.T) {
 		}
 
 		var err error
-		out := output.CaptureOutput(func() {
+		out := output.CaptureStdout(func() {
 			err = ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{mcrUID, peerIP, "received"}, true, "json")
 		})
 		require.NoError(t, err)

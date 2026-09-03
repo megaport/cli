@@ -40,6 +40,11 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 	protocol, _ := cmd.Flags().GetString("protocol")
 	ipFilter, _ := cmd.Flags().GetString("ip")
 
+	if protocol != "" && !validLookingGlassProtocols[strings.ToUpper(protocol)] {
+		output.PrintError("Invalid protocol %q: must be one of BGP, STATIC, CONNECTED, or LOCAL", noColor, protocol)
+		return fmt.Errorf("invalid protocol: %s", protocol)
+	}
+
 	spinner := output.PrintResourceListing("IP route", noColor)
 
 	var routes []*megaport.LookingGlassIPRoute
@@ -181,6 +186,15 @@ func parseBGPRouteDirection(arg string) (string, error) {
 		return megaport.BGPRouteDirectionReceived, nil
 	}
 	return "", fmt.Errorf("direction must be 'advertised' or 'received', got: %s", arg)
+}
+
+// validLookingGlassProtocols are the routing protocols megalith's
+// ProtocolType enum serializes on a route (STATIC, CONNECTED, BGP, LOCAL).
+var validLookingGlassProtocols = map[string]bool{
+	"STATIC":    true,
+	"CONNECTED": true,
+	"BGP":       true,
+	"LOCAL":     true,
 }
 
 // filterIPRoutesByProtocol keeps the routes whose protocol matches, ignoring
