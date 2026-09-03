@@ -59,7 +59,7 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 			continue
 		}
 		for _, conn := range vxc.Resources.CSPConnection.CSPConnection {
-			vRouter, ok := conn.(*megaport.CSPConnectionVirtualRouter)
+			vRouter, ok := conn.(megaport.CSPConnectionVirtualRouter)
 			if !ok {
 				continue
 			}
