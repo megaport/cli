@@ -119,7 +119,9 @@ func TestListLookingGlassIPRoutes_ProtocolFilterIsLocal(t *testing.T) {
 }
 
 func TestListLookingGlassIPRoutes_InvalidProtocol(t *testing.T) {
-	mockLogin(t)
+	// An unauthenticated invocation must still report the usage error, not a
+	// login failure: validation runs before config.Login.
+	mockLoginError(t)
 	originalFunc := listIPRoutesFunc
 	defer func() { listIPRoutesFunc = originalFunc }()
 

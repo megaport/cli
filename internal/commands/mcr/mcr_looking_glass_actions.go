@@ -24,15 +24,6 @@ const mcrDiagnosticsPollTimeout = 5 * time.Minute
 func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
 	output.SetOutputFormat(outputFormat)
 
-	ctx, cancel := utils.ContextFromCmdWithDefault(cmd, mcrDiagnosticsPollTimeout)
-	defer cancel()
-
-	client, err := config.Login(ctx)
-	if err != nil {
-		output.PrintError("Failed to log in: %v", noColor, err)
-		return fmt.Errorf("error logging in: %v", err)
-	}
-
 	mcrUID := args[0]
 
 	// --ip is a query parameter on the API. --protocol is not, so it is applied
@@ -41,8 +32,18 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 	ipFilter, _ := cmd.Flags().GetString("ip")
 
 	if protocol != "" && !validLookingGlassProtocols[strings.ToUpper(protocol)] {
-		output.PrintError("Invalid protocol %q: must be one of BGP, STATIC, CONNECTED, or LOCAL", noColor, protocol)
-		return fmt.Errorf("invalid protocol: %s", protocol)
+		err := fmt.Errorf("invalid protocol %q: must be one of BGP, STATIC, CONNECTED, or LOCAL", protocol)
+		output.PrintError("%v", noColor, err)
+		return exitcodes.NewUsageError(err)
+	}
+
+	ctx, cancel := utils.ContextFromCmdWithDefault(cmd, mcrDiagnosticsPollTimeout)
+	defer cancel()
+
+	client, err := config.Login(ctx)
+	if err != nil {
+		output.PrintError("Failed to log in: %v", noColor, err)
+		return fmt.Errorf("error logging in: %v", err)
 	}
 
 	spinner := output.PrintResourceListing("IP route", noColor)
