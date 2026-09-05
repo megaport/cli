@@ -33,7 +33,6 @@ func ListLookingGlassIPRoutes(cmd *cobra.Command, args []string, noColor bool, o
 
 	if protocol != "" && !validLookingGlassProtocols[strings.ToUpper(protocol)] {
 		err := fmt.Errorf("invalid protocol %q: must be one of BGP, STATIC, CONNECTED, or LOCAL", protocol)
-		output.PrintError("%v", noColor, err)
 		return exitcodes.NewUsageError(err)
 	}
 
