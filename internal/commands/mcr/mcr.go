@@ -423,7 +423,7 @@ func buildMCRLookingGlassCommands(rootCmd *cobra.Command) (lookingGlass *cobra.C
 		WithLongDesc("MCR Looking Glass diagnostic commands.\n\nThe Looking Glass provides visibility into traffic routing on your MCR, helping you troubleshoot connections by showing the status of protocols and routing tables.").
 		WithExample("megaport-cli mcr looking-glass ip-routes [mcrUID]").
 		WithExample("megaport-cli mcr looking-glass bgp-routes [mcrUID]").
-		WithExample("megaport-cli mcr looking-glass bgp-sessions [mcrUID]").
+		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [peerIP] received").
 		WithImportantNote("Looking Glass commands are read-only diagnostic tools").
 		WithImportantNote("Use --ip flag to filter routes by IP address or prefix").
 		WithRootCmd(rootCmd).
@@ -432,14 +432,14 @@ func buildMCRLookingGlassCommands(rootCmd *cobra.Command) (lookingGlass *cobra.C
 	lgIPRoutesCmd := cmdbuilder.NewCommand("ip-routes", "List IP routes from the MCR routing table").
 		WithArgs(cobra.ExactArgs(1)).
 		WithOutputFormatRunFunc(ListLookingGlassIPRoutes).
-		WithLongDesc("List IP routes from the MCR Looking Glass.\n\nThis command retrieves all routes (BGP, static, connected, local) from the MCR's routing table. You can filter by protocol or IP address/prefix.").
-		WithFlag("protocol", "", "Filter by protocol (BGP, STATIC, CONNECTED, LOCAL)").
-		WithFlag("ip", "", "Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1)").
+		WithLongDesc("List IP routes from the MCR Looking Glass.\n\nThis command retrieves every route in the MCR's routing table, whatever protocol installed it. You can filter by protocol or IP address/prefix.").
+		WithFlag("protocol", "", "Filter by protocol: BGP, STATIC, CONNECTED, or LOCAL").
+		WithFlag("ip", "", "Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1). The API returns the exact matching routes or the best matching route").
 		WithExample("megaport-cli mcr looking-glass ip-routes [mcrUID]").
 		WithExample("megaport-cli mcr looking-glass ip-routes [mcrUID] --protocol BGP").
 		WithExample("megaport-cli mcr looking-glass ip-routes [mcrUID] --ip 10.0.0.0/8").
 		WithExample("megaport-cli mcr looking-glass ip-routes [mcrUID] --protocol STATIC --ip 192.168.0.0/16").
-		WithImportantNote("Protocol values: BGP, STATIC, CONNECTED, LOCAL").
+		WithImportantNote("The API has no protocol filter, so --protocol is applied locally after the routes are fetched").
 		WithRootCmd(rootCmd).
 		Build()
 
@@ -447,33 +447,24 @@ func buildMCRLookingGlassCommands(rootCmd *cobra.Command) (lookingGlass *cobra.C
 		WithArgs(cobra.ExactArgs(1)).
 		WithOutputFormatRunFunc(ListLookingGlassBGPRoutes).
 		WithLongDesc("List BGP routes from the MCR Looking Glass.\n\nThis command retrieves routes learned via BGP with full BGP attributes including AS path, local preference, MED, communities, and origin.").
-		WithFlag("ip", "", "Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1)").
+		WithFlag("ip", "", "Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1). The API returns the exact matching routes or the best matching route").
 		WithExample("megaport-cli mcr looking-glass bgp-routes [mcrUID]").
 		WithExample("megaport-cli mcr looking-glass bgp-routes [mcrUID] --ip 10.0.0.0/8").
 		WithImportantNote("Shows BGP-specific attributes like AS path, local preference, MED, and communities").
 		WithRootCmd(rootCmd).
 		Build()
 
-	lgBGPSessionsCmd := cmdbuilder.NewCommand("bgp-sessions", "List BGP sessions configured on the MCR").
-		WithArgs(cobra.ExactArgs(1)).
-		WithOutputFormatRunFunc(ListLookingGlassBGPSessions).
-		WithLongDesc("List all BGP sessions configured on the MCR.\n\nThis command shows the status of all BGP peering sessions including neighbor address, ASN, session status, uptime, and prefix counts.").
-		WithExample("megaport-cli mcr looking-glass bgp-sessions [mcrUID]").
-		WithImportantNote("Session status can be UP, DOWN, or UNKNOWN").
-		WithImportantNote("Use the session ID from this output with bgp-neighbor-routes command").
-		WithRootCmd(rootCmd).
-		Build()
-
 	lgBGPNeighborRoutesCmd := cmdbuilder.NewCommand("bgp-neighbor-routes", "List routes advertised to or received from a BGP neighbor").
 		WithArgs(cobra.ExactArgs(3)).
 		WithOutputFormatRunFunc(ListLookingGlassBGPNeighborRoutes).
-		WithLongDesc("List routes advertised to or received from a specific BGP neighbor.\n\nThis command shows routes that are either being advertised to a neighbor or received from a neighbor. Use the session ID from 'bgp-sessions' command.").
-		WithFlag("ip", "", "Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1)").
-		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [sessionID] advertised").
-		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [sessionID] received").
-		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [sessionID] received --ip 10.0.0.0/8").
+		WithLongDesc("List routes advertised to or received from a specific BGP neighbor.\n\nThe neighbor is identified by its BGP peer IP address, the peer IP configured on the MCR's BGP connection. Direction is 'received' for routes learned from the neighbor or 'advertised' for routes sent to it.").
+		WithFlag("ip", "", "Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1). Keeps routes that contain the address or fall inside the prefix").
+		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [peerIP] advertised").
+		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [peerIP] received").
+		WithExample("megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [peerIP] received --ip 10.0.0.0/8").
 		WithImportantNote("Direction must be 'advertised' or 'received'").
-		WithImportantNote("Get session ID from 'mcr looking-glass bgp-sessions' command").
+		WithImportantNote("The peer IP is the BGP neighbor address on the MCR's BGP connection, for example 169.254.0.1").
+		WithImportantNote("The API has no address filter on this endpoint, so --ip is applied locally after the routes are fetched").
 		WithRootCmd(rootCmd).
 		Build()
 
@@ -507,7 +498,6 @@ func buildMCRLookingGlassCommands(rootCmd *cobra.Command) (lookingGlass *cobra.C
 	lookingGlass.AddCommand(
 		lgIPRoutesCmd,
 		lgBGPRoutesCmd,
-		lgBGPSessionsCmd,
 		lgBGPNeighborRoutesCmd,
 		lgPingCmd,
 		lgTracerouteCmd,

@@ -5,423 +5,611 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/commands/config"
 	megaport "github.com/megaport/megaportgo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestListLookingGlassIPRoutes(t *testing.T) {
-	// Store original functions and restore after test
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listIPRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listIPRoutesFunc = originalFunc
-	}()
+// Test helpers for the route commands
 
-	// Mock the login function
+func mockLogin(t *testing.T) {
+	t.Helper()
+	original := config.GetLoginFunc()
+	t.Cleanup(func() { config.SetLoginFunc(original) })
 	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
 		return &megaport.Client{}, nil
 	})
-
-	metric := 100
-	localPref := 200
-	age := 3600
-	best := true
-
-	// Mock the function
-	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
-		return []*megaport.LookingGlassIPRoute{
-			{
-				Prefix:    "10.0.0.0/24",
-				NextHop:   "192.168.1.1",
-				Protocol:  megaport.RouteProtocolBGP,
-				Metric:    &metric,
-				LocalPref: &localPref,
-				ASPath:    []int{65001, 65002},
-				Age:       &age,
-				Interface: "eth0",
-				VXCName:   "Test VXC",
-				Best:      &best,
-			},
-		}, nil
-	}
-
-	// Create command
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "", "")
-	cmd.Flags().String("ip", "", "")
-
-	// Capture output
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	// Execute
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.NoError(t, err)
 }
 
-func TestListLookingGlassIPRoutesWithFilter(t *testing.T) {
-	// Store original functions and restore after test
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listIPRoutesWithFilterFunc
+func mockLoginError(t *testing.T) {
+	t.Helper()
+	original := config.GetLoginFunc()
+	t.Cleanup(func() { config.SetLoginFunc(original) })
+	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
+		return nil, errors.New("login failed")
+	})
+}
+
+func routeFlagsCmd(protocol, ip string) *cobra.Command {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("protocol", protocol, "")
+	cmd.Flags().String("ip", ip, "")
+	cmd.SetOut(&bytes.Buffer{})
+	return cmd
+}
+
+func sampleIPRoutes() []*megaport.LookingGlassIPRoute {
+	return []*megaport.LookingGlassIPRoute{
+		{
+			Prefix:   "10.0.0.0/24",
+			Protocol: "BGP",
+			Distance: 20,
+			Metric:   100,
+			NextHop:  megaport.LookingGlassRouteNextHop{IP: "192.168.1.1", VXC: megaport.LookingGlassRouteVXCRef{ID: "vxc-1", Name: "Test VXC"}},
+		},
+		{
+			Prefix:   "172.16.0.0/16",
+			Protocol: "STATIC",
+			Distance: 1,
+			NextHop:  megaport.LookingGlassRouteNextHop{IP: "192.168.1.2"},
+		},
+	}
+}
+
+func sampleBGPRoute() *megaport.LookingGlassBGPRoute {
+	return &megaport.LookingGlassBGPRoute{
+		Prefix:       "10.0.0.0/24",
+		ASPath:       "65001 65002",
+		Origin:       "IGP",
+		Source:       "EBGP",
+		LocalPref:    100,
+		MED:          50,
+		Weight:       0,
+		Best:         true,
+		External:     true,
+		Valid:        true,
+		Since:        "2026-09-01T00:00:00Z",
+		Communities:  []string{"65001:100", "65001:200"},
+		AdvertisedTo: []string{"192.168.200.1"},
+		NextHop:      megaport.LookingGlassRouteNextHop{IP: "192.168.1.1", VXC: megaport.LookingGlassRouteVXCRef{ID: "vxc-1", Name: "Test VXC"}},
+	}
+}
+
+// IP route action tests
+
+func TestListLookingGlassIPRoutes(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		assert.Equal(t, "test-mcr-uid", mcrUID)
+		return sampleIPRoutes(), nil
+	}
+
+	var err error
+	out := output.CaptureOutput(func() {
+		err = ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	})
+	assert.NoError(t, err)
+	assert.Contains(t, out, `"prefix": "10.0.0.0/24"`)
+	assert.Contains(t, out, `"next_hop": "192.168.1.1"`)
+	assert.Contains(t, out, `"protocol": "BGP"`)
+	assert.Contains(t, out, `"distance": 20`)
+	assert.Contains(t, out, `"metric": 100`)
+	assert.Contains(t, out, `"vxc_name": "Test VXC"`)
+}
+
+// TestListLookingGlassIPRoutes_DefaultTimeout locks in that this action uses
+// mcrDiagnosticsPollTimeout (5m), not the package-wide 90s default, when
+// --timeout is not set.
+func TestListLookingGlassIPRoutes_DefaultTimeout(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	var capturedCtx context.Context
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		capturedCtx = ctx
+		return sampleIPRoutes(), nil
+	}
+
+	start := time.Now()
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	require.NoError(t, err)
+
+	deadline, ok := capturedCtx.Deadline()
+	require.True(t, ok)
+	assert.WithinDuration(t, start.Add(mcrDiagnosticsPollTimeout), deadline, 5*time.Second)
+}
+
+func TestListLookingGlassIPRoutes_ProtocolFilterIsLocal(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	originalFilterFunc := listIPRoutesWithFilterFunc
 	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listIPRoutesWithFilterFunc = originalFunc
+		listIPRoutesFunc = originalFunc
+		listIPRoutesWithFilterFunc = originalFilterFunc
 	}()
 
-	// Mock the login function
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
+	// --protocol on its own must call the unfiltered endpoint: the API has no protocol parameter.
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		return sampleIPRoutes(), nil
+	}
+	listIPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListIPRoutesRequest) ([]*megaport.LookingGlassIPRoute, error) {
+		t.Fatal("ListIPRoutesWithFilter must not be called when only --protocol is set")
+		return nil, nil
+	}
 
-	// Mock the function
+	var err error
+	out := output.CaptureOutput(func() {
+		err = ListLookingGlassIPRoutes(routeFlagsCmd("bgp", ""), []string{"test-mcr-uid"}, true, "json")
+	})
+	assert.NoError(t, err)
+	assert.Contains(t, out, "10.0.0.0/24")
+	assert.NotContains(t, out, "172.16.0.0/16")
+}
+
+func TestListLookingGlassIPRoutes_InvalidProtocol(t *testing.T) {
+	// An unauthenticated invocation must still report the usage error, not a
+	// login failure: validation runs before config.Login.
+	mockLoginError(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		t.Fatal("the API must not be called for an invalid protocol")
+		return nil, nil
+	}
+
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("bpg", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid protocol")
+}
+
+func TestListLookingGlassIPRoutes_WithIPFilter(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesWithFilterFunc
+	defer func() { listIPRoutesWithFilterFunc = originalFunc }()
+
 	listIPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListIPRoutesRequest) ([]*megaport.LookingGlassIPRoute, error) {
 		assert.Equal(t, "test-mcr-uid", req.MCRID)
-		assert.Equal(t, megaport.RouteProtocolBGP, req.Protocol)
-		return []*megaport.LookingGlassIPRoute{
-			{
-				Prefix:   "10.0.0.0/24",
-				NextHop:  "192.168.1.1",
-				Protocol: megaport.RouteProtocolBGP,
-			},
-		}, nil
+		assert.Equal(t, "10.0.0.0/8", req.IPFilter)
+		return sampleIPRoutes()[:1], nil
 	}
 
-	// Create command with filter flags
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "BGP", "")
-	cmd.Flags().String("ip", "", "")
-
-	// Execute
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid"}, true, "json")
 	assert.NoError(t, err)
 }
+
+func TestListLookingGlassIPRoutes_WithIPFilter_APIError(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesWithFilterFunc
+	defer func() { listIPRoutesWithFilterFunc = originalFunc }()
+
+	listIPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListIPRoutesRequest) ([]*megaport.LookingGlassIPRoute, error) {
+		return nil, errors.New("filter API error")
+	}
+
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error listing IP routes")
+}
+
+func TestListLookingGlassIPRoutes_LoginError(t *testing.T) {
+	mockLoginError(t)
+
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error logging in")
+}
+
+func TestListLookingGlassIPRoutes_APIError(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		return nil, errors.New("API error")
+	}
+
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error listing IP routes")
+}
+
+func TestListLookingGlassIPRoutes_Empty(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listIPRoutesFunc
+	defer func() { listIPRoutesFunc = originalFunc }()
+
+	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
+		return []*megaport.LookingGlassIPRoute{}, nil
+	}
+
+	err := ListLookingGlassIPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.NoError(t, err)
+}
+
+func TestFilterIPRoutesByProtocol(t *testing.T) {
+	routes := sampleIPRoutes()
+
+	assert.Len(t, filterIPRoutesByProtocol(routes, ""), 2)
+
+	bgp := filterIPRoutesByProtocol(routes, "bgp")
+	assert.Len(t, bgp, 1)
+	assert.Equal(t, "10.0.0.0/24", bgp[0].Prefix)
+
+	static := filterIPRoutesByProtocol(routes, "STATIC")
+	assert.Len(t, static, 1)
+	assert.Equal(t, "172.16.0.0/16", static[0].Prefix)
+
+	assert.Empty(t, filterIPRoutesByProtocol(routes, "OSPF"))
+	assert.Empty(t, filterIPRoutesByProtocol([]*megaport.LookingGlassIPRoute{nil}, "BGP"))
+}
+
+// BGP route action tests
 
 func TestListLookingGlassBGPRoutes(t *testing.T) {
-	// Store original functions and restore after test
-	originalLoginFunc := config.GetLoginFunc()
+	mockLogin(t)
 	originalFunc := listBGPRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPRoutesFunc = originalFunc
-	}()
+	defer func() { listBGPRoutesFunc = originalFunc }()
 
-	// Mock the login function
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-
-	localPref := 100
-	med := 50
-	neighborASN := 65001
-	age := 7200
-
-	// Mock the function
 	listBGPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPRoute, error) {
-		return []*megaport.LookingGlassBGPRoute{
-			{
-				Prefix:      "10.0.0.0/24",
-				NextHop:     "192.168.1.1",
-				ASPath:      []int{65001, 65002, 65003},
-				LocalPref:   &localPref,
-				MED:         &med,
-				Origin:      "IGP",
-				Communities: []string{"65001:100", "65001:200"},
-				Valid:       true,
-				Best:        true,
-				NeighborIP:  "192.168.1.2",
-				NeighborASN: &neighborASN,
-				Age:         &age,
-				VXCName:     "Test VXC",
-			},
-		}, nil
+		assert.Equal(t, "test-mcr-uid", mcrUID)
+		return []*megaport.LookingGlassBGPRoute{sampleBGPRoute()}, nil
 	}
 
-	// Create command
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	// Execute
-	err := ListLookingGlassBGPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
+	err := ListLookingGlassBGPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
 	assert.NoError(t, err)
 }
 
-func TestListLookingGlassBGPSessions(t *testing.T) {
-	// Store original functions and restore after test
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPSessionsFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPSessionsFunc = originalFunc
-	}()
+func TestListLookingGlassBGPRoutes_LoginError(t *testing.T) {
+	mockLoginError(t)
 
-	// Mock the login function
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
+	err := ListLookingGlassBGPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error logging in")
+}
 
-	uptime := 86400
-	prefixesIn := 100
-	prefixesOut := 50
+func TestListLookingGlassBGPRoutes_APIError(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPRoutesFunc
+	defer func() { listBGPRoutesFunc = originalFunc }()
 
-	// Mock the function
-	listBGPSessionsFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPSession, error) {
-		return []*megaport.LookingGlassBGPSession{
-			{
-				SessionID:       "session-123",
-				NeighborAddress: "192.168.1.2",
-				NeighborASN:     65001,
-				LocalASN:        65000,
-				Status:          megaport.BGPSessionStatusUp,
-				Uptime:          &uptime,
-				PrefixesIn:      &prefixesIn,
-				PrefixesOut:     &prefixesOut,
-				VXCID:           12345,
-				VXCName:         "Test VXC",
-				Description:     "Test BGP Session",
-			},
-		}, nil
+	listBGPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPRoute, error) {
+		return nil, errors.New("BGP API error")
 	}
 
-	// Create command
-	cmd := &cobra.Command{}
+	err := ListLookingGlassBGPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error listing BGP routes")
+}
 
-	// Execute
-	err := ListLookingGlassBGPSessions(cmd, []string{"test-mcr-uid"}, true, "json")
+func TestListLookingGlassBGPRoutes_Empty(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPRoutesFunc
+	defer func() { listBGPRoutesFunc = originalFunc }()
+
+	listBGPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPRoute, error) {
+		return []*megaport.LookingGlassBGPRoute{}, nil
+	}
+
+	err := ListLookingGlassBGPRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid"}, true, "json")
 	assert.NoError(t, err)
 }
 
-func TestListLookingGlassBGPNeighborRoutes(t *testing.T) {
-	// Store original functions and restore after test
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPNeighborRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPNeighborRoutesFunc = originalFunc
-	}()
+func TestListLookingGlassBGPRoutes_WithFilter(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPRoutesWithFilterFunc
+	defer func() { listBGPRoutesWithFilterFunc = originalFunc }()
 
-	// Mock the login function
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-
-	localPref := 100
-	med := 50
-
-	// Mock the function
-	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
+	listBGPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
 		assert.Equal(t, "test-mcr-uid", req.MCRID)
-		assert.Equal(t, "session-123", req.SessionID)
-		assert.Equal(t, megaport.LookingGlassRouteDirectionReceived, req.Direction)
-		return []*megaport.LookingGlassBGPNeighborRoute{
-			{
-				Prefix:      "10.0.0.0/24",
-				NextHop:     "192.168.1.1",
-				ASPath:      []int{65001, 65002},
-				LocalPref:   &localPref,
-				MED:         &med,
-				Origin:      "IGP",
-				Communities: []string{"65001:100"},
-				Valid:       true,
-				Best:        true,
-			},
-		}, nil
+		assert.Equal(t, "10.0.0.0/8", req.IPFilter)
+		return []*megaport.LookingGlassBGPRoute{sampleBGPRoute()}, nil
 	}
 
-	// Create command
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	// Execute
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "received"}, true, "json")
+	err := ListLookingGlassBGPRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid"}, true, "json")
 	assert.NoError(t, err)
 }
 
-func TestListLookingGlassBGPNeighborRoutesInvalidDirection(t *testing.T) {
-	// Store original function and restore after test
-	originalLoginFunc := config.GetLoginFunc()
-	defer func() { config.SetLoginFunc(originalLoginFunc) }()
+func TestListLookingGlassBGPRoutes_WithFilterError(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPRoutesWithFilterFunc
+	defer func() { listBGPRoutesWithFilterFunc = originalFunc }()
 
-	// Mock the login function
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
+	listBGPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		return nil, errors.New("filter error")
+	}
 
-	// Create command
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
+	err := ListLookingGlassBGPRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error listing BGP routes")
+}
 
-	// Execute with invalid direction
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "invalid"}, true, "json")
+// BGP neighbor route action tests
+
+func TestListLookingGlassBGPNeighborRoutes_SendsPeerIPAndDirection(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	var captured *megaport.ListBGPNeighborRoutesRequest
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		captured = req
+		return []*megaport.LookingGlassBGPRoute{sampleBGPRoute()}, nil
+	}
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	assert.NoError(t, err)
+	assert.Equal(t, &megaport.ListBGPNeighborRoutesRequest{
+		MCRID:         "test-mcr-uid",
+		PeerIPAddress: "169.254.0.1",
+		Direction:     megaport.BGPRouteDirectionReceived,
+	}, captured)
+	assert.Equal(t, "RECEIVED", captured.Direction)
+}
+
+func TestListLookingGlassBGPNeighborRoutes_Advertised(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		assert.Equal(t, "ADVERTISED", req.Direction)
+		assert.Equal(t, "2001:db8::1", req.PeerIPAddress)
+		return []*megaport.LookingGlassBGPRoute{sampleBGPRoute()}, nil
+	}
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "2001:db8::1", "advertised"}, true, "json")
+	assert.NoError(t, err)
+}
+
+func TestListLookingGlassBGPNeighborRoutes_InvalidDirection(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		t.Fatal("API must not be called with an invalid direction")
+		return nil, nil
+	}
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "169.254.0.1", "invalid"}, true, "json")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "direction must be 'advertised' or 'received'")
+}
+
+func TestListLookingGlassBGPNeighborRoutes_InvalidPeerIP(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		t.Fatal("API must not be called with an invalid peer IP")
+		return nil, nil
+	}
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "session-123", "received"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "peer IP")
+}
+
+func TestListLookingGlassBGPNeighborRoutes_InvalidIPFilter(t *testing.T) {
+	mockLogin(t)
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", "not-an-ip"), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--ip must be an IP address or prefix")
+}
+
+func TestListLookingGlassBGPNeighborRoutes_IPFilterIsLocal(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	inside := sampleBGPRoute()
+	outside := sampleBGPRoute()
+	outside.Prefix = "192.0.2.0/24"
+
+	var captured *megaport.ListBGPNeighborRoutesRequest
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		captured = req
+		return []*megaport.LookingGlassBGPRoute{inside, outside}, nil
+	}
+
+	var err error
+	out := output.CaptureOutput(func() {
+		err = ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", "10.0.0.0/8"), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	})
+	assert.NoError(t, err)
+	assert.Contains(t, out, inside.Prefix)
+	assert.NotContains(t, out, outside.Prefix)
+	// The request carries no filter: the API has no ip_address parameter on this endpoint.
+	assert.Equal(t, &megaport.ListBGPNeighborRoutesRequest{
+		MCRID:         "test-mcr-uid",
+		PeerIPAddress: "169.254.0.1",
+		Direction:     megaport.BGPRouteDirectionReceived,
+	}, captured)
+}
+
+func TestListLookingGlassBGPNeighborRoutes_LoginError(t *testing.T) {
+	mockLoginError(t)
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error logging in")
+}
+
+func TestListLookingGlassBGPNeighborRoutes_APIError(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		return nil, errors.New("neighbor API error")
+	}
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error listing BGP neighbor routes")
+}
+
+func TestListLookingGlassBGPNeighborRoutes_Empty(t *testing.T) {
+	mockLogin(t)
+	originalFunc := listBGPNeighborRoutesFunc
+	defer func() { listBGPNeighborRoutesFunc = originalFunc }()
+
+	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
+		return []*megaport.LookingGlassBGPRoute{}, nil
+	}
+
+	err := ListLookingGlassBGPNeighborRoutes(routeFlagsCmd("", ""), []string{"test-mcr-uid", "169.254.0.1", "received"}, true, "json")
+	assert.NoError(t, err)
+}
+
+func TestParseBGPRouteDirection(t *testing.T) {
+	d, err := parseBGPRouteDirection("received")
+	assert.NoError(t, err)
+	assert.Equal(t, "RECEIVED", d)
+
+	d, err = parseBGPRouteDirection("advertised")
+	assert.NoError(t, err)
+	assert.Equal(t, "ADVERTISED", d)
+
+	_, err = parseBGPRouteDirection("RECEIVED")
+	assert.Error(t, err)
+}
+
+func TestFilterBGPRoutesByIP(t *testing.T) {
+	r1 := sampleBGPRoute() // 10.0.0.0/24
+	r2 := sampleBGPRoute()
+	r2.Prefix = "10.1.0.0/16"
+	r3 := sampleBGPRoute()
+	r3.Prefix = "192.0.2.0/24"
+	r4 := sampleBGPRoute()
+	r4.Prefix = "garbage"
+	routes := []*megaport.LookingGlassBGPRoute{r1, r2, r3, r4, nil}
+
+	assert.Len(t, filterBGPRoutesByIP(routes, netip.Prefix{}), 5)
+
+	// Prefix filter keeps the routes inside it.
+	kept := filterBGPRoutesByIP(routes, netip.MustParsePrefix("10.0.0.0/8"))
+	assert.Len(t, kept, 2)
+	assert.Equal(t, "10.0.0.0/24", kept[0].Prefix)
+	assert.Equal(t, "10.1.0.0/16", kept[1].Prefix)
+
+	// Address filter keeps the routes that contain it.
+	kept = filterBGPRoutesByIP(routes, netip.MustParsePrefix("192.0.2.77/32"))
+	assert.Len(t, kept, 1)
+	assert.Equal(t, "192.0.2.0/24", kept[0].Prefix)
+
+	// A prefix filter more specific than a route keeps the route that covers it.
+	kept = filterBGPRoutesByIP(routes, netip.MustParsePrefix("10.1.2.0/24"))
+	assert.Len(t, kept, 1)
+	assert.Equal(t, "10.1.0.0/16", kept[0].Prefix)
+
+	assert.Empty(t, filterBGPRoutesByIP(routes, netip.MustParsePrefix("203.0.113.0/24")))
+}
+
+func TestParseIPFilter(t *testing.T) {
+	p, err := parseIPFilter("10.0.0.0/8")
+	assert.NoError(t, err)
+	assert.Equal(t, "10.0.0.0/8", p.String())
+
+	p, err = parseIPFilter("10.1.2.3/8")
+	assert.NoError(t, err)
+	assert.Equal(t, "10.0.0.0/8", p.String())
+
+	p, err = parseIPFilter("192.168.1.1")
+	assert.NoError(t, err)
+	assert.Equal(t, "192.168.1.1/32", p.String())
+
+	p, err = parseIPFilter("2001:db8::1")
+	assert.NoError(t, err)
+	assert.Equal(t, "2001:db8::1/128", p.String())
+
+	_, err = parseIPFilter("not-an-ip")
+	assert.Error(t, err)
 }
 
 // Output conversion tests
 
 func TestToIPRouteOutput(t *testing.T) {
-	metric := 100
-	localPref := 200
-	age := 3661 // 1 hour, 1 minute, 1 second
-	best := true
-
-	route := &megaport.LookingGlassIPRoute{
-		Prefix:    "10.0.0.0/24",
-		NextHop:   "192.168.1.1",
-		Protocol:  megaport.RouteProtocolBGP,
-		Metric:    &metric,
-		LocalPref: &localPref,
-		ASPath:    []int{65001, 65002},
-		Age:       &age,
-		Interface: "eth0",
-		VXCName:   "Test VXC",
-		Best:      &best,
-	}
-
-	output, err := ToIPRouteOutput(route)
+	out, err := ToIPRouteOutput(sampleIPRoutes()[0])
 	assert.NoError(t, err)
-	assert.Equal(t, "10.0.0.0/24", output.Prefix)
-	assert.Equal(t, "192.168.1.1", output.NextHop)
-	assert.Equal(t, "BGP", output.Protocol)
-	assert.Equal(t, "100", output.Metric)
-	assert.Equal(t, "200", output.LocalPref)
-	assert.Equal(t, "65001 65002", output.ASPath)
-	assert.Equal(t, "1h1m", output.Age)
-	assert.Equal(t, "eth0", output.Interface)
-	assert.Equal(t, "Test VXC", output.VXCName)
-	assert.Equal(t, "Yes", output.Best)
+	assert.Equal(t, IPRouteOutput{
+		Prefix:   "10.0.0.0/24",
+		NextHop:  "192.168.1.1",
+		Protocol: "BGP",
+		Distance: 20,
+		Metric:   100,
+		VXCName:  "Test VXC",
+	}, out)
+}
+
+func TestToIPRouteOutput_MinimalFields(t *testing.T) {
+	out, err := ToIPRouteOutput(&megaport.LookingGlassIPRoute{Prefix: "10.0.0.0/24", Protocol: "STATIC"})
+	assert.NoError(t, err)
+	assert.Equal(t, "10.0.0.0/24", out.Prefix)
+	assert.Equal(t, "STATIC", out.Protocol)
+	assert.Empty(t, out.NextHop)
+	assert.Empty(t, out.VXCName)
+	assert.Zero(t, out.Distance)
+	assert.Zero(t, out.Metric)
 }
 
 func TestToIPRouteOutputNil(t *testing.T) {
 	_, err := ToIPRouteOutput(nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid route: nil value")
 }
 
 func TestToBGPRouteOutput(t *testing.T) {
-	localPref := 100
-	med := 50
-	neighborASN := 65001
-	age := 90061 // 1 day, 1 hour, 1 minute, 1 second
-
-	route := &megaport.LookingGlassBGPRoute{
-		Prefix:      "10.0.0.0/24",
-		NextHop:     "192.168.1.1",
-		ASPath:      []int{65001, 65002, 65003},
-		LocalPref:   &localPref,
-		MED:         &med,
-		Origin:      "IGP",
-		Communities: []string{"65001:100", "65001:200"},
-		Valid:       true,
-		Best:        false,
-		NeighborIP:  "192.168.1.2",
-		NeighborASN: &neighborASN,
-		Age:         &age,
-		VXCName:     "Test VXC",
-	}
-
-	output, err := ToBGPRouteOutput(route)
+	out, err := ToBGPRouteOutput(sampleBGPRoute())
 	assert.NoError(t, err)
-	assert.Equal(t, "10.0.0.0/24", output.Prefix)
-	assert.Equal(t, "192.168.1.1", output.NextHop)
-	assert.Equal(t, "65001 65002 65003", output.ASPath)
-	assert.Equal(t, "100", output.LocalPref)
-	assert.Equal(t, "50", output.MED)
-	assert.Equal(t, "IGP", output.Origin)
-	assert.Equal(t, "65001:100, 65001:200", output.Communities)
-	assert.Equal(t, "Yes", output.Valid)
-	assert.Equal(t, "No", output.Best)
-	assert.Equal(t, "192.168.1.2", output.NeighborIP)
-	assert.Equal(t, "65001", output.NeighborASN)
-	assert.Equal(t, "1d1h", output.Age)
-	assert.Equal(t, "Test VXC", output.VXCName)
+	assert.Equal(t, BGPRouteOutput{
+		Prefix:       "10.0.0.0/24",
+		NextHop:      "192.168.1.1",
+		ASPath:       "65001 65002",
+		LocalPref:    100,
+		MED:          50,
+		Weight:       0,
+		Origin:       "IGP",
+		Source:       "EBGP",
+		Communities:  "65001:100, 65001:200",
+		AdvertisedTo: "192.168.200.1",
+		Valid:        "Yes",
+		Best:         "Yes",
+		External:     "Yes",
+		VXCName:      "Test VXC",
+		Since:        "2026-09-01T00:00:00Z",
+	}, out)
 }
 
-func TestToBGPSessionOutput(t *testing.T) {
-	uptime := 86400
-	prefixesIn := 100
-	prefixesOut := 50
-
-	session := &megaport.LookingGlassBGPSession{
-		SessionID:       "session-123",
-		NeighborAddress: "192.168.1.2",
-		NeighborASN:     65001,
-		LocalASN:        65000,
-		Status:          megaport.BGPSessionStatusUp,
-		Uptime:          &uptime,
-		PrefixesIn:      &prefixesIn,
-		PrefixesOut:     &prefixesOut,
-		VXCID:           12345,
-		VXCName:         "Test VXC",
-		Description:     "Test BGP Session",
-	}
-
-	output, err := ToBGPSessionOutput(session)
+func TestToBGPRouteOutput_MinimalFields(t *testing.T) {
+	out, err := ToBGPRouteOutput(&megaport.LookingGlassBGPRoute{Prefix: "10.0.0.0/24"})
 	assert.NoError(t, err)
-	assert.Equal(t, "session-123", output.SessionID)
-	assert.Equal(t, "192.168.1.2", output.NeighborAddress)
-	assert.Equal(t, 65001, output.NeighborASN)
-	assert.Equal(t, 65000, output.LocalASN)
-	assert.Equal(t, "UP", output.Status)
-	assert.Equal(t, "1d0h", output.Uptime)
-	assert.Equal(t, "100", output.PrefixesIn)
-	assert.Equal(t, "50", output.PrefixesOut)
-	assert.Equal(t, "Test VXC", output.VXCName)
-	assert.Equal(t, "Test BGP Session", output.Description)
+	assert.Equal(t, "10.0.0.0/24", out.Prefix)
+	assert.Empty(t, out.ASPath)
+	assert.Empty(t, out.Communities)
+	assert.Empty(t, out.AdvertisedTo)
+	assert.Equal(t, "No", out.Valid)
+	assert.Equal(t, "No", out.Best)
+	assert.Equal(t, "No", out.External)
+	assert.Empty(t, out.Since)
 }
 
-func TestToBGPNeighborRouteOutput(t *testing.T) {
-	localPref := 100
-	med := 50
-
-	route := &megaport.LookingGlassBGPNeighborRoute{
-		Prefix:      "10.0.0.0/24",
-		NextHop:     "192.168.1.1",
-		ASPath:      []int{65001, 65002},
-		LocalPref:   &localPref,
-		MED:         &med,
-		Origin:      "IGP",
-		Communities: []string{"65001:100"},
-		Valid:       true,
-		Best:        true,
-	}
-
-	output, err := ToBGPNeighborRouteOutput(route)
-	assert.NoError(t, err)
-	assert.Equal(t, "10.0.0.0/24", output.Prefix)
-	assert.Equal(t, "192.168.1.1", output.NextHop)
-	assert.Equal(t, "65001 65002", output.ASPath)
-	assert.Equal(t, "100", output.LocalPref)
-	assert.Equal(t, "50", output.MED)
-	assert.Equal(t, "IGP", output.Origin)
-	assert.Equal(t, "65001:100", output.Communities)
-	assert.Equal(t, "Yes", output.Valid)
-	assert.Equal(t, "Yes", output.Best)
-}
-
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		seconds  int
-		expected string
-	}{
-		{30, "30s"},
-		{61, "1m1s"},
-		{3661, "1h1m"},
-		{90061, "1d1h"},
-		{180000, "2d2h"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			result := formatDuration(tt.seconds)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+func TestToBGPRouteOutputNil(t *testing.T) {
+	_, err := ToBGPRouteOutput(nil)
+	assert.Error(t, err)
 }
 
 func TestBoolToYesNo(t *testing.T) {
@@ -429,487 +617,17 @@ func TestBoolToYesNo(t *testing.T) {
 	assert.Equal(t, "No", boolToYesNo(false))
 }
 
-// Error and edge-case tests for actions
-
-func TestListLookingGlassIPRoutes_LoginError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	defer config.SetLoginFunc(originalLoginFunc)
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return nil, fmt.Errorf("login failed")
-	})
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "", "")
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error logging in")
+func TestPrintRoutes_TableFormat(t *testing.T) {
+	assert.NoError(t, printIPRoutes(sampleIPRoutes(), "table", true))
+	assert.NoError(t, printBGPRoutes([]*megaport.LookingGlassBGPRoute{sampleBGPRoute()}, "table", true))
 }
 
-func TestListLookingGlassIPRoutes_APIError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listIPRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listIPRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
-		return nil, fmt.Errorf("api error")
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "", "")
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error listing IP routes")
+func TestPrintRoutes_NilEntry(t *testing.T) {
+	assert.Error(t, printIPRoutes([]*megaport.LookingGlassIPRoute{nil}, "json", true))
+	assert.Error(t, printBGPRoutes([]*megaport.LookingGlassBGPRoute{nil}, "json", true))
 }
 
-func TestListLookingGlassIPRoutes_Empty(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listIPRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listIPRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listIPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassIPRoute, error) {
-		return []*megaport.LookingGlassIPRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "", "")
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassIPRoutes_WithIPFilterOnly(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listIPRoutesWithFilterFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listIPRoutesWithFilterFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listIPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListIPRoutesRequest) ([]*megaport.LookingGlassIPRoute, error) {
-		assert.Equal(t, "10.0.0.0/24", req.IPFilter)
-		assert.Equal(t, megaport.RouteProtocol(""), req.Protocol)
-		return []*megaport.LookingGlassIPRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "", "")
-	cmd.Flags().String("ip", "10.0.0.0/24", "")
-
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassIPRoutesWithFilter_APIError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listIPRoutesWithFilterFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listIPRoutesWithFilterFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listIPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListIPRoutesRequest) ([]*megaport.LookingGlassIPRoute, error) {
-		return nil, fmt.Errorf("api error")
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("protocol", "BGP", "")
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassIPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error listing IP routes")
-}
-
-func TestListLookingGlassBGPRoutes_LoginError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	defer config.SetLoginFunc(originalLoginFunc)
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return nil, fmt.Errorf("login failed")
-	})
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error logging in")
-}
-
-func TestListLookingGlassBGPRoutes_APIError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPRoute, error) {
-		return nil, fmt.Errorf("api error")
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error listing BGP routes")
-}
-
-func TestListLookingGlassBGPRoutes_Empty(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPRoutesFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPRoute, error) {
-		return []*megaport.LookingGlassBGPRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassBGPRoutes_WithFilter(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPRoutesWithFilterFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPRoutesWithFilterFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
-		assert.Equal(t, "test-mcr-uid", req.MCRID)
-		assert.Equal(t, "192.168.1.0/24", req.IPFilter)
-		return []*megaport.LookingGlassBGPRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "192.168.1.0/24", "")
-
-	err := ListLookingGlassBGPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassBGPRoutes_WithFilterError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPRoutesWithFilterFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPRoutesWithFilterFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
-		return nil, fmt.Errorf("filter api error")
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "192.168.1.0/24", "")
-
-	err := ListLookingGlassBGPRoutes(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error listing BGP routes")
-}
-
-func TestListLookingGlassBGPSessions_LoginError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	defer config.SetLoginFunc(originalLoginFunc)
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return nil, fmt.Errorf("login failed")
-	})
-
-	cmd := &cobra.Command{}
-	err := ListLookingGlassBGPSessions(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error logging in")
-}
-
-func TestListLookingGlassBGPSessions_APIError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPSessionsFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPSessionsFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPSessionsFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPSession, error) {
-		return nil, fmt.Errorf("api error")
-	}
-
-	cmd := &cobra.Command{}
-	err := ListLookingGlassBGPSessions(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error listing BGP sessions")
-}
-
-func TestListLookingGlassBGPSessions_Empty(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPSessionsFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPSessionsFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPSessionsFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPSession, error) {
-		return []*megaport.LookingGlassBGPSession{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	err := ListLookingGlassBGPSessions(cmd, []string{"test-mcr-uid"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassBGPNeighborRoutes_LoginError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	defer config.SetLoginFunc(originalLoginFunc)
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return nil, fmt.Errorf("login failed")
-	})
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "received"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error logging in")
-}
-
-func TestListLookingGlassBGPNeighborRoutes_APIError(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPNeighborRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPNeighborRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
-		return nil, fmt.Errorf("api error")
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "advertised"}, true, "json")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error listing BGP neighbor routes")
-}
-
-func TestListLookingGlassBGPNeighborRoutes_Empty(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPNeighborRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPNeighborRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
-		return []*megaport.LookingGlassBGPNeighborRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "advertised"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassBGPNeighborRoutes_Advertised(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPNeighborRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPNeighborRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
-		assert.Equal(t, megaport.LookingGlassRouteDirectionAdvertised, req.Direction)
-		return []*megaport.LookingGlassBGPNeighborRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "", "")
-
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "advertised"}, true, "json")
-	assert.NoError(t, err)
-}
-
-func TestListLookingGlassBGPNeighborRoutes_WithIPFilter(t *testing.T) {
-	originalLoginFunc := config.GetLoginFunc()
-	originalFunc := listBGPNeighborRoutesFunc
-	defer func() {
-		config.SetLoginFunc(originalLoginFunc)
-		listBGPNeighborRoutesFunc = originalFunc
-	}()
-
-	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-		return &megaport.Client{}, nil
-	})
-	listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
-		assert.Equal(t, "10.0.0.0/24", req.IPFilter)
-		return []*megaport.LookingGlassBGPNeighborRoute{}, nil
-	}
-
-	cmd := &cobra.Command{}
-	cmd.Flags().String("ip", "10.0.0.0/24", "")
-
-	err := ListLookingGlassBGPNeighborRoutes(cmd, []string{"test-mcr-uid", "session-123", "received"}, true, "json")
-	assert.NoError(t, err)
-}
-
-// Nil-input tests for output converters
-
-func TestToBGPRouteOutputNil(t *testing.T) {
-	_, err := ToBGPRouteOutput(nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid BGP route: nil value")
-}
-
-func TestToBGPSessionOutputNil(t *testing.T) {
-	_, err := ToBGPSessionOutput(nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid BGP session: nil value")
-}
-
-func TestToBGPNeighborRouteOutputNil(t *testing.T) {
-	_, err := ToBGPNeighborRouteOutput(nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid BGP neighbor route: nil value")
-}
-
-// Minimal-field tests (no optional fields set) for branch coverage
-
-func TestToIPRouteOutput_MinimalFields(t *testing.T) {
-	route := &megaport.LookingGlassIPRoute{
-		Prefix:  "10.0.0.0/24",
-		NextHop: "192.168.1.1",
-	}
-	out, err := ToIPRouteOutput(route)
-	assert.NoError(t, err)
-	assert.Equal(t, "10.0.0.0/24", out.Prefix)
-	assert.Empty(t, out.Metric)
-	assert.Empty(t, out.LocalPref)
-	assert.Empty(t, out.ASPath)
-	assert.Empty(t, out.Age)
-	assert.Empty(t, out.Best)
-}
-
-func TestToIPRouteOutput_BestFalse(t *testing.T) {
-	best := false
-	route := &megaport.LookingGlassIPRoute{
-		Prefix:  "10.0.0.0/24",
-		NextHop: "192.168.1.1",
-		Best:    &best,
-	}
-	out, err := ToIPRouteOutput(route)
-	assert.NoError(t, err)
-	assert.Equal(t, "No", out.Best)
-}
-
-func TestToBGPRouteOutput_MinimalFields(t *testing.T) {
-	route := &megaport.LookingGlassBGPRoute{
-		Prefix:  "10.0.0.0/24",
-		NextHop: "192.168.1.1",
-	}
-	out, err := ToBGPRouteOutput(route)
-	assert.NoError(t, err)
-	assert.Equal(t, "10.0.0.0/24", out.Prefix)
-	assert.Empty(t, out.ASPath)
-	assert.Empty(t, out.LocalPref)
-	assert.Empty(t, out.MED)
-	assert.Empty(t, out.Communities)
-	assert.Empty(t, out.NeighborASN)
-	assert.Empty(t, out.Age)
-}
-
-func TestToBGPSessionOutput_MinimalFields(t *testing.T) {
-	session := &megaport.LookingGlassBGPSession{
-		SessionID:       "session-1",
-		NeighborAddress: "192.168.1.2",
-		NeighborASN:     65001,
-		LocalASN:        65000,
-		Status:          megaport.BGPSessionStatusDown,
-	}
-	out, err := ToBGPSessionOutput(session)
-	assert.NoError(t, err)
-	assert.Equal(t, "DOWN", out.Status)
-	assert.Empty(t, out.Uptime)
-	assert.Empty(t, out.PrefixesIn)
-	assert.Empty(t, out.PrefixesOut)
-}
-
-func TestToBGPNeighborRouteOutput_MinimalFields(t *testing.T) {
-	route := &megaport.LookingGlassBGPNeighborRoute{
-		Prefix:  "10.0.0.0/24",
-		NextHop: "192.168.1.1",
-	}
-	out, err := ToBGPNeighborRouteOutput(route)
-	assert.NoError(t, err)
-	assert.Equal(t, "10.0.0.0/24", out.Prefix)
-	assert.Empty(t, out.ASPath)
-	assert.Empty(t, out.LocalPref)
-	assert.Empty(t, out.MED)
-	assert.Empty(t, out.Communities)
-}
-
-// Utils wrapper function tests — exercise the real var bodies via a mock client
+// Wrapper function tests
 
 func TestLookingGlassUtilsWrappers(t *testing.T) {
 	mockSvc := &MockMCRLookingGlassService{}
@@ -951,17 +669,9 @@ func TestLookingGlassUtilsWrappers(t *testing.T) {
 		assert.Len(t, routes, 1)
 	})
 
-	t.Run("listBGPSessionsFunc", func(t *testing.T) {
-		mockSvc.ListBGPSessionsResult = []*megaport.LookingGlassBGPSession{{SessionID: "s1"}}
-		sessions, err := listBGPSessionsFunc(ctx, client, "mcr-1")
-		assert.NoError(t, err)
-		assert.Equal(t, "mcr-1", mockSvc.CapturedListBGPSessionsMCRUID)
-		assert.Len(t, sessions, 1)
-	})
-
 	t.Run("listBGPNeighborRoutesFunc", func(t *testing.T) {
-		req := &megaport.ListBGPNeighborRoutesRequest{MCRID: "mcr-1", SessionID: "s1"}
-		mockSvc.ListBGPNeighborRoutesResult = []*megaport.LookingGlassBGPNeighborRoute{{Prefix: "1.0.0.0/8"}}
+		req := &megaport.ListBGPNeighborRoutesRequest{MCRID: "mcr-1", PeerIPAddress: "169.254.0.1", Direction: megaport.BGPRouteDirectionReceived}
+		mockSvc.ListBGPNeighborRoutesResult = []*megaport.LookingGlassBGPRoute{{Prefix: "1.0.0.0/8"}}
 		routes, err := listBGPNeighborRoutesFunc(ctx, client, req)
 		assert.NoError(t, err)
 		assert.Equal(t, req, mockSvc.CapturedListBGPNeighborRoutes)
@@ -1004,8 +714,6 @@ func TestLookingGlassUtilsWrappers(t *testing.T) {
 		assert.Equal(t, "traceroute output", result.RawOutput)
 	})
 }
-
-// Ping and traceroute action tests
 
 func TestLookingGlassPing(t *testing.T) {
 	originalLoginFunc := config.GetLoginFunc()
