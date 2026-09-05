@@ -35,5 +35,5 @@ megaport-cli mcr looking-glass bgp-neighbor-routes [flags]
 
 | Name | Shorthand | Default | Description | Required |
 |------|-----------|---------|-------------|----------|
-| `--ip` |  |  | Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1). Keeps routes that contain the address or fall inside the prefix. Applied locally after the routes are fetched | false |
+| `--ip` |  |  | Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1). Keeps routes that contain the address or fall inside the prefix | false |
 
