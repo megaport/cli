@@ -224,8 +224,9 @@ func parseIPFilter(filter string) (netip.Prefix, error) {
 	return netip.Prefix{}, fmt.Errorf("--ip must be an IP address or prefix, got: %s", filter)
 }
 
-// filterBGPRoutesByIP keeps the routes whose prefix contains the filter address,
-// or falls inside the filter prefix. An invalid (zero) prefix keeps every route.
+// filterBGPRoutesByIP keeps the routes whose prefix overlaps the filter: the
+// routes that contain the filter address, and the routes that fall inside the
+// filter prefix. An invalid (zero) prefix keeps every route.
 func filterBGPRoutesByIP(routes []*megaport.LookingGlassBGPRoute, want netip.Prefix) []*megaport.LookingGlassBGPRoute {
 	if !want.IsValid() {
 		return routes
@@ -239,8 +240,7 @@ func filterBGPRoutesByIP(routes []*megaport.LookingGlassBGPRoute, want netip.Pre
 		if err != nil {
 			continue
 		}
-		have = have.Masked()
-		if have.Contains(want.Addr()) || want.Contains(have.Addr()) {
+		if have.Overlaps(want) {
 			kept = append(kept, r)
 		}
 	}
