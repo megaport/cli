@@ -23,7 +23,7 @@ func firstMCRUIDForLookingGlass(t *testing.T) string {
 	t.Helper()
 
 	var listErr error
-	listOut := output.CaptureOutput(func() {
+	listOut := output.CaptureStdout(func() {
 		listErr = ListMCRs(readOnlyListMCRsCmd(), nil, true, "json")
 	})
 	require.NoError(t, listErr)
@@ -42,9 +42,9 @@ func firstMCRUIDForLookingGlass(t *testing.T) string {
 	return uid
 }
 
-// firstBGPPeerIP looks for a BGP peer IP on any VXC attached to mcrUID, by
-// reading associated VXCs straight from the SDK. Returns "" when none is
-// configured.
+// firstBGPPeerIP looks for a live BGP peer IP on any VXC attached to mcrUID.
+// GetMCR leaves resources unset on the VXCs it lists, so each one is fetched on
+// its own. Returns "" when none is configured.
 func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 	t.Helper()
 
@@ -55,7 +55,12 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 	mcr, err := client.MCRService.GetMCR(ctx, mcrUID)
 	require.NoError(t, err)
 
-	for _, vxc := range mcr.AssociatedVXCs {
+	for _, associated := range mcr.AssociatedVXCs {
+		if associated == nil || associated.UID == "" {
+			continue
+		}
+		vxc, err := client.VXCService.GetVXC(ctx, associated.UID)
+		require.NoError(t, err)
 		if vxc.Resources == nil || vxc.Resources.CSPConnection == nil {
 			continue
 		}
@@ -66,6 +71,11 @@ func firstBGPPeerIP(t *testing.T, mcrUID string) string {
 			}
 			for _, iface := range vRouter.Interfaces {
 				for _, bgp := range iface.BGPConnections {
+					// A shut-down peer has no session, so the neighbor endpoint
+					// has nothing to report on it.
+					if bgp.Shutdown {
+						continue
+					}
 					// A configured peer address can carry a prefix length. The
 					// neighbor-routes command takes a bare IP.
 					peer, _, _ := strings.Cut(bgp.PeerIpAddress, "/")
