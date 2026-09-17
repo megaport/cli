@@ -140,7 +140,11 @@ var loginFunc = func(ctx context.Context) (*megaport.Client, error) {
 				case "development":
 					envOpt = megaport.WithEnvironment(megaport.EnvironmentDevelopment)
 				default:
-					envOpt = megaport.WithEnvironment(megaport.EnvironmentProduction)
+					// Fail closed: an unrecognized or empty environment must not
+					// silently route a bearer token to production.
+					js.Global().Get("console").Call("error", "Unknown environment: "+tokenEnv)
+					js.Global().Get("console").Call("groupEnd")
+					return nil, fmt.Errorf(`unknown environment %q: expected "production", "staging", or "development"`, tokenEnv)
 				}
 				clientOpts = append(clientOpts, envOpt)
 			}
@@ -176,14 +180,18 @@ var loginFunc = func(ctx context.Context) (*megaport.Client, error) {
 		js.Global().Get("console").Call("log", "Using secret key from environment variable")
 	}
 
-	// Allow the megaportCredentials JS global's environment field to override
-	// the env var (the UI may set it before calling setAuthCredentials).
-	megaportCredsGlobal := js.Global().Get("megaportCredentials")
-	if !megaportCredsGlobal.IsUndefined() && !megaportCredsGlobal.IsNull() {
-		envVal := megaportCredsGlobal.Get("environment")
-		if envVal.Type() == js.TypeString {
-			if s := envVal.String(); s != "" {
-				env = s
+	// Only consult the page-writable megaportCredentials global when the
+	// trusted MEGAPORT_ENVIRONMENT bucket (set and validated by
+	// setAuthCredentials) is unset; never let the global override an
+	// already-validated environment. Mirrors the token path's precedence above.
+	if env == "" {
+		megaportCredsGlobal := js.Global().Get("megaportCredentials")
+		if !megaportCredsGlobal.IsUndefined() && !megaportCredsGlobal.IsNull() {
+			envVal := megaportCredsGlobal.Get("environment")
+			if envVal.Type() == js.TypeString {
+				if s := envVal.String(); s != "" {
+					env = s
+				}
 			}
 		}
 	}
@@ -206,7 +214,11 @@ var loginFunc = func(ctx context.Context) (*megaport.Client, error) {
 		return nil, fmt.Errorf("megaport API secret key not provided. Please use the login form in the browser UI or set MEGAPORT_SECRET_KEY environment variable")
 	}
 
-	// Default to production
+	// Default to production when no environment was specified at all. This is
+	// safe today because setAuthCredentials always sets MEGAPORT_ENVIRONMENT
+	// alongside the access key, so env is only ever "" here if accessKey was
+	// set some other way. An unrecognized (non-empty) value is handled by the
+	// switch's default case below, which fails closed rather than defaulting.
 	if env == "" {
 		env = "production"
 		js.Global().Get("console").Call("log", "No environment specified, defaulting to production")
@@ -227,8 +239,11 @@ var loginFunc = func(ctx context.Context) (*megaport.Client, error) {
 		apiEndpoint = "https://api-mpone-dev.megaport.com"
 		envOpt = megaport.WithEnvironment(megaport.EnvironmentDevelopment)
 	default:
-		apiEndpoint = "https://api.megaport.com"
-		envOpt = megaport.WithEnvironment(megaport.EnvironmentProduction)
+		// Fail closed: an unrecognized environment must not silently route
+		// credentials to production.
+		js.Global().Get("console").Call("error", "Unknown environment: "+env)
+		js.Global().Get("console").Call("groupEnd")
+		return nil, fmt.Errorf(`unknown environment %q: expected "production", "staging", or "development"`, env)
 	}
 
 	js.Global().Get("console").Call("log", "Using API endpoint: "+apiEndpoint)
