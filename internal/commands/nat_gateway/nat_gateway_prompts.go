@@ -216,12 +216,14 @@ func promptForUpdateNATGatewayDetails(uid string, noColor bool) (*megaport.Updat
 		return nil, explicit, err
 	}
 	req.PromoCode = strings.TrimSpace(promoCode)
+	explicit.PromoCode = req.PromoCode != ""
 
 	serviceLevelRef, err := utils.ResourcePrompt("nat-gateway", "Service level reference (leave empty to keep current): ", noColor)
 	if err != nil {
 		return nil, explicit, err
 	}
 	req.ServiceLevelReference = strings.TrimSpace(serviceLevelRef)
+	explicit.ServiceLevelReference = req.ServiceLevelReference != ""
 
 	tagsMap, err := utils.ResourceTagsPrompt(noColor)
 	if err != nil {

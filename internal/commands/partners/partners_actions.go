@@ -2,6 +2,7 @@ package partners
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/commands/config"
@@ -106,15 +107,17 @@ func FindPartners(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
-	format, err := utils.Prompt("Output format [table/json] (default: table): ", noColor)
+	format, err := utils.Prompt("Output format [table/json/csv/xml] (default: table): ", noColor)
 	if err != nil {
 		output.PrintError("Failed to get output format: %v", noColor, err)
 		return err
 	}
 
+	normalizedFormat := strings.ToLower(strings.TrimSpace(format))
 	selectedFormat := "table"
-	if format == "json" {
-		selectedFormat = "json"
+	switch normalizedFormat {
+	case "json", "csv", "xml":
+		selectedFormat = normalizedFormat
 	}
 
 	filteredPartners := filterPartners(partners, productName, connectType, companyName, locationID, diversityZone)

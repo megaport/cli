@@ -630,6 +630,20 @@ func TestProcessFlagUpdateMVEInput(t *testing.T) {
 	}
 }
 
+func TestProcessFlagUpdateMVEInput_ExplicitEmptyNameRejected(t *testing.T) {
+	cmd := createTestCmd()
+	require.NoError(t, cmd.Flags().Set("name", ""))
+	_, _, err := processFlagUpdateMVEInput(cmd, "mve-123")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+func TestProcessJSONUpdateMVEInput_ExplicitEmptyNameRejected(t *testing.T) {
+	_, _, err := processJSONUpdateMVEInput(`{"name":""}`, "", "mve-123")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
 func TestProcessFlagUpdateMVEInput_CostCentreProvided(t *testing.T) {
 	t.Run("flag not set reports not provided", func(t *testing.T) {
 		cmd := createTestCmd()
