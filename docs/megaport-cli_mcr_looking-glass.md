@@ -17,7 +17,7 @@ The Looking Glass provides visibility into traffic routing on your MCR, helping 
 ```sh
   megaport-cli mcr looking-glass ip-routes [mcrUID]
   megaport-cli mcr looking-glass bgp-routes [mcrUID]
-  megaport-cli mcr looking-glass bgp-sessions [mcrUID]
+  megaport-cli mcr looking-glass bgp-neighbor-routes [mcrUID] [peerIP] received
 ```
 
 ## Usage
@@ -38,7 +38,6 @@ megaport-cli mcr looking-glass [flags]
 ## Subcommands
 * [bgp-neighbor-routes](megaport-cli_mcr_looking-glass_bgp-neighbor-routes.md)
 * [bgp-routes](megaport-cli_mcr_looking-glass_bgp-routes.md)
-* [bgp-sessions](megaport-cli_mcr_looking-glass_bgp-sessions.md)
 * [ip-routes](megaport-cli_mcr_looking-glass_ip-routes.md)
 * [ping](megaport-cli_mcr_looking-glass_ping.md)
 * [traceroute](megaport-cli_mcr_looking-glass_traceroute.md)
