@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/megaport/megaport-cli/internal/wasm"
 )
 
 // TestWasmTableWriter verifies the WASM table writer buffer
@@ -141,6 +143,62 @@ func TestPrintTable_WASM_ComplexData(t *testing.T) {
 	output := WasmTableWriter.String()
 	assert.NotEmpty(t, output)
 	assert.Contains(t, output, "Complex Item")
+}
+
+// TestPrintTable_WASM_AccumulatesMultipleCalls verifies that a command
+// rendering more than one table in a single invocation has all of them
+// captured, not just the last (ESD-1650).
+func TestPrintTable_WASM_AccumulatesMultipleCalls(t *testing.T) {
+	first := []SimpleStruct{{ID: 1, Name: "First", Active: true}}
+	second := []SimpleStruct{{ID: 2, Name: "Second", Active: false}}
+
+	WasmTableWriter.Reset()
+	js.Global().Delete("wasmTableOutput")
+
+	assert.NoError(t, printTable(first, false, currentPrintOptions()))
+	assert.NoError(t, printTable(second, false, currentPrintOptions()))
+
+	output := WasmTableWriter.String()
+	assert.Contains(t, output, "First", "first table must survive a second call")
+	assert.Contains(t, output, "Second", "second table must also be present")
+
+	global := js.Global().Get("wasmTableOutput")
+	assert.Equal(t, output, global.String(), "global must reflect the full accumulated buffer")
+
+	WasmTableWriter.Reset()
+	js.Global().Delete("wasmTableOutput")
+}
+
+// TestPrintTable_WASM_AccumulatesWhenSanitizerDropsBytes guards the raw-offset
+// alignment fixed in ESD-1650. The first table's cell carries injected control
+// bytes the sanitizer strips, so the sanitized whole buffer is shorter than the
+// raw byte offset recorded before the second call; slicing the sanitized string
+// by that raw offset (the pre-fix behavior) reads past its end and panics. The
+// global must still equal the sanitized full buffer and both rows must survive.
+func TestPrintTable_WASM_AccumulatesWhenSanitizerDropsBytes(t *testing.T) {
+	noisy := "acme" + strings.Repeat("\x1b[2K\x1b[H\x7f", 400)
+	first := []SimpleStruct{{ID: 1, Name: noisy, Active: true}}
+	second := []SimpleStruct{{ID: 2, Name: "Second", Active: false}}
+
+	SetTerminalWidthForTesting(0)
+	defer SetTerminalWidthForTesting(0)
+	WasmTableWriter.Reset()
+	js.Global().Delete("wasmTableOutput")
+
+	assert.NotPanics(t, func() {
+		assert.NoError(t, printTable(first, true, currentPrintOptions()))
+		assert.NoError(t, printTable(second, true, currentPrintOptions()))
+	})
+
+	global := js.Global().Get("wasmTableOutput").String()
+	assert.Equal(t, wasm.SanitizeTerminalOutput(WasmTableWriter.String()), global,
+		"global must equal the sanitized full accumulated buffer")
+	assert.NotContains(t, global, "\x1b[2K", "injected control bytes must be stripped")
+	assert.Contains(t, global, "acme")
+	assert.Contains(t, global, "Second")
+
+	WasmTableWriter.Reset()
+	js.Global().Delete("wasmTableOutput")
 }
 
 // TestCalculateDynamicWidth verifies column width calculation
