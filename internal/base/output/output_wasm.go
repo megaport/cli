@@ -297,6 +297,12 @@ func printXML[T OutputFields](data []T, opts printOptions) error {
 		fields = filtered
 	}
 
+	fieldNames := make([]string, len(fields))
+	for i, f := range fields {
+		fieldNames[i] = f.name
+	}
+	xmlNames := sanitizeXMLElementNames(fieldNames)
+
 	encoder := xml.NewEncoder(WasmXMLWriter)
 	encoder.Indent("", "  ")
 
@@ -326,11 +332,11 @@ func printXML[T OutputFields](data []T, opts printOptions) error {
 			return err
 		}
 
-		for _, f := range fields {
+		for i, f := range fields {
 			fieldVal := v.Field(f.index)
 			valueStr := formatFieldValue(fieldVal)
 
-			elemStart := xml.StartElement{Name: xml.Name{Local: f.name}}
+			elemStart := xml.StartElement{Name: xml.Name{Local: xmlNames[i]}}
 			if err := encoder.EncodeToken(elemStart); err != nil {
 				return err
 			}

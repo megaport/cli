@@ -979,9 +979,11 @@ func TestBuyPort(t *testing.T) {
 			cmd.Flags().Bool("marketplace-visibility", false, "")
 			cmd.Flags().String("diversity-zone", "", "")
 			cmd.Flags().Bool("cost-confirm", true, "")
+			cmd.Flags().Bool("yes", false, "")
 
 			if tt.jsonInput != "" {
 				require.NoError(t, cmd.Flags().Set("json", tt.jsonInput))
+				require.NoError(t, cmd.Flags().Set("yes", "true"))
 			}
 			for k, v := range tt.flags {
 				require.NoError(t, cmd.Flags().Set(k, v))
@@ -1417,7 +1419,7 @@ func TestCheckPortVLANAvailability(t *testing.T) {
 			name:          "invalid VLAN arg",
 			portUID:       "port-vlan-3",
 			vlanArg:       "abc",
-			expectedError: "invalid VLAN ID",
+			expectedError: "Invalid VLAN ID",
 		},
 		{
 			name:          "VLAN out of assignable range",
@@ -1862,10 +1864,16 @@ func TestBuyPort_Confirmation(t *testing.T) {
 			expectedContains:   "new-port-uid-123",
 		},
 		{
-			name:               "json input skips confirmation",
+			name:               "json input with yes skips confirmation",
 			jsonInput:          `{"name":"json-port","term":12,"portSpeed":1000,"locationId":1,"marketPlaceVisibility":false}`,
+			yesFlag:            true,
 			expectPromptCalled: false,
 			expectedContains:   "new-port-uid-123",
+		},
+		{
+			name:          "json input without yes is a usage error",
+			jsonInput:     `{"name":"json-port","term":12,"portSpeed":1000,"locationId":1,"marketPlaceVisibility":false}`,
+			expectedError: "--yes is required to confirm a purchase when using --json or --json-file",
 		},
 	}
 
@@ -2075,6 +2083,34 @@ func TestBuyLAGPort_ConfirmationDenied(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cancelled by user")
 	assert.Contains(t, capturedOutput, "Purchase cancelled")
+}
+
+func TestBuyLAGPort_JSONWithoutYes(t *testing.T) {
+	cleanup := testutil.SetupLogin(func(c *megaport.Client) {
+		c.PortService = &MockPortService{}
+	})
+	defer cleanup()
+
+	cmd := &cobra.Command{Use: "buy-lag"}
+	cmd.Flags().Bool("interactive", false, "")
+	cmd.Flags().Bool("no-wait", false, "")
+	cmd.Flags().Bool("yes", false, "")
+	cmd.Flags().String("json", "", "")
+	cmd.Flags().String("json-file", "", "")
+	cmd.Flags().String("name", "", "")
+	cmd.Flags().Int("term", 0, "")
+	cmd.Flags().Int("port-speed", 0, "")
+	cmd.Flags().Int("location-id", 0, "")
+	cmd.Flags().Bool("marketplace-visibility", false, "")
+	cmd.Flags().String("diversity-zone", "", "")
+	cmd.Flags().Bool("cost-confirm", true, "")
+	cmd.Flags().Int("lag-count", 0, "")
+
+	require.NoError(t, cmd.Flags().Set("json", `{"name":"json-lag","term":12,"portSpeed":10000,"locationId":1,"lagCount":2,"marketPlaceVisibility":true}`))
+
+	err := BuyLAGPort(cmd, nil, true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--yes is required to confirm a purchase when using --json or --json-file")
 }
 
 func TestValidatePort(t *testing.T) {

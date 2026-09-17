@@ -120,6 +120,8 @@ func printXML[T OutputFields](data []T, opts printOptions) error {
 		}
 	}
 
+	xmlNames := sanitizeXMLElementNames(jsonNames)
+
 	encoder := xml.NewEncoder(os.Stdout)
 	encoder.Indent("", "  ")
 
@@ -143,8 +145,8 @@ func printXML[T OutputFields](data []T, opts printOptions) error {
 			return err
 		}
 
-		for i, name := range jsonNames {
-			elemStart := xml.StartElement{Name: xml.Name{Local: name}}
+		for i := range jsonNames {
+			elemStart := xml.StartElement{Name: xml.Name{Local: xmlNames[i]}}
 			if err := encoder.EncodeToken(elemStart); err != nil {
 				return err
 			}

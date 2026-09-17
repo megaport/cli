@@ -100,5 +100,5 @@ megaport-cli mve buy [flags]
 | `--term` |  | `0` | The term of the MVE (1, 12, 24, 36, 48, or 60 months) | true |
 | `--vendor-config` |  |  | JSON string with vendor-specific configuration (for flag mode) | true |
 | `--vnics` |  |  | JSON array of network interfaces (for flag mode) | true |
-| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase | false |
+| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase; required when using --json or --json-file | false |
 

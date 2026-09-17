@@ -939,6 +939,7 @@ func TestBuyMVE(t *testing.T) {
 			name: "json mode success",
 			args: []string{},
 			flags: map[string]string{
+				"yes": "true",
 				"json": `{
 					"name": "JSON MVE",
 					"term": 12,
@@ -1041,9 +1042,35 @@ func TestBuyMVE(t *testing.T) {
 		{
 			name: "invalid JSON returns error",
 			flags: map[string]string{
+				"yes":  "true",
 				"json": `{bad json}`,
 			},
 			expectedError: "failed to parse JSON",
+		},
+		{
+			name: "json without yes is a usage error",
+			flags: map[string]string{
+				"json": `{
+					"name": "JSON MVE",
+					"term": 12,
+					"locationId": 123,
+					"vendorConfig": {
+						"vendor": "cisco",
+						"imageId": 1,
+						"productSize": "LARGE",
+						"mveLabel": "json-label",
+						"manageLocally": true,
+						"adminSshPublicKey": "admin-ssh",
+						"sshPublicKey": "ssh-key",
+						"cloudInit": "cloud-init",
+						"fmcIpAddress": "fmc-ip",
+						"fmcRegistrationKey": "fmc-key",
+						"fmcNatId": "fmc-nat"
+					},
+					"vnics": [{"description": "JSON VNIC", "vlan": 200}]
+				}`,
+			},
+			expectedError: "--yes is required to confirm a purchase when using --json or --json-file",
 		},
 		{
 			name:        "interactive combined with JSON is a usage error",
@@ -1109,6 +1136,7 @@ func TestBuyMVE(t *testing.T) {
 			cmd.Flags().Int("location-id", 0, "")
 			cmd.Flags().String("vendor-config", "", "")
 			cmd.Flags().String("vnics", "", "")
+			cmd.Flags().Bool("yes", false, "")
 
 			testutil.SetFlags(t, cmd, tt.flags)
 
@@ -2248,13 +2276,23 @@ func TestBuyMVE_Confirmation(t *testing.T) {
 			promptShouldBeCalled: false,
 		},
 		{
-			name: "json input skips confirmation",
+			name: "json input with yes skips confirmation",
 			flags: map[string]string{
 				"json": `{"name":"JSON MVE","term":12,"locationId":123,"vendorConfig":{"vendor":"cisco","imageId":1,"productSize":"LARGE","mveLabel":"label-1","manageLocally":true,"adminSshPublicKey":"admin-ssh","sshPublicKey":"ssh-key","cloudInit":"cloud-init","fmcIpAddress":"fmc-ip","fmcRegistrationKey":"fmc-key","fmcNatId":"fmc-nat"},"vnics":[{"description":"VNIC 1","vlan":100}]}`,
+				"yes":  "true",
 			},
 			confirmResult:        false,
 			expectBuyCalled:      true,
 			expectedOutput:       "MVE created",
+			promptShouldBeCalled: false,
+		},
+		{
+			name: "json input without yes is a usage error",
+			flags: map[string]string{
+				"json": `{"name":"JSON MVE","term":12,"locationId":123,"vendorConfig":{"vendor":"cisco","imageId":1,"productSize":"LARGE","mveLabel":"label-1","manageLocally":true,"adminSshPublicKey":"admin-ssh","sshPublicKey":"ssh-key","cloudInit":"cloud-init","fmcIpAddress":"fmc-ip","fmcRegistrationKey":"fmc-key","fmcNatId":"fmc-nat"},"vnics":[{"description":"VNIC 1","vlan":100}]}`,
+			},
+			expectBuyCalled:      false,
+			expectedError:        "--yes is required to confirm a purchase when using --json or --json-file",
 			promptShouldBeCalled: false,
 		},
 	}

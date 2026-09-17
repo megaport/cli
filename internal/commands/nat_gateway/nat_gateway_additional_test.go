@@ -880,6 +880,7 @@ func TestCreateNATGateway_JSONWithSessionCount(t *testing.T) {
 
 	cmd := newTestCmd("create")
 	require.NoError(t, cmd.Flags().Set("json", `{"name":"GW","term":12,"speed":1000,"locationId":1,"sessionCount":500,"diversityZone":"blue","autoRenewTerm":true}`))
+	require.NoError(t, cmd.Flags().Set("yes", "true"))
 
 	err := CreateNATGateway(cmd, nil, true)
 	assert.NoError(t, err)

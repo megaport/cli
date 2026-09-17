@@ -63,7 +63,7 @@ func buildNATGatewayCommands(rootCmd *cobra.Command) (get, list, create, update,
 
 	create = cmdbuilder.NewCommand("create", "Create a new NAT Gateway").
 		WithColorAwareRunFunc(CreateNATGateway).
-		WithBoolFlagP("yes", "y", false, "Skip the confirmation prompt for creating the NAT Gateway design (no charges are incurred until 'nat-gateway buy')").
+		WithBoolFlagP("yes", "y", false, "Skip the confirmation prompt for creating the NAT Gateway design (no charges are incurred until 'nat-gateway buy'); required when using --json or --json-file").
 		WithNATGatewayCreateFlags().
 		WithStandardInputFlags().
 		WithLongDesc("Create a new NAT Gateway through the Megaport API.\n\nThis command creates a NAT Gateway by providing the necessary details.").

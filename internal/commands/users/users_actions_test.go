@@ -114,7 +114,7 @@ func TestGetUser(t *testing.T) {
 			name:          "invalid employee ID",
 			args:          []string{"abc"},
 			setupMock:     func(m *MockUserManagementService) {},
-			expectedError: "invalid employee ID",
+			expectedError: "Invalid employee ID",
 		},
 		{
 			name: "nil user",
@@ -368,7 +368,7 @@ func TestUpdateUser(t *testing.T) {
 			name:          "invalid employee ID",
 			args:          []string{"abc"},
 			setupMock:     func(m *MockUserManagementService) {},
-			expectedError: "invalid employee ID",
+			expectedError: "Invalid employee ID",
 		},
 	}
 
@@ -478,7 +478,7 @@ func TestDeleteUser(t *testing.T) {
 			args:          []string{"abc"},
 			force:         true,
 			setupMock:     func(m *MockUserManagementService) {},
-			expectedError: "invalid employee ID",
+			expectedError: "Invalid employee ID",
 		},
 	}
 
@@ -572,7 +572,7 @@ func TestDeactivateUser(t *testing.T) {
 			args:          []string{"abc"},
 			force:         true,
 			setupMock:     func(m *MockUserManagementService) {},
-			expectedError: "invalid employee ID",
+			expectedError: "Invalid employee ID",
 		},
 	}
 

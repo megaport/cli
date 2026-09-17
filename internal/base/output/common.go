@@ -452,6 +452,63 @@ func filterByFields(headers, jsonNames []string, indices []int, selected []strin
 	return outHeaders, outJSONNames, outIndices, nil
 }
 
+// isXMLNameStartChar reports whether r is legal as the first character of an XML
+// element local name. Colon is excluded on purpose: it is namespace-significant,
+// so a name like "a:b" would trip an undeclared-prefix error in aware parsers.
+func isXMLNameStartChar(r rune) bool {
+	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
+// isXMLNameChar reports whether r is legal as a non-first character of an XML
+// element local name.
+func isXMLNameChar(r rune) bool {
+	return isXMLNameStartChar(r) || r == '.' || r == '-' || (r >= '0' && r <= '9')
+}
+
+// sanitizeXMLElementName rewrites name so it is safe to use as an XML element
+// local name. Struct json tags are written for JSON, not XML, so a name like
+// "a/b" or one starting with a digit would otherwise produce malformed XML.
+func sanitizeXMLElementName(name string) string {
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range name {
+		if isXMLNameChar(r) {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	name = b.String()
+	if name == "" {
+		return "field"
+	}
+	if !isXMLNameStartChar(rune(name[0])) {
+		name = "_" + name
+	}
+	if strings.HasPrefix(strings.ToLower(name), "xml") {
+		name = "_" + name
+	}
+	return name
+}
+
+// sanitizeXMLElementNames sanitizes each name and disambiguates any collisions
+// caused by distinct names sanitizing to the same value (e.g. "a/b" and "a b"
+// both becoming "a_b"), so no two elements in the same XML item share a name.
+func sanitizeXMLElementNames(names []string) []string {
+	used := make(map[string]bool, len(names))
+	out := make([]string, len(names))
+	for i, name := range names {
+		base := sanitizeXMLElementName(name)
+		candidate := base
+		for n := 2; used[candidate]; n++ {
+			candidate = fmt.Sprintf("%s_%d", base, n)
+		}
+		used[candidate] = true
+		out[i] = candidate
+	}
+	return out
+}
+
 // isOutputCompatibleType checks if a type can be output
 func isOutputCompatibleType(t reflect.Type) bool {
 	// Handle pointer types by checking the element type

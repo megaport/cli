@@ -1,10 +1,11 @@
 package validation
 
 import (
-	"strings"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseInt(t *testing.T) {
@@ -25,21 +26,21 @@ func TestParseInt(t *testing.T) {
 			value:   "bad-location",
 			wantErr: true,
 			// Friendly message: names the field and value, no strconv internals.
-			errSubstr: []string{"invalid location ID", "bad-location"},
+			errSubstr: []string{"location ID", "bad-location", "not a valid whole number"},
 		},
 		{
 			name:      "empty string",
 			field:     "employee ID",
 			value:     "",
 			wantErr:   true,
-			errSubstr: []string{"invalid employee ID"},
+			errSubstr: []string{"employee ID", "not a valid whole number"},
 		},
 		{
 			name:      "float string",
 			field:     "term",
 			value:     "1.5",
 			wantErr:   true,
-			errSubstr: []string{"invalid term"},
+			errSubstr: []string{"term", "not a valid whole number"},
 		},
 	}
 
@@ -61,11 +62,12 @@ func TestParseInt(t *testing.T) {
 	}
 }
 
-// classifyError keys off a lowercase "invalid" + "ID" substring, so the helper
-// must keep that wording for ID fields to preserve the Usage exit code.
-func TestParseIntPreservesUsageClassification(t *testing.T) {
+// TestParseIntReturnsTypedValidationError verifies ParseInt's failure is a
+// typed *ValidationError, which is what actually drives the Usage exit code
+// in classifyError (not a substring match against the message text).
+func TestParseIntReturnsTypedValidationError(t *testing.T) {
 	_, err := ParseInt("location ID", "abc")
-	assert.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "invalid"))
-	assert.True(t, strings.Contains(err.Error(), "ID"))
+	require.Error(t, err)
+	var validationErr *ValidationError
+	assert.True(t, errors.As(err, &validationErr), "expected a typed *ValidationError, got %T: %v", err, err)
 }

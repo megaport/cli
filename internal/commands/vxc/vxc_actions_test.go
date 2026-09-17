@@ -79,6 +79,7 @@ func TestBuyVXC_NilResponse(t *testing.T) {
 
 	testutil.SetFlags(t, cmd, map[string]string{
 		"json": `{"portUid":"port-aaa-111","vxcName":"JSON VXC","rateLimit":500,"term":12,"bEndConfiguration":{"productUID":"port-bbb-222"}}`,
+		"yes":  "true",
 	})
 
 	var err error
@@ -2548,10 +2549,16 @@ func TestBuyVXC_Confirmation(t *testing.T) {
 			expectedContains:   "vxc-uid-123",
 		},
 		{
-			name:               "json input skips confirmation",
+			name:               "json input with yes skips confirmation",
 			jsonInput:          `{"portUid":"dcc-12345","vxcName":"JSON VXC","rateLimit":500,"term":12,"aEndConfiguration":{"vlan":100},"bEndConfiguration":{"productUID":"dcc-67890","vlan":200}}`,
+			yesFlag:            true,
 			expectPromptCalled: false,
 			expectedContains:   "vxc-uid-123",
+		},
+		{
+			name:          "json input without yes is a usage error",
+			jsonInput:     `{"portUid":"dcc-12345","vxcName":"JSON VXC","rateLimit":500,"term":12,"aEndConfiguration":{"vlan":100},"bEndConfiguration":{"productUID":"dcc-67890","vlan":200}}`,
+			expectedError: "--yes is required to confirm a purchase when using --json or --json-file",
 		},
 	}
 

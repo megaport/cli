@@ -34,7 +34,7 @@ func TestValidatePortRequest(t *testing.T) {
 			portSpeed:  10000,
 			locationID: 100,
 			wantErr:    true,
-			errText:    "Invalid port name:  - cannot be empty",
+			errText:    "Invalid port name: \"\" - cannot be empty",
 		},
 		{
 			name:       "Invalid term",
@@ -146,7 +146,7 @@ func TestValidateLAGPortRequest(t *testing.T) {
 				Term:       12,
 			},
 			wantErr: true,
-			errText: "Invalid port name:  - cannot be empty",
+			errText: "Invalid port name: \"\" - cannot be empty",
 		},
 		{
 			name: "Invalid port speed for LAG",

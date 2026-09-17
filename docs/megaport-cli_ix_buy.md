@@ -77,5 +77,5 @@ megaport-cli ix buy [flags]
 | `--rate-limit` |  | `0` | Rate limit in Mbps | true |
 | `--shutdown` |  | `false` | Whether the IX is initially shut down | false |
 | `--vlan` |  | `0` | VLAN ID for the IX connection | true |
-| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase | false |
+| `--yes` | `-y` | `false` | Skip confirmation prompt for purchase; required when using --json or --json-file | false |
 

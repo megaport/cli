@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
@@ -50,6 +51,16 @@ type CustomTagStruct struct {
 type NoTagStruct struct {
 	ID   int
 	Name string
+}
+
+type IllegalTagStruct struct {
+	ID    int    `json:"1id"`
+	Value string `json:"a/b c"`
+}
+
+type CollidingTagStruct struct {
+	First  string `json:"a/b"`
+	Second string `json:"a b"`
 }
 
 func TestPrintCSV_SimpleStruct(t *testing.T) {
@@ -870,6 +881,21 @@ func TestPrintXML_NilSlice(t *testing.T) {
 	})
 }
 
+// assertValidXML decodes output in full and requires it to end in io.EOF, so
+// a malformed document (which would otherwise stop the decoder early with a
+// syntax error) fails the assertion instead of silently passing.
+func assertValidXML(t *testing.T, output string) {
+	t.Helper()
+	decoder := xml.NewDecoder(strings.NewReader(output))
+	for {
+		_, err := decoder.Token()
+		if err != nil {
+			assert.ErrorIs(t, err, io.EOF, "output is not well-formed XML")
+			return
+		}
+	}
+}
+
 func TestPrintXML_ComplexStruct(t *testing.T) {
 	now := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 	ref := &SimpleStruct{ID: 100, Name: "Referenced", Active: true}
@@ -898,13 +924,7 @@ func TestPrintXML_ComplexStruct(t *testing.T) {
 	assert.Contains(t, output, "<reference>")
 
 	// Verify it's parseable XML
-	decoder := xml.NewDecoder(strings.NewReader(output))
-	for {
-		_, err := decoder.Token()
-		if err != nil {
-			break
-		}
-	}
+	assertValidXML(t, output)
 }
 
 func TestPrintXML_PointerStruct(t *testing.T) {
@@ -974,13 +994,71 @@ func TestPrintXML_SpecialCharacters(t *testing.T) {
 	assert.Contains(t, output, "&amp;")
 
 	// Should still be parseable
-	decoder := xml.NewDecoder(strings.NewReader(output))
-	for {
-		_, err := decoder.Token()
-		if err != nil {
-			break
-		}
+	assertValidXML(t, output)
+}
+
+func TestPrintXML_IllegalElementName(t *testing.T) {
+	data := []IllegalTagStruct{
+		{ID: 1, Value: "test"},
 	}
+
+	output := CaptureOutput(func() {
+		err := printXML(data, currentPrintOptions())
+		assert.NoError(t, err)
+	})
+
+	// json tag "1id" starts with a digit, which is illegal as an XML name-start
+	// character; json tag "a/b c" contains characters illegal in an XML name.
+	assert.NotContains(t, output, "<1id>")
+	assert.NotContains(t, output, "<a/b c>")
+
+	assertValidXML(t, output)
+}
+
+func TestSanitizeXMLElementName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"already valid", "name", "name"},
+		{"empty", "", "field"},
+		{"leading digit", "1id", "_1id"},
+		{"leading underscore", "_id", "_id"},
+		{"illegal characters", "a/b c", "a_b_c"},
+		{"xml prefix", "xmlns", "_xmlns"},
+		{"mixed case xml prefix", "XMLThing", "_XMLThing"},
+		{"colon is namespace-significant, treated as illegal", "a:b", "a_b"},
+		{"other punctuation", "a@b#c(d)e,f;g=h", "a_b_c_d_e_f_g_h"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, sanitizeXMLElementName(tt.input))
+		})
+	}
+}
+
+func TestSanitizeXMLElementNames_DisambiguatesCollisions(t *testing.T) {
+	// "a/b" and "a b" both sanitize to "a_b"; the second must be renamed so
+	// no two elements in the same XML item share a name.
+	got := sanitizeXMLElementNames([]string{"a/b", "a b", "c"})
+	assert.Equal(t, []string{"a_b", "a_b_2", "c"}, got)
+}
+
+func TestPrintXML_CollidingElementNames(t *testing.T) {
+	data := []CollidingTagStruct{
+		{First: "one", Second: "two"},
+	}
+
+	output := CaptureOutput(func() {
+		err := printXML(data, currentPrintOptions())
+		assert.NoError(t, err)
+	})
+
+	assert.Contains(t, output, "<a_b>one</a_b>")
+	assert.Contains(t, output, "<a_b_2>two</a_b_2>")
+
+	assertValidXML(t, output)
 }
 
 func TestPrintOutput_XMLFormat(t *testing.T) {
@@ -1000,13 +1078,7 @@ func TestPrintOutput_XMLFormat(t *testing.T) {
 	assert.Contains(t, output, "</items>")
 
 	// Verify parseable by xml.Decoder
-	decoder := xml.NewDecoder(strings.NewReader(output))
-	for {
-		_, err := decoder.Token()
-		if err != nil {
-			break
-		}
-	}
+	assertValidXML(t, output)
 }
 
 func TestPrintXML_Parseable(t *testing.T) {
@@ -1027,6 +1099,7 @@ func TestPrintXML_Parseable(t *testing.T) {
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
+			assert.ErrorIs(t, err, io.EOF, "output is not well-formed XML")
 			break
 		}
 		if se, ok := tok.(xml.StartElement); ok && se.Name.Local == "item" {
