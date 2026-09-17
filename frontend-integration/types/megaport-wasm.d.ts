@@ -138,12 +138,15 @@ export interface MegaportWASM {
    * @param accessKey - Megaport API access key
    * @param secretKey - Megaport API secret key
    * @param environment - Environment (production, staging, development)
+   * @param managedAccountUID - Optional managed account company UID to act on
+   *   behalf of; sent as the X-Call-Context header on authenticated requests
    * @returns Result object with success status
    */
   setAuthCredentials(
     accessKey: string,
     secretKey: string,
-    environment: string
+    environment: string,
+    managedAccountUID?: string
   ): { success: boolean; error?: string };
 
   /**
@@ -332,7 +335,8 @@ declare global {
     setAuthCredentials?: (
       accessKey: string,
       secretKey: string,
-      environment: string
+      environment: string,
+      managedAccountUID?: string
     ) => { success: boolean; error?: string };
     setAuthToken?: (
       token: string,
