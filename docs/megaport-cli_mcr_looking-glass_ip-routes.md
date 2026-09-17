@@ -6,10 +6,10 @@ List IP routes from the MCR routing table
 
 List IP routes from the MCR Looking Glass.
 
-This command retrieves all routes (BGP, static, connected, local) from the MCR's routing table. You can filter by protocol or IP address/prefix.
+This command retrieves every route in the MCR's routing table, whatever protocol installed it. You can filter by protocol or IP address/prefix.
 
 ### Important Notes
-  - Protocol values: BGP, STATIC, CONNECTED, LOCAL
+  - The API has no protocol filter, so --protocol is applied locally after the routes are fetched
 
 ### Example Usage
 
@@ -34,6 +34,6 @@ megaport-cli mcr looking-glass ip-routes [flags]
 
 | Name | Shorthand | Default | Description | Required |
 |------|-----------|---------|-------------|----------|
-| `--ip` |  |  | Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1) | false |
-| `--protocol` |  |  | Filter by protocol (BGP, STATIC, CONNECTED, LOCAL) | false |
+| `--ip` |  |  | Filter by IP address or prefix (e.g., 10.0.0.0/8 or 192.168.1.1). The API returns the exact matching routes or the best matching route | false |
+| `--protocol` |  |  | Filter by protocol: BGP, STATIC, CONNECTED, or LOCAL | false |
 

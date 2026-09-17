@@ -431,7 +431,7 @@ func ListNATGatewaySessions(cmd *cobra.Command, args []string, noColor bool, out
 	}
 	defer cancel()
 
-	spinner := output.PrintResourceListing("NAT Gateway sessions", noColor)
+	spinner := output.PrintResourceListing("NAT Gateway session", noColor)
 	sessions, err := listNATGatewaySessionsFunc(ctx, client)
 	spinner.Stop()
 

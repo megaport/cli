@@ -1,6 +1,6 @@
 # Megaport CLI Documentation
 
-> Generated on July 8, 2026 for version v1.0.0-beta.1
+> Generated on September 5, 2026 for version v1.0.0-beta.2
 
 ## Available Commands
 
@@ -63,7 +63,6 @@
 | [megaport-cli mcr looking-glass](megaport-cli_mcr_looking-glass.md) | MCR Looking Glass diagnostic commands |
 | [megaport-cli mcr looking-glass bgp-neighbor-routes](megaport-cli_mcr_looking-glass_bgp-neighbor-routes.md) | List routes advertised to or received from a BGP neighbor |
 | [megaport-cli mcr looking-glass bgp-routes](megaport-cli_mcr_looking-glass_bgp-routes.md) | List BGP routes with full BGP attributes |
-| [megaport-cli mcr looking-glass bgp-sessions](megaport-cli_mcr_looking-glass_bgp-sessions.md) | List BGP sessions configured on the MCR |
 | [megaport-cli mcr looking-glass ip-routes](megaport-cli_mcr_looking-glass_ip-routes.md) | List IP routes from the MCR routing table |
 | [megaport-cli mcr looking-glass ping](megaport-cli_mcr_looking-glass_ping.md) | Run a ping from the MCR to a destination |
 | [megaport-cli mcr looking-glass traceroute](megaport-cli_mcr_looking-glass_traceroute.md) | Run a traceroute from the MCR to a destination |

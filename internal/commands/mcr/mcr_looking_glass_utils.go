@@ -24,11 +24,7 @@ var listBGPRoutesWithFilterFunc = func(ctx context.Context, client *megaport.Cli
 	return client.MCRLookingGlassService.ListBGPRoutesWithFilter(ctx, req)
 }
 
-var listBGPSessionsFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) ([]*megaport.LookingGlassBGPSession, error) {
-	return client.MCRLookingGlassService.ListBGPSessions(ctx, mcrUID)
-}
-
-var listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPNeighborRoute, error) {
+var listBGPNeighborRoutesFunc = func(ctx context.Context, client *megaport.Client, req *megaport.ListBGPNeighborRoutesRequest) ([]*megaport.LookingGlassBGPRoute, error) {
 	return client.MCRLookingGlassService.ListBGPNeighborRoutes(ctx, req)
 }
 
