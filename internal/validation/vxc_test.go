@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 
 	megaport "github.com/megaport/megaportgo"
@@ -663,9 +664,10 @@ func TestValidateVXCRequest(t *testing.T) {
 				PortUID:   "a-end-uid",
 				BEndConfiguration: megaport.VXCOrderEndpointConfiguration{
 					PartnerConfig: &megaport.VXCPartnerConfigAWS{
-						ConnectType:  "AWS",
-						OwnerAccount: "12345",
-						ASN:          65000,
+						ConnectType:    "AWS",
+						OwnerAccount:   "12345",
+						ASN:            65000,
+						ConnectionName: "MyAWSConnection",
 					},
 				},
 			},
@@ -841,6 +843,7 @@ func TestValidateAWSPartnerConfig(t *testing.T) {
 			ownerAccount:      "123456789012",
 			asn:               65000,
 			customerIPAddress: "invalid-ip",
+			awsName:           "MyAWSConnection",
 			wantErr:           true,
 			errText:           "Invalid AWS customer IP address: invalid-ip - must be a valid IPv4 CIDR notation", // Updated error message
 		},
@@ -850,6 +853,7 @@ func TestValidateAWSPartnerConfig(t *testing.T) {
 			ownerAccount:    "123456789012",
 			asn:             65000,
 			amazonIPAddress: "192.168.1.2/33", // Invalid mask
+			awsName:         "MyAWSConnection",
 			wantErr:         true,
 			errText:         "Invalid AWS Amazon IP address: 192.168.1.2/33 - must be a valid IPv4 CIDR notation", // Updated error message
 		},
@@ -863,13 +867,39 @@ func TestValidateAWSPartnerConfig(t *testing.T) {
 			errText:      "Invalid AWS connection name: ", // Error message includes the long name, truncated here
 		},
 		{
+			name:         "AWS name at max length with multibyte characters accepted",
+			connectType:  "AWS",
+			ownerAccount: "123456789012",
+			asn:          65000,
+			awsName:      strings.Repeat("日", MaxAWSConnectionNameLength),
+			wantErr:      false,
+		},
+		{
+			name:         "AWS name over max length with multibyte characters rejected",
+			connectType:  "AWS",
+			ownerAccount: "123456789012",
+			asn:          65000,
+			awsName:      strings.Repeat("日", MaxAWSConnectionNameLength+1),
+			wantErr:      true,
+			errText:      "Invalid AWS connection name: ",
+		},
+		{
 			name:         "Invalid AWS type for AWS connect type",
 			connectType:  "AWS",
 			ownerAccount: "123456789012",
 			asn:          65000,
 			awsType:      "invalid",
+			awsName:      "MyAWSConnection",
 			wantErr:      true,
 			errText:      "Invalid AWS type: invalid - must be 'private' or 'public' for AWS connect type",
+		},
+		{
+			name:         "Empty connection name is valid (API defaults to MEGAPORT)",
+			connectType:  "AWS",
+			ownerAccount: "123456789012",
+			asn:          65000,
+			awsName:      "",
+			wantErr:      false,
 		},
 	}
 
@@ -897,6 +927,12 @@ func TestValidateAWSPartnerConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateAWSPartnerConfig_NilConfig(t *testing.T) {
+	err := ValidateAWSPartnerConfig(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid AWS partner config: <nil> - cannot be nil")
 }
 
 // TestValidateAWSPartnerConfig_HighASN mirrors TestValidateBGPConnectionConfig_HighASN:
@@ -971,6 +1007,12 @@ func TestValidateGooglePartnerConfig(t *testing.T) {
 	}
 }
 
+func TestValidateGooglePartnerConfig_NilConfig(t *testing.T) {
+	err := ValidateGooglePartnerConfig(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid Google partner config: <nil> - cannot be nil")
+}
+
 func TestValidateOraclePartnerConfig(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -998,6 +1040,12 @@ func TestValidateOraclePartnerConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateOraclePartnerConfig_NilConfig(t *testing.T) {
+	err := ValidateOraclePartnerConfig(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid Oracle partner config: <nil> - cannot be nil")
 }
 
 func TestValidateIBMPartnerConfig(t *testing.T) {
@@ -1062,6 +1110,7 @@ func TestValidateIBMPartnerConfig(t *testing.T) {
 		{
 			name:              "Invalid customer IP",
 			accountID:         validAccountID,
+			ibmName:           "MyIBMConnection",
 			customerIPAddress: "invalid-ip",
 			wantErr:           true,
 			errText:           "Invalid IBM customer IP address: invalid-ip - must be a valid IPv4 CIDR notation",
@@ -1069,9 +1118,16 @@ func TestValidateIBMPartnerConfig(t *testing.T) {
 		{
 			name:              "Invalid provider IP",
 			accountID:         validAccountID,
+			ibmName:           "MyIBMConnection",
 			providerIPAddress: "10.1.1.2/33", // Invalid mask
 			wantErr:           true,
 			errText:           "Invalid IBM provider IP address: 10.1.1.2/33 - must be a valid IPv4 CIDR notation",
+		},
+		{
+			name:      "Empty connection name is valid (API defaults to MEGAPORT)",
+			accountID: validAccountID,
+			ibmName:   "",
+			wantErr:   false,
 		},
 	}
 
@@ -1097,6 +1153,12 @@ func TestValidateIBMPartnerConfig(t *testing.T) {
 	}
 }
 
+func TestValidateIBMPartnerConfig_NilConfig(t *testing.T) {
+	err := ValidateIBMPartnerConfig(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid IBM partner config: <nil> - cannot be nil")
+}
+
 func TestValidateVXCPartnerConfig(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1107,9 +1169,10 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 		{
 			name: "Valid AWS partner config",
 			config: &megaport.VXCPartnerConfigAWS{ // Use struct pointer
-				ConnectType:  "AWS",
-				OwnerAccount: "123456789012",
-				ASN:          65000,
+				ConnectType:    "AWS",
+				OwnerAccount:   "123456789012",
+				ASN:            65000,
+				ConnectionName: "MyAWSConnection",
 			},
 			wantErr: false,
 		},
@@ -1142,6 +1205,7 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 			config: &megaport.VXCPartnerConfigIBM{ // Use struct pointer
 				ConnectType: "IBM", // Assuming ConnectType is needed
 				AccountID:   "abcdef0123456789abcdef0123456789",
+				Name:        "MyIBMConnection",
 			},
 			wantErr: false,
 		},
@@ -1156,6 +1220,13 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 						},
 					},
 				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid Transit partner config",
+			config: &megaport.VXCPartnerConfigTransit{
+				ConnectType: "TRANSIT",
 			},
 			wantErr: false,
 		},
@@ -1199,6 +1270,14 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 			errText: "Invalid Azure service key:  - cannot be empty",
 		},
 		{
+			name: "Invalid Transit config details",
+			config: &megaport.VXCPartnerConfigTransit{
+				ConnectType: "", // Invalid connect type
+			},
+			wantErr: true,
+			errText: "Invalid Transit connect type:  - must be 'TRANSIT'",
+		},
+		{
 			name: "Invalid vRouter config details",
 			config: &megaport.VXCOrderVrouterPartnerConfig{
 				Interfaces: []megaport.PartnerConfigInterface{
@@ -1217,6 +1296,59 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 			err := ValidateVXCPartnerConfig(tt.config)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVXCPartnerConfig() error = %v, wantErr:%v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr {
+				assert.IsType(t, &ValidationError{}, err, "Expected ValidationError type")
+				assert.Equal(t, tt.errText, err.Error(), "Error message mismatch")
+			}
+		})
+	}
+}
+
+func TestValidateTransitPartnerConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *megaport.VXCPartnerConfigTransit
+		wantErr bool
+		errText string
+	}{
+		{
+			name: "Valid Transit config",
+			config: &megaport.VXCPartnerConfigTransit{
+				ConnectType: "TRANSIT",
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Nil config",
+			config:  nil,
+			wantErr: true,
+			errText: "Invalid Transit partner config: <nil> - cannot be nil",
+		},
+		{
+			name: "Empty connect type",
+			config: &megaport.VXCPartnerConfigTransit{
+				ConnectType: "",
+			},
+			wantErr: true,
+			errText: "Invalid Transit connect type:  - must be 'TRANSIT'",
+		},
+		{
+			name: "Wrong connect type",
+			config: &megaport.VXCPartnerConfigTransit{
+				ConnectType: "AWS",
+			},
+			wantErr: true,
+			errText: "Invalid Transit connect type: AWS - must be 'TRANSIT'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTransitPartnerConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateTransitPartnerConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err != nil && tt.wantErr {

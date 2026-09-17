@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"slices"
+	"unicode/utf8"
 
 	megaport "github.com/megaport/megaportgo"
 )
@@ -56,7 +57,7 @@ func ValidatePortName(name string) error {
 	}
 
 	// The spec says names can be up to MaxPortNameLength characters (inclusive)
-	if len(name) > MaxPortNameLength {
+	if utf8.RuneCountInString(name) > MaxPortNameLength {
 		return NewValidationError("port name", name, fmt.Sprintf("cannot exceed %d characters", MaxPortNameLength))
 	}
 
@@ -83,7 +84,7 @@ func ValidatePortRequest(req *megaport.BuyPortRequest) error {
 	if req.Name == "" {
 		return NewValidationError("port name", req.Name, "cannot be empty")
 	}
-	if len(req.Name) > MaxPortNameLength {
+	if utf8.RuneCountInString(req.Name) > MaxPortNameLength {
 		return NewValidationError("port name", req.Name, fmt.Sprintf("cannot exceed %d characters", MaxPortNameLength))
 	}
 	if req.LocationId <= 0 {
@@ -119,7 +120,7 @@ func ValidateLAGPortRequest(req *megaport.BuyPortRequest) error {
 	if req.Name == "" {
 		return NewValidationError("port name", req.Name, "cannot be empty")
 	}
-	if len(req.Name) > MaxPortNameLength {
+	if utf8.RuneCountInString(req.Name) > MaxPortNameLength {
 		return NewValidationError("port name", req.Name, fmt.Sprintf("cannot exceed %d characters", MaxPortNameLength))
 	}
 	if req.LocationId <= 0 {

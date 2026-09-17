@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	megaport "github.com/megaport/megaportgo"
 )
@@ -193,18 +194,23 @@ func ValidateVXCRequest(req *megaport.BuyVXCRequest) error {
 //   - config: The AWS partner configuration to validate
 //
 // Validation checks include:
+//   - Configuration cannot be nil
 //   - Connect type must be provided and be one of the valid types ('AWS', 'AWSHC', 'private', 'public')
 //   - Owner account must be provided (AWS account ID)
 //   - ASN must be provided and within the valid range (1-4294967295)
 //   - If customer IP address is provided, it must be in valid IPv4 CIDR notation
 //   - If Amazon IP address is provided, it must be in valid IPv4 CIDR notation
-//   - If connection name is provided, it must not exceed 255 characters
+//   - Connection name is optional (the API defaults it to "MEGAPORT"); when
+//     provided it must not exceed 255 characters
 //   - For 'AWS' connect type with a specified connection type, it must be 'private' or 'public'
 //
 // Returns:
 //   - A ValidationError if any validation check fails
 //   - nil if all validation checks pass
 func ValidateAWSPartnerConfig(config *megaport.VXCPartnerConfigAWS) error {
+	if config == nil {
+		return NewValidationError("AWS partner config", nil, "cannot be nil")
+	}
 	if config.ConnectType == "" {
 		return NewValidationError("AWS connect type", config.ConnectType, "cannot be empty")
 	}
@@ -224,8 +230,8 @@ func ValidateAWSPartnerConfig(config *megaport.VXCPartnerConfigAWS) error {
 		return NewValidationError("AWS owner account", config.OwnerAccount, "cannot be empty")
 	}
 
-	if config.ConnectionName != "" && len(config.ConnectionName) > 255 {
-		return NewValidationError("AWS connection name", config.ConnectionName, "cannot exceed 255 characters")
+	if config.ConnectionName != "" && utf8.RuneCountInString(config.ConnectionName) > MaxAWSConnectionNameLength {
+		return NewValidationError("AWS connection name", config.ConnectionName, fmt.Sprintf("cannot exceed %d characters", MaxAWSConnectionNameLength))
 	}
 	if config.CustomerIPAddress != "" {
 		if err := ValidateCIDR(config.CustomerIPAddress, "AWS customer IP address"); err != nil {
@@ -301,12 +307,16 @@ func ValidateAzurePartnerConfig(config *megaport.VXCPartnerConfigAzure) error {
 //   - config: The Google partner configuration to validate
 //
 // Validation checks include:
+//   - Configuration cannot be nil
 //   - Pairing key must be provided (required for Google Cloud connections)
 //
 // Returns:
 //   - A ValidationError if any validation check fails
 //   - nil if all validation checks pass
 func ValidateGooglePartnerConfig(config *megaport.VXCPartnerConfigGoogle) error {
+	if config == nil {
+		return NewValidationError("Google partner config", nil, "cannot be nil")
+	}
 	if config.PairingKey == "" {
 		return NewValidationError("Google pairing key", config.PairingKey, "cannot be empty")
 	}
@@ -320,12 +330,16 @@ func ValidateGooglePartnerConfig(config *megaport.VXCPartnerConfigGoogle) error 
 //   - config: The Oracle partner configuration to validate
 //
 // Validation checks include:
+//   - Configuration cannot be nil
 //   - Virtual Circuit ID must be provided (required for Oracle Cloud connections)
 //
 // Returns:
 //   - A ValidationError if any validation check fails
 //   - nil if all validation checks pass
 func ValidateOraclePartnerConfig(config *megaport.VXCPartnerConfigOracle) error {
+	if config == nil {
+		return NewValidationError("Oracle partner config", nil, "cannot be nil")
+	}
 	if config.VirtualCircuitId == "" {
 		return NewValidationError("Oracle virtual circuit ID", config.VirtualCircuitId, "cannot be empty")
 	}
@@ -339,11 +353,13 @@ func ValidateOraclePartnerConfig(config *megaport.VXCPartnerConfigOracle) error 
 //   - config: The IBM partner configuration to validate
 //
 // Validation checks include:
+//   - Configuration cannot be nil
 //   - Account ID must be provided
 //   - Account ID must be exactly 32 characters (IBMAccountIDLength)
 //   - Account ID must contain only hexadecimal characters (0-9, a-f, A-F)
-//   - If connection name is provided, it must not exceed the maximum length (MaxIBMNameLength)
-//   - If connection name is provided, it must contain only allowed characters (0-9, a-z, A-Z, /, -, _, ,)
+//   - Connection name is optional (the API defaults it to "MEGAPORT"); when
+//     provided it must not exceed the maximum length (MaxIBMNameLength) and
+//     must contain only allowed characters (0-9, a-z, A-Z, /, -, _, ,)
 //   - If customer IP address is provided, it must be in valid IPv4 CIDR notation
 //   - If provider IP address is provided, it must be in valid IPv4 CIDR notation
 //
@@ -351,6 +367,9 @@ func ValidateOraclePartnerConfig(config *megaport.VXCPartnerConfigOracle) error 
 //   - A ValidationError if any validation check fails
 //   - nil if all validation checks pass
 func ValidateIBMPartnerConfig(config *megaport.VXCPartnerConfigIBM) error {
+	if config == nil {
+		return NewValidationError("IBM partner config", nil, "cannot be nil")
+	}
 	if config.AccountID == "" {
 		return NewValidationError("IBM account ID", config.AccountID, "cannot be empty")
 	}
@@ -362,11 +381,13 @@ func ValidateIBMPartnerConfig(config *megaport.VXCPartnerConfigIBM) error {
 			return NewValidationError("IBM account ID", config.AccountID, "must contain only hexadecimal characters (0-9, a-f, A-F)")
 		}
 	}
-	if config.Name != "" && len(config.Name) > MaxIBMNameLength {
-		return NewValidationError("IBM connection name", config.Name, fmt.Sprintf("cannot exceed %d characters", MaxIBMNameLength))
-	}
-	if config.Name != "" && !isValidIBMName(config.Name) {
-		return NewValidationError("IBM connection name", config.Name, "must only contain characters 0-9, a-z, A-Z, /, -, _, or ,")
+	if config.Name != "" {
+		if utf8.RuneCountInString(config.Name) > MaxIBMNameLength {
+			return NewValidationError("IBM connection name", config.Name, fmt.Sprintf("cannot exceed %d characters", MaxIBMNameLength))
+		}
+		if !isValidIBMName(config.Name) {
+			return NewValidationError("IBM connection name", config.Name, "must only contain characters 0-9, a-z, A-Z, /, -, _, or ,")
+		}
 	}
 	if config.CustomerIPAddress != "" {
 		if err := ValidateCIDR(config.CustomerIPAddress, "IBM customer IP address"); err != nil {
@@ -389,6 +410,20 @@ func isValidIBMName(name string) bool {
 		return false
 	}
 	return true
+}
+
+// ValidateTransitPartnerConfig validates a Transit partner configuration for a
+// VXC connection. Transit carries no partner-specific fields beyond the
+// connect type, so this only guards against a nil config or a connect type
+// that doesn't match "TRANSIT".
+func ValidateTransitPartnerConfig(config *megaport.VXCPartnerConfigTransit) error {
+	if config == nil {
+		return NewValidationError("Transit partner config", nil, "cannot be nil")
+	}
+	if config.ConnectType != "TRANSIT" {
+		return NewValidationError("Transit connect type", config.ConnectType, "must be 'TRANSIT'")
+	}
+	return nil
 }
 
 // ValidateVrouterPartnerConfig validates a vRouter partner configuration: it
@@ -473,6 +508,7 @@ func ValidateVrouterPartnerConfig(config *megaport.VXCOrderVrouterPartnerConfig)
 //   - ValidateOraclePartnerConfig
 //   - ValidateIBMPartnerConfig
 //   - ValidateVrouterPartnerConfig
+//   - ValidateTransitPartnerConfig
 //   - Configuration type must be one of the supported types
 //
 // Returns:
@@ -490,6 +526,8 @@ func ValidateVXCPartnerConfig(config megaport.VXCPartnerConfiguration) error {
 		return ValidateOraclePartnerConfig(v)
 	case *megaport.VXCPartnerConfigIBM:
 		return ValidateIBMPartnerConfig(v)
+	case *megaport.VXCPartnerConfigTransit:
+		return ValidateTransitPartnerConfig(v)
 	case *megaport.VXCOrderVrouterPartnerConfig:
 		return ValidateVrouterPartnerConfig(v)
 	default:

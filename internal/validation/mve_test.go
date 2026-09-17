@@ -2,6 +2,7 @@ package validation
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	megaport "github.com/megaport/megaportgo"
@@ -55,6 +56,21 @@ func TestValidateMVERequest(t *testing.T) {
 			locationID:  123,
 			wantErr:     true,
 			errText:     "Invalid MVE name: This name is way too long and should exceed the 64 character limit for MVE product names which will cause validation to fail - cannot exceed 64 characters",
+		},
+		{
+			name:        "64 multibyte character name accepted",
+			productName: strings.Repeat("日", MaxMVENameLength),
+			term:        12,
+			locationID:  123,
+			wantErr:     false,
+		},
+		{
+			name:        "65 multibyte character name rejected",
+			productName: strings.Repeat("日", MaxMVENameLength+1),
+			term:        12,
+			locationID:  123,
+			wantErr:     true,
+			errText:     fmt.Sprintf("Invalid MVE name: %s - cannot exceed %d characters", strings.Repeat("日", MaxMVENameLength+1), MaxMVENameLength),
 		},
 	}
 
@@ -357,6 +373,24 @@ func TestValidateBuyMVERequest(t *testing.T) {
 			wantErr: true,
 			errText: "Invalid vendor config: <nil> - cannot be nil",
 		},
+		{
+			name: "MVE name too long",
+			req: &megaport.BuyMVERequest{
+				Name:       strings.Repeat("A", MaxMVENameLength+1),
+				Term:       12,
+				LocationID: 100,
+				VendorConfig: &megaport.CiscoConfig{
+					Vendor:            "cisco",
+					ImageID:           123,
+					ProductSize:       "MEDIUM",
+					AdminSSHPublicKey: "ssh-rsa AAAA...",
+					SSHPublicKey:      "ssh-rsa AAAA...",
+					ManageLocally:     true,
+				},
+			},
+			wantErr: true,
+			errText: fmt.Sprintf("Invalid MVE name: %s - cannot exceed %d characters", strings.Repeat("A", MaxMVENameLength+1), MaxMVENameLength),
+		},
 	}
 
 	for _, tt := range tests {
@@ -432,6 +466,23 @@ func TestValidateUpdateMVERequest(t *testing.T) {
 			},
 			wantErr: true,
 			errText: "vnics[1].description",
+		},
+		{
+			name: "Update name at max length accepted",
+			req: &megaport.ModifyMVERequest{
+				MVEID: "mve-uid-123",
+				Name:  strings.Repeat("日", MaxMVENameLength),
+			},
+			wantErr: false,
+		},
+		{
+			name: "Update name exceeding max length rejected",
+			req: &megaport.ModifyMVERequest{
+				MVEID: "mve-uid-123",
+				Name:  strings.Repeat("日", MaxMVENameLength+1),
+			},
+			wantErr: true,
+			errText: fmt.Sprintf("cannot exceed %d characters", MaxMVENameLength),
 		},
 	}
 

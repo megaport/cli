@@ -66,6 +66,16 @@ func TestPromptAWSConfig(t *testing.T) {
 				assert.Equal(t, "", cfg.Type)
 			},
 		},
+		{
+			name:      "connection name left blank (API defaults to MEGAPORT)",
+			responses: []string{"AWS", "123456789", "", "65000", "", "", "", "", "", "private"},
+			verify: func(t *testing.T, cfg *megaport.VXCPartnerConfigAWS) {
+				assert.Equal(t, "AWS", cfg.ConnectType)
+				assert.Equal(t, "123456789", cfg.OwnerAccount)
+				assert.Equal(t, "", cfg.ConnectionName)
+				assert.Equal(t, 65000, cfg.ASN)
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -77,6 +87,37 @@ func TestPromptAWSConfig(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, cfg)
 			tc.verify(t, cfg)
+		})
+	}
+}
+
+func TestPromptAWSConfig_RequiresCredentials(t *testing.T) {
+	tests := []struct {
+		name        string
+		responses   []string
+		errContains string
+	}{
+		{
+			name:        "empty owner account rejected",
+			responses:   []string{"AWS", ""},
+			errContains: "owner account ID is required",
+		},
+		{
+			name:        "empty ASN rejected",
+			responses:   []string{"AWS", "123456789", "my-conn", ""},
+			errContains: "ASN is required",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanup := mockPrompts(tc.responses)
+			defer cleanup()
+
+			cfg, err := promptAWSConfig(true)
+			assert.Error(t, err)
+			assert.Nil(t, cfg)
+			assert.Contains(t, err.Error(), tc.errContains)
 		})
 	}
 }
@@ -124,6 +165,17 @@ func TestPromptGoogleConfig(t *testing.T) {
 	}
 }
 
+func TestPromptGoogleConfig_RequiresPairingKey(t *testing.T) {
+	cleanup := mockPrompts([]string{""})
+	defer cleanup()
+
+	cfg, uid, err := promptGoogleConfig(context.Background(), &MockVXCService{}, true)
+	assert.Error(t, err)
+	assert.Nil(t, cfg)
+	assert.Empty(t, uid)
+	assert.Contains(t, err.Error(), "pairing key is required")
+}
+
 func TestPromptOracleConfig(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -165,6 +217,17 @@ func TestPromptOracleConfig(t *testing.T) {
 	}
 }
 
+func TestPromptOracleConfig_RequiresVirtualCircuitID(t *testing.T) {
+	cleanup := mockPrompts([]string{""})
+	defer cleanup()
+
+	cfg, uid, err := promptOracleConfig(context.Background(), &MockVXCService{}, true)
+	assert.Error(t, err)
+	assert.Nil(t, cfg)
+	assert.Empty(t, uid)
+	assert.Contains(t, err.Error(), "virtual circuit ID is required")
+}
+
 func TestPromptIBMConfig(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -195,6 +258,28 @@ func TestPromptIBMConfig(t *testing.T) {
 				assert.Equal(t, "6.7.8.9", cfg.ProviderIPAddress)
 			},
 		},
+		{
+			name:      "name left blank (API defaults to MEGAPORT)",
+			responses: []string{"acct-000", "", "65001", "4.5.6.7", "8.9.10.11"},
+			verify: func(t *testing.T, cfg *megaport.VXCPartnerConfigIBM) {
+				assert.Equal(t, "IBM", cfg.ConnectType)
+				assert.Equal(t, "acct-000", cfg.AccountID)
+				assert.Equal(t, "", cfg.Name)
+				assert.Equal(t, 65001, cfg.CustomerASN)
+			},
+		},
+		{
+			name:      "customer ASN left blank",
+			responses: []string{"acct-789", "ibm-blank-asn", "", "3.4.5.6", "7.8.9.10"},
+			verify: func(t *testing.T, cfg *megaport.VXCPartnerConfigIBM) {
+				assert.Equal(t, "IBM", cfg.ConnectType)
+				assert.Equal(t, "acct-789", cfg.AccountID)
+				assert.Equal(t, "ibm-blank-asn", cfg.Name)
+				assert.Equal(t, 0, cfg.CustomerASN)
+				assert.Equal(t, "3.4.5.6", cfg.CustomerIPAddress)
+				assert.Equal(t, "7.8.9.10", cfg.ProviderIPAddress)
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -208,6 +293,16 @@ func TestPromptIBMConfig(t *testing.T) {
 			tc.verify(t, cfg)
 		})
 	}
+}
+
+func TestPromptIBMConfig_RequiresAccountID(t *testing.T) {
+	cleanup := mockPrompts([]string{""})
+	defer cleanup()
+
+	cfg, err := promptIBMConfig(true)
+	assert.Error(t, err)
+	assert.Nil(t, cfg)
+	assert.Contains(t, err.Error(), "account ID is required")
 }
 
 func TestPromptBFDConfig(t *testing.T) {
@@ -442,6 +537,28 @@ func TestPromptAzureConfig(t *testing.T) {
 	assert.Equal(t, "azure-uid-1", uid)
 }
 
+func TestPromptAzureConfig_RequiresServiceKey(t *testing.T) {
+	cleanup := mockPrompts([]string{""})
+	defer cleanup()
+
+	mockSvc := &MockVXCService{
+		ListPartnerPortsResponse: &megaport.ListPartnerPortsResponse{
+			Data: megaport.PartnerLookup{
+				Megaports: []megaport.PartnerLookupItem{
+					{ProductUID: "azure-uid-1", Type: "primary"},
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	cfg, uid, err := promptAzureConfig(ctx, mockSvc, true)
+	assert.Error(t, err)
+	assert.Nil(t, cfg)
+	assert.Empty(t, uid)
+	assert.Contains(t, err.Error(), "service key is required")
+}
+
 func TestPromptAzurePeeringConfig(t *testing.T) {
 	cleanup := mockPrompts([]string{
 		"Microsoft", // peering type
@@ -463,6 +580,57 @@ func TestPromptAzurePeeringConfig(t *testing.T) {
 	assert.Equal(t, "10.2.0.0/16", peer.Prefixes)
 	assert.Equal(t, "key123", peer.SharedKey)
 	assert.Equal(t, 200, peer.VLAN)
+}
+
+func TestPromptAzurePeeringConfig_InvalidVLAN(t *testing.T) {
+	cleanup := mockPrompts([]string{
+		"Microsoft", // peering type
+		"12076",     // peer ASN
+		"10.0.0.0/30",
+		"10.0.0.4/30",
+		"10.2.0.0/16",
+		"key123",
+		"not-a-number",
+	})
+	defer cleanup()
+
+	_, err := promptAzurePeeringConfig(true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid VLAN")
+}
+
+func TestPromptAzurePeeringConfig_OutOfRangeVLAN(t *testing.T) {
+	cleanup := mockPrompts([]string{
+		"Microsoft", // peering type
+		"12076",     // peer ASN
+		"10.0.0.0/30",
+		"10.0.0.4/30",
+		"10.2.0.0/16",
+		"key123",
+		"4100",
+	})
+	defer cleanup()
+
+	_, err := promptAzurePeeringConfig(true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "VLAN ID")
+}
+
+func TestPromptAzurePeeringConfig_EmptyVLANDefaultsToZero(t *testing.T) {
+	cleanup := mockPrompts([]string{
+		"Microsoft", // peering type
+		"12076",     // peer ASN
+		"10.0.0.0/30",
+		"10.0.0.4/30",
+		"10.2.0.0/16",
+		"key123",
+		"",
+	})
+	defer cleanup()
+
+	peer, err := promptAzurePeeringConfig(true)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, peer.VLAN)
 }
 
 func TestPromptPartnerConfig(t *testing.T) {
