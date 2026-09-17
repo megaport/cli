@@ -1,10 +1,10 @@
 # Megaport CLI WASM build artifacts
 
-This directory holds the WebAssembly build output for the Megaport CLI. The browser
-front-end lives in [`vue-demo/`](./vue-demo); the portal and the public tutorial each
-embed the `.wasm` in their own front-ends and run it in-browser. There is no server-side
-component: the assets are served as static files by a CDN, and the WASM authenticates
-against the Megaport API directly from the browser.
+This directory holds the WebAssembly build output for the Megaport CLI. The portal
+embeds the `.wasm` in its own front-end and runs it in-browser; this repo has no
+reference front-end of its own. There is no server-side component: the assets are
+served as static files by a CDN, and the WASM authenticates against the Megaport API
+directly from the browser.
 
 ## Building
 
@@ -13,7 +13,7 @@ against the Megaport API directly from the browser.
 make wasm
 # or ./wasm.sh, which also copies wasm_exec.js from the Go toolchain
 
-# Assemble the static site into web/vue-demo/ (no Docker, no Go server)
+# Assemble the WASM binary + wasm_exec.js loader into web/dist/ (no Docker, no Go server)
 ./scripts/build-web.sh
 ```
 
@@ -38,9 +38,11 @@ this repo.
 
 ## Caching
 
-When the publishing flow content-hashes the wasm (`cmd/wasmhash`) into
-`megaport.<hash>.wasm`, `index.html` carries that hashed URL via
-`window.__MEGAPORT_WASM_URL__`. This only works if the CDN respects the right cache
+`cmd/wasmhash` is a content-hashing helper for an index.html-driven publish flow. It is
+not wired into any script or CI job in this repo (the S3 publish workflow below uses
+stable, unhashed filenames instead), but if a consumer wires it up to content-hash the
+wasm into `megaport.<hash>.wasm`, `index.html` would carry that hashed URL via
+`window.__MEGAPORT_WASM_URL__`. That only works if the CDN respects the right cache
 lifetimes, so whatever serves these files (the CDN or origin) must apply them:
 
 - `megaport.<hash>.wasm` (and its `.br`/`.gz` siblings): `Cache-Control: public,
@@ -58,32 +60,20 @@ there.)
 
 ## Publishing to S3 (CDN)
 
-`.github/workflows/wasm-publish.yaml` builds the static site and publishes it to a
+`.github/workflows/wasm-publish.yaml` builds `web/dist/` and publishes it to a
 CloudFront-fronted S3 bucket. It is manual-only (`workflow_dispatch`): a production
 publish is always a deliberate action, never an automatic tag push.
 
-Each run uploads the whole static site under two prefixes:
+Each run uploads `megaport.wasm` and `wasm_exec.js` under two prefixes:
 
 - `<version>/`: immutable, long-lived cache. Treat a version label as write-once, so use
   a fresh tag or `version` input per release.
 - `latest/`: short TTL, refreshed on every run.
 
 The portal loads `megaport.wasm` (brotli, served with `Content-Encoding: br`) and
-`wasm_exec.js` by static config URL, so unlike the `cmd/server` flow above these
-filenames are kept stable rather than content-hashed; the version/latest prefix is the
-cache-buster instead.
+`wasm_exec.js` by static config URL, so these filenames are kept stable rather than
+content-hashed; the version/latest prefix is the cache-buster instead.
 
 Authentication uses GitHub OIDC (no long-lived keys). The workflow fails fast with a
 clear message if its required repo configuration is missing; see the workflow file for
 the expected secrets and variables.
-
-## Local preview
-
-The front end has its own Vite dev server, which serves the wasm with the correct
-`application/wasm` MIME type and reloads on change:
-
-```bash
-cd frontend-integration
-npm install
-npm run dev:demo
-```

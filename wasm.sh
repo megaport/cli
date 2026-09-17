@@ -75,7 +75,6 @@ fi
 
 if [ "$FOUND" = true ]; then
   echo "Build complete. Files in ./web/ directory."
-  echo "For a browser preview: cd frontend-integration && npm run dev:demo"
 else
   echo "Build incomplete. Missing wasm_exec.js"
   exit 1
