@@ -181,12 +181,16 @@ func TestSpinner(t *testing.T) {
 	assert.Equal(t, 100*time.Millisecond, spinner.frameRate)
 	assert.True(t, spinner.noColor)
 
-	output := captureOutput(func() {
-		spinner.Start("Testing spinner")
-		time.Sleep(500 * time.Millisecond)
-		spinner.Stop()
+	var stdout string
+	stderr := captureStderr(t, func() {
+		stdout = captureOutput(func() {
+			spinner.Start("Testing spinner")
+			time.Sleep(500 * time.Millisecond)
+			spinner.Stop()
+		})
 	})
-	assert.NotEmpty(t, output)
+	assert.NotEmpty(t, stderr, "spinner frames must be written to stderr")
+	assert.Empty(t, stdout, "spinner frames must never be written to stdout")
 }
 
 func TestPrintResourceSpinners(t *testing.T) {
@@ -241,7 +245,7 @@ func TestPrintResourceSpinners(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := captureOutput(func() {
+			output := captureStderr(t, func() {
 				spinner := tt.function(tt.resourceType, tt.uid, tt.noColor)
 				time.Sleep(200 * time.Millisecond)
 				spinner.Stop()
@@ -259,7 +263,7 @@ func TestPrintResourceListing(t *testing.T) {
 	t.Cleanup(func() { SetIsTerminal(orig) })
 	SetIsTerminal(true)
 
-	output := captureOutput(func() {
+	output := captureStderr(t, func() {
 		spinner := PrintResourceListing("Port", true)
 		time.Sleep(200 * time.Millisecond)
 		spinner.Stop()
@@ -513,7 +517,7 @@ func TestPrintResourceProvisioning(t *testing.T) {
 	SetIsTerminal(true)
 
 	t.Run("shows provisioning message with elapsed time", func(t *testing.T) {
-		output := captureOutput(func() {
+		output := captureStderr(t, func() {
 			spinner := PrintResourceProvisioning("Port", "port-123", true)
 			time.Sleep(200 * time.Millisecond)
 			spinner.Stop()
@@ -541,7 +545,7 @@ func TestStartWithElapsed(t *testing.T) {
 
 	t.Run("appends elapsed time to message", func(t *testing.T) {
 		spinner := NewSpinner(true)
-		output := captureOutput(func() {
+		output := captureStderr(t, func() {
 			spinner.StartWithElapsed("Provisioning Port...")
 			time.Sleep(1100 * time.Millisecond)
 			spinner.Stop()
@@ -566,7 +570,7 @@ func TestStartWithElapsed(t *testing.T) {
 	t.Run("wasm style uses wasm chars", func(t *testing.T) {
 		spinner := NewSpinner(true)
 		spinner.style = "wasm"
-		output := captureOutput(func() {
+		output := captureStderr(t, func() {
 			spinner.StartWithElapsed("Provisioning...")
 			time.Sleep(200 * time.Millisecond)
 			spinner.Stop()
@@ -603,7 +607,7 @@ func TestSpinnerStopWithSuccess(t *testing.T) {
 	t.Cleanup(func() { SetIsTerminal(orig) })
 	SetIsTerminal(true)
 
-	output := captureOutput(func() {
+	output := captureStderr(t, func() {
 		spinner := NewSpinner(true)
 		spinner.Start("Testing")
 		time.Sleep(200 * time.Millisecond)

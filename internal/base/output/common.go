@@ -16,6 +16,14 @@ import (
 // Both native and WASM builds use this mutex.
 var stdoutMu sync.Mutex
 
+// stdErrStreamMu guards os.Stderr reassignment (CaptureOutput/CaptureOutputErr,
+// via setStderr in output.go) against concurrent stderr writes (the spinner's
+// animation frames and status lines, via writeSpinnerLine/writeSpinnerLinef in
+// messages.go). It is held only for the instant of a single read-and-write or
+// a single reassignment, never across an entire captured callback, so a
+// callback that itself starts and stops a spinner cannot deadlock against it.
+var stdErrStreamMu sync.RWMutex
+
 // OutputConfig holds all user-facing output configuration as a single struct.
 // Use ApplyOutputConfig to write and GetOutputConfig to read atomically.
 type OutputConfig struct {
