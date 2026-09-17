@@ -94,7 +94,7 @@ Docs are auto-generated from command definitions. Regenerate with `./megaport-cl
 
 ### Commit Messages
 
-Follow conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
+Every commit subject starts with a Jira key: `ENG-1234: add shorthand aliases for common commands`. See CONTRIBUTING.md.
 
 ### Command Aliases
 

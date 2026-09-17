@@ -4,11 +4,17 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    # Every commit on main needs a Jira key. EIP-3148 is the standing key for Dependabot updates.
+    commit-message:
+      prefix: "EIP-3148"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    # Every commit on main needs a Jira key. EIP-3148 is the standing key for Dependabot updates.
+    commit-message:
+      prefix: "EIP-3148"
     # Wait 7 days after a release before opening an update PR, so any
     # bad releases or supply-chain incidents have time to surface.
     cooldown:
