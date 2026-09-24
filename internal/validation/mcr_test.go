@@ -68,7 +68,7 @@ func TestValidateMCRRequest(t *testing.T) {
 				LocationID: 100,
 			},
 			wantErr: true,
-			errText: "Invalid MCR name:  - cannot be empty", // Use ValidationError format
+			errText: "Invalid MCR name: \"\" - cannot be empty", // Use ValidationError format
 		},
 		{
 			name: "Invalid term",
@@ -229,7 +229,7 @@ func TestValidatePrefixFilterListRequest(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errText: "Invalid description:  - cannot be empty",
+			errText: "Invalid description: \"\" - cannot be empty",
 		},
 		{
 			name: "Invalid address family",
@@ -259,7 +259,7 @@ func TestValidatePrefixFilterListRequest(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errText: "Invalid address family:  - cannot be empty",
+			errText: "Invalid address family: \"\" - cannot be empty",
 		},
 		{
 			name: "Empty entries",

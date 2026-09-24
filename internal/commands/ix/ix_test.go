@@ -1268,7 +1268,7 @@ func TestBuildIXRequestFromPrompt(t *testing.T) {
 				"Los Angeles IX",
 				"notanumber",
 			},
-			expectedError: "invalid ASN",
+			expectedError: "Invalid ASN",
 		},
 		{
 			name: "empty MAC address",
@@ -1291,7 +1291,7 @@ func TestBuildIXRequestFromPrompt(t *testing.T) {
 				"00:11:22:33:44:55",
 				"notanumber",
 			},
-			expectedError: "invalid rate limit",
+			expectedError: "Invalid rate limit",
 		},
 		{
 			name: "invalid VLAN (non-numeric)",
@@ -1304,7 +1304,7 @@ func TestBuildIXRequestFromPrompt(t *testing.T) {
 				"1000",
 				"notanumber",
 			},
-			expectedError: "invalid VLAN",
+			expectedError: "Invalid VLAN",
 		},
 		{
 			name: "prompt error on first prompt",
@@ -1474,7 +1474,7 @@ func TestBuildUpdateIXRequestFromPrompt(t *testing.T) {
 				"",           // name
 				"notanumber", // rate-limit
 			},
-			expectedError: "invalid rate limit",
+			expectedError: "Invalid rate limit",
 		},
 		{
 			name: "invalid VLAN",
@@ -1484,7 +1484,7 @@ func TestBuildUpdateIXRequestFromPrompt(t *testing.T) {
 				"",           // cost-centre
 				"notanumber", // vlan
 			},
-			expectedError: "invalid VLAN",
+			expectedError: "Invalid VLAN",
 		},
 		{
 			name: "invalid ASN",
@@ -1496,7 +1496,7 @@ func TestBuildUpdateIXRequestFromPrompt(t *testing.T) {
 				"",           // mac-address
 				"notanumber", // asn
 			},
-			expectedError: "invalid ASN",
+			expectedError: "Invalid ASN",
 		},
 		{
 			name: "prompt error",

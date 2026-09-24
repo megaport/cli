@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/megaport/megaport-cli/internal/testutil"
+	"github.com/megaport/megaport-cli/internal/utils"
 	megaport "github.com/megaport/megaportgo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -80,12 +81,71 @@ func TestCreateNATGateway_JSON(t *testing.T) {
 
 	cmd := newTestCmd("create")
 	require.NoError(t, cmd.Flags().Set("json", `{"name":"JSON GW","term":12,"speed":2000,"locationId":456}`))
+	require.NoError(t, cmd.Flags().Set("yes", "true"))
 
 	err := CreateNATGateway(cmd, nil, true)
 	assert.NoError(t, err)
 	require.NotNil(t, mock.CapturedCreateReq)
 	assert.Equal(t, "JSON GW", mock.CapturedCreateReq.ProductName)
 	assert.Equal(t, 456, mock.CapturedCreateReq.LocationID)
+}
+
+func TestCreateNATGateway_JSONWithoutYes(t *testing.T) {
+	mock := &MockNATGatewayService{}
+	defer setupMockNATGateway(mock)()
+
+	cmd := newTestCmd("create")
+	require.NoError(t, cmd.Flags().Set("json", `{"name":"JSON GW","term":12,"speed":2000,"locationId":456}`))
+
+	err := CreateNATGateway(cmd, nil, true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--yes is required to confirm creating a NAT Gateway design when using --json or --json-file")
+}
+
+func TestCreateNATGateway_ConfirmationPrompt(t *testing.T) {
+	mock := &MockNATGatewayService{}
+	defer setupMockNATGateway(mock)()
+
+	originalDesignConfirmPrompt := utils.GetDesignConfirmPrompt()
+	defer func() { utils.SetDesignConfirmPrompt(originalDesignConfirmPrompt) }()
+
+	promptCalled := false
+	utils.SetDesignConfirmPrompt(func(_ string, _ []utils.BuyConfirmDetail, _ bool) bool {
+		promptCalled = true
+		return true
+	})
+
+	cmd := newTestCmd("create")
+	require.NoError(t, cmd.Flags().Set("name", "My NAT GW"))
+	require.NoError(t, cmd.Flags().Set("term", "12"))
+	require.NoError(t, cmd.Flags().Set("speed", "1000"))
+	require.NoError(t, cmd.Flags().Set("location-id", "123"))
+
+	err := CreateNATGateway(cmd, nil, true)
+	assert.NoError(t, err)
+	assert.True(t, promptCalled)
+	require.NotNil(t, mock.CapturedCreateReq)
+	assert.Equal(t, "My NAT GW", mock.CapturedCreateReq.ProductName)
+}
+
+func TestCreateNATGateway_ConfirmationDenied(t *testing.T) {
+	mock := &MockNATGatewayService{}
+	defer setupMockNATGateway(mock)()
+
+	originalDesignConfirmPrompt := utils.GetDesignConfirmPrompt()
+	defer func() { utils.SetDesignConfirmPrompt(originalDesignConfirmPrompt) }()
+	utils.SetDesignConfirmPrompt(func(_ string, _ []utils.BuyConfirmDetail, _ bool) bool { return false })
+
+	cmd := newTestCmd("create")
+	require.NoError(t, cmd.Flags().Set("name", "My NAT GW"))
+	require.NoError(t, cmd.Flags().Set("term", "12"))
+	require.NoError(t, cmd.Flags().Set("speed", "1000"))
+	require.NoError(t, cmd.Flags().Set("location-id", "123"))
+
+	err := CreateNATGateway(cmd, nil, true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cancelled by user")
+	assert.Nil(t, mock.CapturedCreateReq)
 }
 
 func TestCreateNATGateway_NoInput(t *testing.T) {

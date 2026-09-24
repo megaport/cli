@@ -229,7 +229,7 @@ func TestValidateMACAddress(t *testing.T) {
 		{"Valid colon-separated uppercase", "AA:BB:CC:DD:EE:FF", false, ""},
 		{"Valid colon-separated mixed case", "aA:bB:cC:dD:eE:fF", false, ""},
 		{"Valid hyphen-separated", "00-11-22-33-44-55", false, ""},
-		{"Invalid empty", "", true, "Invalid MAC address:  - cannot be empty"},
+		{"Invalid empty", "", true, "Invalid MAC address: \"\" - cannot be empty"},
 		{"Invalid too short", "00:11:22:33:44", true, "Invalid MAC address: 00:11:22:33:44 - must be a valid MAC address (e.g. 00:11:22:33:44:55)"},
 		{"Invalid too long", "00:11:22:33:44:55:66", true, "Invalid MAC address: 00:11:22:33:44:55:66 - must be a valid MAC address (e.g. 00:11:22:33:44:55)"},
 		{"Invalid EUI-64", "00:11:22:33:44:55:66:77", true, "Invalid MAC address: 00:11:22:33:44:55:66:77 - must be a 6-byte (EUI-48) MAC address"},
@@ -264,7 +264,7 @@ func TestValidateMVEProductSize(t *testing.T) {
 		{"Valid LARGE", "LARGE", false, ""},
 		{"Invalid lowercase", "small", true, fmt.Sprintf("Invalid product size: small - must be one of: %v", ValidMVEProductSizes)},
 		{"Invalid value", "XLARGE", true, fmt.Sprintf("Invalid product size: XLARGE - must be one of: %v", ValidMVEProductSizes)},
-		{"Empty value", "", true, fmt.Sprintf("Invalid product size:  - must be one of: %v", ValidMVEProductSizes)},
+		{"Empty value", "", true, fmt.Sprintf("Invalid product size: \"\" - must be one of: %v", ValidMVEProductSizes)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

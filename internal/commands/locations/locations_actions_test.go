@@ -347,7 +347,7 @@ func TestGetLocation(t *testing.T) {
 			name:        "invalid ID arg",
 			args:        []string{"abc"},
 			setupMock:   func(m *MockLocationsService) {},
-			expectedErr: "invalid location ID",
+			expectedErr: "Invalid location ID",
 		},
 		{
 			name: "not found",
@@ -364,6 +364,14 @@ func TestGetLocation(t *testing.T) {
 				m.ListLocationsV3Err = fmt.Errorf("API failure")
 			},
 			expectedErr: "failed to list locations",
+		},
+		{
+			name: "nil entry in list does not panic",
+			args: []string{"2"},
+			setupMock: func(m *MockLocationsService) {
+				m.ListLocationsV3Result = append([]*megaport.LocationV3{nil}, testLocationsV3...)
+			},
+			expectedOutput: "London Data Center",
 		},
 		{
 			name:        "client creation error",

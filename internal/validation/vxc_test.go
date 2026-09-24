@@ -345,7 +345,7 @@ func TestValidateIPsecTunnelConfig(t *testing.T) {
 				PreSharedKey:         "psk",
 			},
 			wantErr: true,
-			errText: "Invalid vRouter interface [0] IPsec tunnel source IP address:  - cannot be empty",
+			errText: "Invalid vRouter interface [0] IPsec tunnel source IP address: \"\" - cannot be empty",
 		},
 		{
 			name: "Source IP not IPv4",
@@ -364,7 +364,7 @@ func TestValidateIPsecTunnelConfig(t *testing.T) {
 				PreSharedKey:    "psk",
 			},
 			wantErr: true,
-			errText: "Invalid vRouter interface [0] IPsec tunnel destination IP address:  - cannot be empty",
+			errText: "Invalid vRouter interface [0] IPsec tunnel destination IP address: \"\" - cannot be empty",
 		},
 		{
 			name: "Missing pre-shared key",
@@ -683,7 +683,7 @@ func TestValidateVXCRequest(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errText: "Invalid VXC name:  - cannot be empty",
+			errText: "Invalid VXC name: \"\" - cannot be empty",
 		},
 		{
 			name: "Invalid term",
@@ -725,7 +725,7 @@ func TestValidateVXCRequest(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errText: "Invalid A-End UID (PortUID):  - cannot be empty",
+			errText: "Invalid A-End UID (PortUID): \"\" - cannot be empty",
 		},
 		{
 			name: "Empty B-End UID without partner config",
@@ -739,7 +739,7 @@ func TestValidateVXCRequest(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errText: "Invalid B-End UID:  - cannot be empty when no partner configuration is provided",
+			errText: "Invalid B-End UID: \"\" - cannot be empty when no partner configuration is provided",
 		},
 	}
 
@@ -818,7 +818,7 @@ func TestValidateAWSPartnerConfig(t *testing.T) {
 			ownerAccount: "123456789012",
 			asn:          65000,
 			wantErr:      true,
-			errText:      "Invalid AWS connect type:  - cannot be empty",
+			errText:      "Invalid AWS connect type: \"\" - cannot be empty",
 		},
 		{
 			connectType:  "INVALID",
@@ -833,7 +833,7 @@ func TestValidateAWSPartnerConfig(t *testing.T) {
 			ownerAccount: "",
 			asn:          65000,
 			wantErr:      true,
-			errText:      "Invalid AWS owner account:  - cannot be empty",
+			errText:      "Invalid AWS owner account: \"\" - cannot be empty",
 		},
 		{
 			name:              "Invalid customer IP CIDR",
@@ -951,7 +951,7 @@ func TestValidateGooglePartnerConfig(t *testing.T) {
 		errText    string
 	}{
 		{"Valid Google config", "google-pairing-key", false, ""},
-		{"Empty pairing key", "", true, "Invalid Google pairing key:  - cannot be empty"},
+		{"Empty pairing key", "", true, "Invalid Google pairing key: \"\" - cannot be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -979,7 +979,7 @@ func TestValidateOraclePartnerConfig(t *testing.T) {
 		errText          string
 	}{
 		{"Valid Oracle config", "ocid1.virtualcircuit.oc1..example", false, ""},
-		{"Empty virtual circuit ID", "", true, "Invalid Oracle virtual circuit ID:  - cannot be empty"},
+		{"Empty virtual circuit ID", "", true, "Invalid Oracle virtual circuit ID: \"\" - cannot be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1025,7 +1025,7 @@ func TestValidateIBMPartnerConfig(t *testing.T) {
 			name:      "Empty account ID",
 			accountID: "",
 			wantErr:   true,
-			errText:   "Invalid IBM account ID:  - cannot be empty",
+			errText:   "Invalid IBM account ID: \"\" - cannot be empty",
 		},
 		{
 			name:      "Account ID too short",
@@ -1179,7 +1179,7 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 			name:    "Missing config details (handled by specific validators)",
 			config:  &megaport.VXCPartnerConfigAWS{}, // Empty AWS config
 			wantErr: true,
-			errText: "Invalid AWS connect type:  - cannot be empty", // Error from ValidateAWSPartnerConfig
+			errText: "Invalid AWS connect type: \"\" - cannot be empty", // Error from ValidateAWSPartnerConfig
 		},
 		{
 			name: "Invalid AWS config details",
@@ -1188,7 +1188,7 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 				ASN:         65000,
 			},
 			wantErr: true,
-			errText: "Invalid AWS connect type:  - cannot be empty",
+			errText: "Invalid AWS connect type: \"\" - cannot be empty",
 		},
 		{
 			name: "Invalid Azure config details",
@@ -1196,7 +1196,7 @@ func TestValidateVXCPartnerConfig(t *testing.T) {
 				ServiceKey: "", // Invalid service key
 			},
 			wantErr: true,
-			errText: "Invalid Azure service key:  - cannot be empty",
+			errText: "Invalid Azure service key: \"\" - cannot be empty",
 		},
 		{
 			name: "Invalid vRouter config details",
@@ -1339,7 +1339,7 @@ func TestValidateAzurePartnerConfig(t *testing.T) {
 				ServiceKey: "",
 			},
 			wantErr: true,
-			errText: "Invalid Azure service key:  - cannot be empty",
+			errText: "Invalid Azure service key: \"\" - cannot be empty",
 		},
 		{
 			name:    "Nil config",

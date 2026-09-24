@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/megaport/megaport-cli/internal/utils"
@@ -501,6 +502,63 @@ func TestCorruptedConfigFile_ChmodFailure(t *testing.T) {
 	assert.Empty(t, profiles)
 }
 
+func TestConfigManagerSave_ChmodTmpFileError(t *testing.T) {
+	setupTestConfig(t)
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+
+	old := chmodFile
+	defer func() { chmodFile = old }()
+	chmodFile = func(_ string, _ os.FileMode) error {
+		return fmt.Errorf("chmod: operation not permitted")
+	}
+
+	err = manager.Save()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to set permissions on temp config file")
+}
+
+func TestConfigManagerSave_RenameError(t *testing.T) {
+	setupTestConfig(t)
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+
+	old := renameFile
+	defer func() { renameFile = old }()
+	renameFile = func(_, _ string) error {
+		return fmt.Errorf("rename: permission denied")
+	}
+
+	err = manager.Save()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write config file")
+}
+
+func TestConfigManagerSave_ChmodFinalError(t *testing.T) {
+	setupTestConfig(t)
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+
+	old := chmodFile
+	defer func() { chmodFile = old }()
+	callCount := 0
+	chmodFile = func(path string, mode os.FileMode) error {
+		callCount++
+		if callCount == 1 {
+			// Let the temp file's own chmod succeed; only fail the final one.
+			return os.Chmod(path, mode)
+		}
+		return fmt.Errorf("chmod: operation not permitted")
+	}
+
+	err = manager.Save()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to set permissions on config file")
+}
+
 func TestCorruptedConfigFile_ConcurrentRecovery(t *testing.T) {
 	setupTestConfig(t)
 
@@ -641,6 +699,9 @@ func TestConfigVersionHandling(t *testing.T) {
 	assert.Equal(t, ConfigVersion, manager.config.Version, "Config should be upgraded to current version")
 }
 func TestReadOnlyConfigFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.Chmod doesn't reliably block directory writes on Windows, and error text differs")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}
@@ -667,15 +728,60 @@ func TestReadOnlyConfigFile(t *testing.T) {
 	err = os.WriteFile(configPath, data, 0644)
 	require.NoError(t, err)
 
-	// Make the config file read-only
-	err = os.Chmod(configPath, 0444)
+	// Make the config directory read-only. Save() now writes atomically
+	// (temp file + rename), so a read-only config file no longer blocks a
+	// write; only a read-only directory does, since it prevents creating
+	// the temp file.
+	err = os.Chmod(configDir, 0555)
 	require.NoError(t, err)
+	defer os.Chmod(configDir, 0700) //nolint:errcheck // best-effort restore so cleanup can remove tempDir
 
 	// Try to load config - should fail due to version migration
-	// attempting to save to read-only file
+	// attempting to save while the config directory is read-only
 	_, err = NewConfigManager()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestSaveRetightensOverPermissiveFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission bits are not meaningful on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("Skipping test when running as root")
+	}
+
+	setupTestConfig(t)
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+
+	configPath, err := GetConfigFilePath()
+	require.NoError(t, err)
+
+	// Simulate a pre-existing config file left world-readable.
+	require.NoError(t, os.Chmod(configPath, 0644))
+
+	require.NoError(t, manager.CreateProfile("test-profile", "access123", "secret123", "production", ""))
+
+	info, err := os.Stat(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm(), "Save should re-tighten an over-permissive config file to 0600")
+}
+
+func TestSaveLeavesNoTempFile(t *testing.T) {
+	setupTestConfig(t)
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+	require.NoError(t, manager.CreateProfile("test-profile", "access123", "secret123", "production", ""))
+
+	configPath, err := GetConfigFilePath()
+	require.NoError(t, err)
+
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(configPath), ".megaport-config-*.tmp"))
+	require.NoError(t, err)
+	assert.Empty(t, matches, "Save should not leave temp files behind after a successful write")
 }
 
 func TestProfileNameCaseSensitivity(t *testing.T) {
