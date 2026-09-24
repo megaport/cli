@@ -50,17 +50,29 @@ func calculateDynamicWidth(termWidth int, minWidth, maxPercentage int) int {
 	return maxWidth
 }
 
-// printTable is the WASM-specific implementation that properly captures table output
-func printTable[T OutputFields](data []T, noColor bool, opts printOptions) error {
+// printTable is the WASM-specific implementation that properly captures table
+// output. In WASM, render into the global WasmTableWriter so the rendered
+// table is available to the JS-accessible wasmTableOutput global that the web
+// UI reads. An empty slice still renders a header-only table (native parity);
+// any "No X found" warning is surfaced above it by GetCapturedOutput, which
+// prepends the direct status buffer to the table output.
+//
+// A command may call this more than once; each call appends to
+// WasmTableWriter rather than overwriting it, so the global reflects every
+// table emitted so far. The buffer is cleared between WASM invocations by
+// resetWasmStructuredBuffers, so callers must not invoke this per data item
+// in a loop; it accumulates without bound within an invocation.
+func printTable[T OutputFields](data []T, noColor bool, opts printOptions) (err error) {
 	wasmBufMu.Lock()
 	defer wasmBufMu.Unlock()
 
-	// In WASM, render into the global WasmTableWriter so the rendered table is
-	// available to the JS-accessible wasmTableOutput global that the web UI reads.
-	// An empty slice still renders a header-only table (native parity); any
-	// "No X found" warning is surfaced above it by GetCapturedOutput, which
-	// prepends the direct status buffer to the table output.
-	WasmTableWriter.Reset()
+	before := WasmTableWriter.Len()
+	defer func() {
+		if err != nil {
+			WasmTableWriter.Truncate(before)
+		}
+	}()
+
 	if err := printTableToWriter(WasmTableWriter, data, noColor, opts); err != nil {
 		return err
 	}
@@ -69,14 +81,17 @@ func printTable[T OutputFields](data []T, noColor bool, opts printOptions) error
 	// GetCapturedOutput/GetCompletionOutput and written to xterm without
 	// escaping, and a colorized cell value (colorizeValue) can carry a
 	// resource name or other API field an attacker controls. SGR color codes
-	// are preserved; see wasm.SanitizeTerminalOutput.
-	tableOutput := wasm.SanitizeTerminalOutput(WasmTableWriter.String())
+	// are preserved; see wasm.SanitizeTerminalOutput. Sanitize the new slice
+	// on its own rather than slicing the sanitized whole buffer by a raw-byte
+	// offset: sanitizing drops bytes, so a raw offset no longer lines up with
+	// the sanitized string.
+	raw := WasmTableWriter.String()
 
-	// Write the table output to stdout so it can be captured by wasm buffers.
-	fmt.Print(tableOutput)
+	// Write the newly-rendered table to stdout so it can be captured by wasm buffers.
+	fmt.Print(wasm.SanitizeTerminalOutput(raw[before:]))
 
 	// Also write to a JavaScript-accessible global variable.
-	js.Global().Set("wasmTableOutput", tableOutput)
+	js.Global().Set("wasmTableOutput", wasm.SanitizeTerminalOutput(raw))
 
 	return nil
 }
