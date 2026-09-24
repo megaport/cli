@@ -555,6 +555,28 @@ func TestProcessJSONUpdateNATGatewayInputBoolPresence(t *testing.T) {
 		assert.True(t, explicit.DiversityZone, "explicit empty string must be tracked so mergeUpdateDefaults does not override it")
 		assert.Equal(t, "", req.Config.DiversityZone)
 	})
+	t.Run("promoCode absent returns explicit=false", func(t *testing.T) {
+		_, explicit, err := processJSONUpdateNATGatewayInput(`{"name":"GW"}`, "", "uid")
+		assert.NoError(t, err)
+		assert.False(t, explicit.PromoCode)
+	})
+	t.Run("promoCode present empty returns explicit=true", func(t *testing.T) {
+		req, explicit, err := processJSONUpdateNATGatewayInput(`{"promoCode":""}`, "", "uid")
+		assert.NoError(t, err)
+		assert.True(t, explicit.PromoCode, "explicit empty string must be tracked so mergeUpdateDefaults does not override it")
+		assert.Equal(t, "", req.PromoCode)
+	})
+	t.Run("serviceLevelReference absent returns explicit=false", func(t *testing.T) {
+		_, explicit, err := processJSONUpdateNATGatewayInput(`{"name":"GW"}`, "", "uid")
+		assert.NoError(t, err)
+		assert.False(t, explicit.ServiceLevelReference)
+	})
+	t.Run("serviceLevelReference present empty returns explicit=true", func(t *testing.T) {
+		req, explicit, err := processJSONUpdateNATGatewayInput(`{"serviceLevelReference":""}`, "", "uid")
+		assert.NoError(t, err)
+		assert.True(t, explicit.ServiceLevelReference, "explicit empty string must be tracked so mergeUpdateDefaults does not override it")
+		assert.Equal(t, "", req.ServiceLevelReference)
+	})
 }
 
 func TestMergeUpdateDefaultsExplicitBools(t *testing.T) {
@@ -612,6 +634,38 @@ func TestMergeUpdateDefaultsExplicitBools(t *testing.T) {
 		req := &megaport.UpdateNATGatewayRequest{ProductUID: "uid"}
 		mergeUpdateDefaults(req, original, updateExplicitFields{})
 		assert.Equal(t, "blue", req.Config.DiversityZone, "non-explicit empty should inherit from original")
+	})
+}
+
+func TestMergeUpdateDefaultsPromoCodeAndServiceLevelReference(t *testing.T) {
+	original := &megaport.NATGateway{
+		ProductName:           "Original",
+		LocationID:            1,
+		Speed:                 1000,
+		Term:                  12,
+		PromoCode:             "ORIGINAL-PROMO",
+		ServiceLevelReference: "ORIGINAL-SLR",
+	}
+
+	t.Run("blank promo code and service level reference keep current value", func(t *testing.T) {
+		req := &megaport.UpdateNATGatewayRequest{ProductUID: "uid"}
+		mergeUpdateDefaults(req, original, updateExplicitFields{})
+		assert.Equal(t, "ORIGINAL-PROMO", req.PromoCode, "blank promo code must inherit from original")
+		assert.Equal(t, "ORIGINAL-SLR", req.ServiceLevelReference, "blank service level reference must inherit from original")
+	})
+
+	t.Run("provided promo code and service level reference are not overridden", func(t *testing.T) {
+		req := &megaport.UpdateNATGatewayRequest{ProductUID: "uid", PromoCode: "NEW-PROMO", ServiceLevelReference: "NEW-SLR"}
+		mergeUpdateDefaults(req, original, updateExplicitFields{})
+		assert.Equal(t, "NEW-PROMO", req.PromoCode)
+		assert.Equal(t, "NEW-SLR", req.ServiceLevelReference)
+	})
+
+	t.Run("explicit blank promo code and service level reference are not overridden", func(t *testing.T) {
+		req := &megaport.UpdateNATGatewayRequest{ProductUID: "uid"}
+		mergeUpdateDefaults(req, original, updateExplicitFields{PromoCode: true, ServiceLevelReference: true})
+		assert.Empty(t, req.PromoCode, "explicitly cleared promo code must not inherit from original")
+		assert.Empty(t, req.ServiceLevelReference, "explicitly cleared service level reference must not inherit from original")
 	})
 }
 

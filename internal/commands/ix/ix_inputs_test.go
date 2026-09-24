@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/megaport/megaport-cli/internal/base/exitcodes"
+	"github.com/megaport/megaport-cli/internal/validation"
 	megaport "github.com/megaport/megaportgo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,21 @@ func TestBuildUpdateIXRequestFromJSON_BothEmpty(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse JSON")
 	assert.Nil(t, req)
+
+	var cliErr *exitcodes.CLIError
+	require.True(t, errors.As(err, &cliErr))
+	assert.Equal(t, exitcodes.Usage, cliErr.Code)
+}
+
+func TestBuildUpdateIXRequestFromJSON_FileNotFound(t *testing.T) {
+	req, err := buildUpdateIXRequestFromJSON("", filepath.Join(t.TempDir(), "missing.json"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read JSON file")
+	assert.Nil(t, req)
+
+	var cliErr *exitcodes.CLIError
+	require.True(t, errors.As(err, &cliErr))
+	assert.Equal(t, exitcodes.Usage, cliErr.Code)
 }
 
 func TestBuildIXRequestFromJSON_AllFields(t *testing.T) {
@@ -117,6 +133,39 @@ func TestBuildUpdateIXRequestFromJSON_PointerFields(t *testing.T) {
 			tt.checkFunc(t, req)
 		})
 	}
+}
+
+func TestBuildUpdateIXRequestFromJSON_AtLeastOneFieldExitCode(t *testing.T) {
+	req, err := buildUpdateIXRequestFromJSON(`{}`, "")
+	assert.Nil(t, req)
+	assert.Contains(t, err.Error(), "at least one field must be updated")
+
+	var cliErr *exitcodes.CLIError
+	require.True(t, errors.As(err, &cliErr))
+	assert.Equal(t, exitcodes.Usage, cliErr.Code)
+}
+
+func TestBuildUpdateIXRequestFromJSON_EmptyNameRejected(t *testing.T) {
+	req, err := buildUpdateIXRequestFromJSON(`{"name":""}`, "")
+	assert.Nil(t, req)
+
+	var valErr *validation.ValidationError
+	require.True(t, errors.As(err, &valErr))
+	assert.Equal(t, "name", valErr.Field)
+}
+
+func TestBuildUpdateIXRequestFromFlags_EmptyNameRejected(t *testing.T) {
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().String("name", "", "")
+	require.NoError(t, cmd.Flags().Set("name", ""))
+	cmd.Flags().Lookup("name").Changed = true
+
+	req, err := buildUpdateIXRequestFromFlags(cmd)
+	assert.Nil(t, req)
+
+	var valErr *validation.ValidationError
+	require.True(t, errors.As(err, &valErr))
+	assert.Equal(t, "name", valErr.Field)
 }
 
 func TestBuildUpdateIXRequestFromFlags_NoopWhenUnchanged(t *testing.T) {

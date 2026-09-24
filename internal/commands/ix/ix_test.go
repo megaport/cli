@@ -1134,12 +1134,14 @@ func TestBuildUpdateIXRequestFromJSON(t *testing.T) {
 			expectedError: "failed to parse JSON",
 		},
 		{
-			name:    "empty JSON object",
-			jsonStr: `{}`,
-			validate: func(t *testing.T, req *megaport.UpdateIXRequest) {
-				assert.Nil(t, req.Name)
-				assert.Nil(t, req.RateLimit)
-			},
+			name:          "empty JSON object",
+			jsonStr:       `{}`,
+			expectedError: "at least one field must be updated",
+		},
+		{
+			name:          "misspelled key matches no known field",
+			jsonStr:       `{"nam":"Updated IX"}`,
+			expectedError: "at least one field must be updated",
 		},
 		{
 			name: "valid JSON file",
