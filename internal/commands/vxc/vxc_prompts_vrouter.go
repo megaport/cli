@@ -360,6 +360,23 @@ func promptBGPOptionalConfig(bgp *megaport.BgpConnectionConfig, noColor bool) er
 	}
 	bgp.BfdEnabled = strings.ToLower(bfdEnabledStr) == "yes"
 
+	asOverrideStr, err := utils.ResourcePrompt("vxc", "Enable AS Override? (yes/no, optional - press Enter for API default): ", noColor)
+	if err != nil {
+		return err
+	}
+	if asOverrideStr != "" {
+		switch strings.ToLower(asOverrideStr) {
+		case "yes":
+			v := true
+			bgp.AsOverride = &v
+		case "no":
+			v := false
+			bgp.AsOverride = &v
+		default:
+			return fmt.Errorf("AS Override must be 'yes' or 'no'")
+		}
+	}
+
 	exportPolicy, err := utils.ResourcePrompt("vxc", "Enter export policy (permit/deny, optional): ", noColor)
 	if err != nil {
 		return err
