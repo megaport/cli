@@ -31,13 +31,6 @@ testdata/
 .env.local
 wasm.sh
 
-# Node.js (not needed in the image)
-web/node_modules/
-
-# Front-end build artifacts not needed by the binary-only image.
-frontend-integration/node_modules/
-web/vue-demo/
-
 # Temporary files
 tmp/
 temp/
