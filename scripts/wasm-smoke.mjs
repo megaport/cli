@@ -74,29 +74,53 @@ function runCommand(cmd, timeoutMs = 60000) {
   });
 }
 
+// One attempt: run the command and validate what came back. Throws on any
+// failure so the retry loop decides whether it's terminal.
+async function attempt() {
+  const result = await runCommand(command);
+
+  if (result.error) throw new Error(`command returned an error: ${result.error}`);
+
+  const output = (result.output || '').trim();
+  if (!output) throw new Error('command produced no output');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(output);
+  } catch (e) {
+    throw new Error(`output was not valid JSON: ${e.message}\n--- output (first 500 chars) ---\n${output.slice(0, 500)}`);
+  }
+
+  // The CLI reports failures as a JSON error envelope on stdout, so a command
+  // that ran fine at the JS level can still carry a fetch or API error. Check
+  // that before asserting the shape, or every failure reads as a bad array.
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.error) {
+    throw new Error(`command failed: ${parsed.error.message || output.slice(0, 200)}`);
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error(`expected a non-empty JSON array, got: ${output.slice(0, 200)}`);
+  }
+
+  return parsed;
+}
+
 console.log(`wasm-smoke: running "${command}" against ${environment} via fetch transport`);
 
-let result;
-try {
-  result = await runCommand(command);
-} catch (e) {
-  fail(e.message);
-}
-
-if (result.error) fail(`command returned an error: ${result.error}`);
-
-const output = (result.output || '').trim();
-if (!output) fail('command produced no output');
+// The check hits a live API, so one connect timeout shouldn't fail a PR.
+const attempts = 2;
+const retryDelayMs = 5000;
 
 let parsed;
-try {
-  parsed = JSON.parse(output);
-} catch (e) {
-  fail(`output was not valid JSON: ${e.message}\n--- output (first 500 chars) ---\n${output.slice(0, 500)}`);
-}
-
-if (!Array.isArray(parsed) || parsed.length === 0) {
-  fail(`expected a non-empty JSON array, got: ${output.slice(0, 200)}`);
+for (let i = 1; i <= attempts; i++) {
+  try {
+    parsed = await attempt();
+    break;
+  } catch (e) {
+    if (i === attempts) fail(e.message);
+    console.log(`wasm-smoke: attempt ${i} failed (${e.message}), retrying in ${retryDelayMs / 1000}s`);
+    await sleep(retryDelayMs);
+  }
 }
 
 console.log(`wasm-smoke: OK, round-tripped ${parsed.length} records through the fetch transport`);
