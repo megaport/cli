@@ -448,6 +448,10 @@ func promptForPrefixFilterListDetails(mcrUID string, noColor bool) (*megaport.Cr
 		},
 	}
 
+	if err := validation.ValidatePrefixFilterListRequest(req); err != nil {
+		return nil, err
+	}
+
 	return req, nil
 }
 
