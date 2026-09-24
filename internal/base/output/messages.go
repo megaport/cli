@@ -240,6 +240,23 @@ func (s *Spinner) renderFrame(i int) string {
 	return color.CyanString(frame)
 }
 
+// writeSpinnerLine writes s to os.Stderr, matching the rest of the package's
+// status-message convention, synchronized against concurrent os.Stderr
+// reassignment via stdErrStreamMu.
+func writeSpinnerLine(s string) {
+	stdErrStreamMu.RLock()
+	defer stdErrStreamMu.RUnlock()
+	fmt.Fprint(os.Stderr, s)
+}
+
+// writeSpinnerLinef is the formatted counterpart to writeSpinnerLine, used in
+// the animation loop to avoid a fmt.Sprintf allocation on every frame.
+func writeSpinnerLinef(format string, args ...interface{}) {
+	stdErrStreamMu.RLock()
+	defer stdErrStreamMu.RUnlock()
+	fmt.Fprintf(os.Stderr, format, args...)
+}
+
 // nonInteractive reports whether the spinner's sink is non-interactive: a
 // machine-readable output format, or output not attached to a TTY. In those
 // sinks the carriage-return/clear-line escapes don't collapse anything, so the
@@ -271,7 +288,7 @@ func (s *Spinner) runLoop(prefix string, startTime *time.Time) {
 	s.mu.Unlock()
 
 	if s.nonInteractive() {
-		fmt.Fprintf(os.Stderr, "%s\n", prefix)
+		writeSpinnerLinef("%s\n", prefix)
 		return
 	}
 
@@ -295,7 +312,7 @@ func (s *Spinner) runLoop(prefix string, startTime *time.Time) {
 					msg = fmt.Sprintf("%s (%s elapsed)", prefix, elapsed)
 				}
 
-				fmt.Printf("\r\033[K%s %s", styledFrame, msg)
+				writeSpinnerLinef("\r\033[K%s %s", styledFrame, msg)
 				s.mu.Unlock()
 				time.Sleep(s.frameRate)
 			}
@@ -322,10 +339,10 @@ func (s *Spinner) Stop() {
 	s.stopped = true
 	s.mu.Unlock()
 	s.stop <- true
-	// Only the animated TTY path leaves a frame on stdout to clear; in a
-	// non-interactive sink a bare clear sequence would just be junk in logs.
+	// Only the animated TTY path leaves a frame to clear; in a non-interactive
+	// sink a bare clear sequence would just be junk in logs.
 	if !s.nonInteractive() {
-		fmt.Print("\r\033[K")
+		writeSpinnerLine("\r\033[K")
 	}
 }
 
@@ -351,17 +368,15 @@ func (s *Spinner) StopWithSuccess(msg string) {
 	// corrupting machine-readable output streams.
 	if s.nonInteractive() {
 		if s.noColor {
-			fmt.Fprintf(os.Stderr, "✓ %s\n", msg)
+			writeSpinnerLinef("✓ %s\n", msg)
 		} else {
-			fmt.Fprint(os.Stderr, color.GreenString("✓ "))
-			fmt.Fprintln(os.Stderr, msg)
+			writeSpinnerLine(color.GreenString("✓ ") + msg + "\n")
 		}
 	} else {
 		if s.noColor {
-			fmt.Printf("✓ %s\n", msg)
+			writeSpinnerLinef("✓ %s\n", msg)
 		} else {
-			fmt.Print(color.GreenString("✓ "))
-			fmt.Println(msg)
+			writeSpinnerLine(color.GreenString("✓ ") + msg + "\n")
 		}
 	}
 }
