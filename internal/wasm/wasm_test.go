@@ -10,6 +10,7 @@ package wasm
 import (
 	"bytes"
 	"math"
+	"os"
 	"strings"
 	"syscall/js"
 	"testing"
@@ -942,6 +943,42 @@ func TestSetAuthCredentials_ClearsStaleToken(t *testing.T) {
 	assert.True(t, js.Global().Get("megaportToken").IsUndefined(), "megaportToken global should be cleared")
 
 	js.Global().Get("clearAuthCredentials").Invoke()
+}
+
+// TestSetAuthCredentials_ManagedAccountUID verifies the optional 4th arg sets
+// the MEGAPORT_MANAGED_ACCOUNT_UID env var, that omitting it clears a UID left
+// over from a prior call, and that clearAuthCredentials removes it.
+func TestSetAuthCredentials_ManagedAccountUID(t *testing.T) {
+	RegisterJSFunctions()
+	t.Cleanup(func() { js.Global().Get("clearAuthCredentials").Invoke() })
+
+	js.Global().Get("clearAuthCredentials").Invoke()
+
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", "managed-uid-789")
+	assert.Equal(t, "managed-uid-789", os.Getenv("MEGAPORT_MANAGED_ACCOUNT_UID"))
+
+	// A subsequent call without the 4th arg must clear the stale UID.
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging")
+	assert.Empty(t, os.Getenv("MEGAPORT_MANAGED_ACCOUNT_UID"))
+
+	// A JS caller passing undefined/null as the 4th arg must not set a literal
+	// "<undefined>"/"<null>" UID; only an actual string counts.
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", "managed-uid-789")
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", js.Undefined())
+	assert.Empty(t, os.Getenv("MEGAPORT_MANAGED_ACCOUNT_UID"))
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", "managed-uid-789")
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", js.Null())
+	assert.Empty(t, os.Getenv("MEGAPORT_MANAGED_ACCOUNT_UID"))
+
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", "managed-uid-789")
+	js.Global().Get("clearAuthCredentials").Invoke()
+	assert.Empty(t, os.Getenv("MEGAPORT_MANAGED_ACCOUNT_UID"))
+
+	// Switching to token auth must not inherit a UID from a prior credentials
+	// session: the token path honors only the --on-behalf-of flag.
+	js.Global().Get("setAuthCredentials").Invoke("api-key", "api-secret", "staging", "managed-uid-789")
+	js.Global().Get("setAuthToken").Invoke("valid-token-12345", "portal.megaport.com")
+	assert.Empty(t, os.Getenv("MEGAPORT_MANAGED_ACCOUNT_UID"))
 }
 
 // TestSetAuthTokenMasking verifies token preview masking

@@ -101,6 +101,7 @@ func InitializeCommon() {
 	rootCmd.PersistentFlags().BoolVar(&utils.LogHTTP, "log-http", false, "Log raw HTTP requests/responses to stderr for debugging (may include sensitive data such as auth tokens)")
 	rootCmd.PersistentFlags().StringVar(&utils.BaseURL, "base-url", "", "Override the API base URL (e.g. http://localhost:8080); takes precedence over --env and any profile environment")
 	rootCmd.PersistentFlags().StringVar(&utils.TokenURL, "token-url", "", "Override the OAuth token endpoint (typically used with --base-url when auth is served from a non-standard host)")
+	rootCmd.PersistentFlags().StringVar(&utils.ManagedAccountUID, "on-behalf-of", "", "Act on behalf of a managed account: company UID sent as the X-Call-Context header on every authenticated request (falls back to MEGAPORT_MANAGED_ACCOUNT_UID)")
 	rootCmd.PersistentFlags().BoolVar(&noHeader, "no-header", false, "Suppress table and CSV column headers (useful for scripting)")
 	rootCmd.PersistentFlags().BoolVar(&noPager, "no-pager", false, "Disable pager for long table output")
 	rootCmd.MarkFlagsMutuallyExclusive("quiet", "verbose")

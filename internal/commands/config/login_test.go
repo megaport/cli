@@ -855,6 +855,102 @@ func TestCLIHeadersSentOnRequests(t *testing.T) {
 	assert.Equal(t, "cli", capturedHeaders.Get("x-app"))
 }
 
+func TestOnBehalfOfCallContextHeader(t *testing.T) {
+	origBaseURL := utils.BaseURL
+	origTokenURL := utils.TokenURL
+	origEnv := utils.Env
+	origProfile := utils.ProfileOverride
+	origUID := utils.ManagedAccountUID
+	defer func() {
+		utils.BaseURL = origBaseURL
+		utils.TokenURL = origTokenURL
+		utils.Env = origEnv
+		utils.ProfileOverride = origProfile
+		utils.ManagedAccountUID = origUID
+	}()
+
+	tempDir, err := os.MkdirTemp("", "megaport-call-context-test")
+	assert.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tempDir) })
+
+	tests := []struct {
+		name       string
+		flagUID    string
+		envUID     string
+		wantHeader string // "" means the header must be absent
+	}{
+		{name: "flag sets header", flagUID: "flag-uid-123", wantHeader: "flag-uid-123"},
+		{name: "env var used when no flag", envUID: "env-uid-456", wantHeader: "env-uid-456"},
+		{name: "flag wins over env var", flagUID: "flag-uid-123", envUID: "env-uid-456", wantHeader: "flag-uid-123"},
+		{name: "no flag and no env sends no header", wantHeader: ""},
+		{name: "flag is trimmed", flagUID: "  flag-uid-123\n", wantHeader: "flag-uid-123"},
+		{name: "whitespace-only flag sends no header", flagUID: "   ", wantHeader: ""},
+		{name: "whitespace-only flag falls back to env", flagUID: "   ", envUID: "env-uid-456", wantHeader: "env-uid-456"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			headersCh := make(chan http.Header, 1)
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/oauth2/token" {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprint(w, `{"access_token":"test-token","token_type":"Bearer","expires_in":3600}`)
+					return
+				}
+				select {
+				case headersCh <- r.Header.Clone():
+				default:
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"message":"ok"}`))
+			}))
+			defer ts.Close()
+
+			t.Setenv("MEGAPORT_CONFIG_DIR", tempDir)
+			t.Setenv("MEGAPORT_ACCESS_KEY", "test-key")
+			t.Setenv("MEGAPORT_SECRET_KEY", "test-secret")
+			t.Setenv("MEGAPORT_MANAGED_ACCOUNT_UID", tt.envUID)
+
+			utils.BaseURL = ts.URL
+			utils.TokenURL = ts.URL + "/oauth2/token"
+			utils.Env = ""
+			utils.ProfileOverride = ""
+			utils.ManagedAccountUID = tt.flagUID
+
+			origStderr := os.Stderr
+			devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+			assert.NoError(t, err)
+			os.Stderr = devNull
+			t.Cleanup(func() { os.Stderr = origStderr; _ = devNull.Close() })
+
+			client, err := LoginWithOutput(context.Background(), "")
+			assert.NoError(t, err)
+			assert.NotNil(t, client)
+
+			req, err := client.NewRequest(context.Background(), http.MethodGet, "/", nil)
+			assert.NoError(t, err)
+			_, err = client.Do(context.Background(), req, nil)
+			assert.NoError(t, err)
+
+			var captured http.Header
+			select {
+			case captured = <-headersCh:
+			case <-time.After(5 * time.Second):
+				t.Fatalf("timed out waiting for request headers from test server")
+			}
+
+			// Assert on presence, not Get()=="": an empty Get can't distinguish
+			// an absent header from one set to the empty string.
+			values := captured.Values("X-Call-Context")
+			if tt.wantHeader == "" {
+				assert.Empty(t, values, "X-Call-Context must not be sent when no UID is resolved")
+			} else {
+				assert.Equal(t, []string{tt.wantHeader}, values)
+			}
+		})
+	}
+}
+
 // stringerValue is a fmt.Stringer wrapped via slog.Any, exercising the
 // value-level redaction path for a value that isn't a plain slog string.
 type stringerValue string

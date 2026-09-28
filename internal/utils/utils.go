@@ -75,6 +75,11 @@ var (
 	// is not one of the three standard Megaport auth hosts. Set via --token-url flag.
 	TokenURL string
 
+	// ManagedAccountUID names a managed account company UID to act on behalf of, sent as the
+	// X-Call-Context header on authenticated requests. Set via --on-behalf-of flag; falls back
+	// to the MEGAPORT_MANAGED_ACCOUNT_UID env var when the flag is unset.
+	ManagedAccountUID string
+
 	ValidFormats     = []string{FormatTable, FormatJSON, FormatCSV, FormatXML, FormatGoTemplate}
 	ValidFormatsWASM = []string{FormatTable, FormatJSON, FormatCSV, FormatXML}
 )
