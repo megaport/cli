@@ -77,30 +77,14 @@ func TestWithSafeDeleteFlags(t *testing.T) {
 	assertFlagType(t, cmd, "safe-delete", "bool")
 }
 
-func TestWithDeferredDeleteFlags(t *testing.T) {
-	cmd := NewCommand("test", "test").WithDeferredDeleteFlags().Build()
-
-	assertFlagExists(t, cmd, "force", "false")
-	assertFlagType(t, cmd, "force", "bool")
-	f := cmd.Flags().Lookup("force")
-	assert.Equal(t, "f", f.Shorthand)
-
-	assertFlagExists(t, cmd, "later", "false")
-	assertFlagType(t, cmd, "later", "bool")
-
-	// --now must not be present; that's the whole point of the new helper.
-	assert.Nil(t, cmd.Flags().Lookup("now"))
-}
-
 func TestWithImmediateDeleteFlags(t *testing.T) {
 	cmd := NewCommand("test", "test").WithImmediateDeleteFlags().Build()
 
 	assertFlagExists(t, cmd, "force", "false")
 	assertFlagType(t, cmd, "force", "bool")
 
-	// No --now and no --later for resources that only support immediate deletion.
+	// No --now for resources that only support immediate deletion.
 	assert.Nil(t, cmd.Flags().Lookup("now"))
-	assert.Nil(t, cmd.Flags().Lookup("later"))
 }
 
 func TestWithBuyConfirmFlags(t *testing.T) {

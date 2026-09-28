@@ -406,81 +406,6 @@ func TestUpdateMCR_ValidatesBeforeLogin(t *testing.T) {
 	assert.Contains(t, err.Error(), "MCR ASN", "input must be validated before login")
 }
 
-func TestRestoreMCRCmd_WithMockClient(t *testing.T) {
-	cleanup := testutil.SetupLogin(func(c *megaport.Client) {})
-	defer cleanup()
-
-	tests := []struct {
-		name          string
-		mcrID         string
-		setupMock     func(*MockMCRService)
-		expectedError string
-		expectedOut   string
-	}{
-		{
-			name:  "restore MCR success",
-			mcrID: "mcr-to-restore",
-			setupMock: func(m *MockMCRService) {
-				m.RestoreMCRResult = &megaport.RestoreMCRResponse{
-					IsRestored: true,
-				}
-			},
-			expectedOut: "MCR mcr-to-restore restored successfully",
-		},
-		{
-			name:  "restore MCR error",
-			mcrID: "mcr-error",
-			setupMock: func(m *MockMCRService) {
-				m.RestoreMCRErr = fmt.Errorf("failed to restore MCR")
-			},
-			expectedError: "failed to restore MCR",
-		},
-		{
-			name:  "restore MCR unsuccessful",
-			mcrID: "mcr-fail",
-			setupMock: func(m *MockMCRService) {
-				m.RestoreMCRResult = &megaport.RestoreMCRResponse{
-					IsRestored: false,
-				}
-			},
-			expectedError: "not successful for mcr-fail",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockMCRService := &MockMCRService{}
-			tt.setupMock(mockMCRService)
-
-			config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
-				client := &megaport.Client{}
-				client.MCRService = mockMCRService
-				return client, nil
-			})
-
-			restoreMCRCmd := &cobra.Command{
-				Use: "restore-mcr [mcrID]",
-				RunE: func(cmd *cobra.Command, args []string) error {
-					return RestoreMCR(cmd, args, false)
-				},
-			}
-
-			var err error
-			output := captureStderr(t, func() {
-				err = restoreMCRCmd.RunE(restoreMCRCmd, []string{tt.mcrID})
-			})
-
-			if tt.expectedError != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.expectedError)
-			} else {
-				assert.NoError(t, err)
-				assert.Contains(t, output, tt.expectedOut)
-			}
-		})
-	}
-}
-
 func TestGetMCRFunc(t *testing.T) {
 	mockMCRService := &MockMCRService{
 		GetMCRResult: &megaport.MCR{
@@ -552,24 +477,6 @@ func TestDeleteMCRFunc(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.True(t, resp.IsDeleting)
-}
-
-func TestRestoreMCRFunc(t *testing.T) {
-	mockMCRService := &MockMCRService{
-		RestoreMCRResult: &megaport.RestoreMCRResponse{
-			IsRestored: true,
-		},
-	}
-
-	client := &megaport.Client{
-		MCRService: mockMCRService,
-	}
-
-	ctx := context.Background()
-	resp, err := restoreMCRFunc(ctx, client, "mcr-123")
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.True(t, resp.IsRestored)
 }
 
 func TestListMCRPrefixFilterListsCmd_WithMockClient(t *testing.T) {

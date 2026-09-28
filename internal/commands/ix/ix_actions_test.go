@@ -903,7 +903,6 @@ func TestDeleteIX(t *testing.T) {
 		name              string
 		ixUID             string
 		force             bool
-		later             bool
 		promptResponse    string
 		setupMock         func(*MockIXService)
 		expectedError     string
@@ -912,23 +911,13 @@ func TestDeleteIX(t *testing.T) {
 		expectedDeleteNow *bool
 	}{
 		{
-			name:              "force delete defaults to immediate",
+			name:              "force delete is immediate",
 			ixUID:             "ix-to-delete",
 			force:             true,
 			setupMock:         func(m *MockIXService) {},
 			expectedOutput:    "IX deleted",
 			expectDeleted:     true,
 			expectedDeleteNow: boolPtr(true),
-		},
-		{
-			name:              "force with --later defers cancellation",
-			ixUID:             "ix-to-delete-later",
-			force:             true,
-			later:             true,
-			setupMock:         func(m *MockIXService) {},
-			expectedOutput:    "IX deleted",
-			expectDeleted:     true,
-			expectedDeleteNow: boolPtr(false),
 		},
 		{
 			name:           "confirm deletion with prompt",
@@ -984,14 +973,9 @@ func TestDeleteIX(t *testing.T) {
 				},
 			}
 			cmd.Flags().BoolP("force", "f", false, "Force deletion without confirmation")
-			cmd.Flags().Bool("later", false, "Defer deletion to end of billing cycle")
 			err := cmd.Flags().Set("force", fmt.Sprintf("%v", tt.force))
 			if err != nil {
 				t.Fatalf("Failed to set force flag: %v", err)
-			}
-			err = cmd.Flags().Set("later", fmt.Sprintf("%v", tt.later))
-			if err != nil {
-				t.Fatalf("Failed to set later flag: %v", err)
 			}
 
 			var capturedStderr string

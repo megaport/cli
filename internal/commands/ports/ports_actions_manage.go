@@ -192,43 +192,7 @@ func DeletePort(cmd *cobra.Command, args []string, noColor bool) error {
 		return fmt.Errorf("port deletion request was not successful for %s", portUID)
 	}
 
-	output.PrintResourceDeleted("Port", portUID, true, noColor)
-	return nil
-}
-
-func RestorePort(cmd *cobra.Command, args []string, noColor bool) error {
-	portUID := args[0]
-	formattedUID := output.FormatUID(portUID, noColor)
-
-	ctx, cancel, client, err := utils.LoginClient(cmd, 90*time.Second, config.Login)
-	if err != nil {
-		output.PrintError("Failed to log in: %v", noColor, err)
-		return err
-	}
-	defer cancel()
-
-	spinner := output.PrintResourceUpdating("Port", portUID, noColor)
-
-	var resp *megaport.RestorePortResponse
-	err = utils.WithRetry(ctx, func(ctx context.Context) error {
-		var e error
-		resp, e = restorePortFunc(ctx, client, portUID)
-		return e
-	})
-
-	spinner.Stop()
-
-	if err != nil {
-		output.PrintError("Failed to restore port: %v", noColor, err)
-		return err
-	}
-
-	if !resp.IsRestored {
-		output.PrintError("Port restoration request was not successful for %s", noColor, portUID)
-		return fmt.Errorf("port restoration request was not successful for %s", portUID)
-	}
-
-	output.PrintInfo("Port %s restored successfully", noColor, formattedUID)
+	output.PrintResourceDeleted("Port", portUID, noColor)
 	return nil
 }
 

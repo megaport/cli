@@ -78,7 +78,6 @@ func integrationBuyIXCmd() *cobra.Command {
 func integrationDeleteIXCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "delete"}
 	cmd.Flags().BoolP("force", "f", false, "")
-	cmd.Flags().Bool("later", false, "")
 	return cmd
 }
 

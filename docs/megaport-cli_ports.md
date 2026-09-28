@@ -6,7 +6,7 @@ Manage ports in the Megaport API
 
 Manage ports in the Megaport API.
 
-This command groups operations related to ports. You can use the subcommands to list all ports, get details for a specific port, buy a new port, buy a LAG port, update an existing port, delete a port, restore a deleted port, lock a port, unlock a port, and check VLAN availability on a port.
+This command groups operations related to ports. You can use the subcommands to list all ports, get details for a specific port, buy a new port, buy a LAG port, update an existing port, delete a port, lock a port, unlock a port, and check VLAN availability on a port.
 
 ### Example Usage
 
@@ -17,7 +17,6 @@ This command groups operations related to ports. You can use the subcommands to 
   megaport-cli ports buy-lag --interactive
   megaport-cli ports update [portUID] --name "Updated Port Name"
   megaport-cli ports delete [portUID]
-  megaport-cli ports restore [portUID]
   megaport-cli ports lock [portUID]
   megaport-cli ports unlock [portUID]
   megaport-cli ports check-vlan [portUID] [vlan]
@@ -44,7 +43,6 @@ megaport-cli ports [flags]
 * [list](megaport-cli_ports_list.md)
 * [list-tags](megaport-cli_ports_list-tags.md)
 * [lock](megaport-cli_ports_lock.md)
-* [restore](megaport-cli_ports_restore.md)
 * [status](megaport-cli_ports_status.md)
 * [unlock](megaport-cli_ports_unlock.md)
 * [update](megaport-cli_ports_update.md)

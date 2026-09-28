@@ -44,10 +44,6 @@ var deleteMCRFunc = func(ctx context.Context, client *megaport.Client, req *mega
 	return client.MCRService.DeleteMCR(ctx, req)
 }
 
-var restoreMCRFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) (*megaport.RestoreMCRResponse, error) {
-	return client.MCRService.RestoreMCR(ctx, mcrUID)
-}
-
 var listMCRResourceTagsFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) (map[string]string, error) {
 	return client.MCRService.ListMCRResourceTags(ctx, mcrUID)
 }

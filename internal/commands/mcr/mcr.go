@@ -25,14 +25,14 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithRootCmd(rootCmd).
 		Build()
 
-	get, buy, update, del, restore, lock, unlock, list, status, validate := buildMCRCommands(rootCmd)
+	get, buy, update, del, lock, unlock, list, status, validate := buildMCRCommands(rootCmd)
 	create, listPFL, getPFL, updatePFL, deletePFL := buildMCRPrefixFilterCommands(rootCmd)
 	listTags, updateTags := buildMCRTagCommands()
 	addIPSec, updateIPSec := buildMCRIPSecCommands(rootCmd)
 	lookingGlass := buildMCRLookingGlassCommands(rootCmd)
 
 	mcrCmd.AddCommand(
-		get, buy, update, del, restore, lock, unlock,
+		get, buy, update, del, lock, unlock,
 		create, listPFL, getPFL, updatePFL, deletePFL,
 		list, status, validate,
 		listTags, updateTags,
@@ -42,8 +42,8 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(mcrCmd)
 }
 
-// buildMCRCommands extracts the get, buy, update, delete, restore, list, and status command definitions.
-func buildMCRCommands(rootCmd *cobra.Command) (get, buy, update, del, restore, lock, unlock, list, status, validate *cobra.Command) {
+// buildMCRCommands extracts the get, buy, update, delete, list, and status command definitions.
+func buildMCRCommands(rootCmd *cobra.Command) (get, buy, update, del, lock, unlock, list, status, validate *cobra.Command) {
 	// Create get MCR command
 	get = cmdbuilder.NewCommand("get", "Get details for a single MCR").
 		WithArgs(cobra.ExactArgs(1)).
@@ -155,15 +155,6 @@ func buildMCRCommands(rootCmd *cobra.Command) (get, buy, update, del, restore, l
 		WithImportantNote("Deletion is final and cannot be undone").
 		WithRootCmd(rootCmd).
 		WithAliases([]string{"rm"}).
-		Build()
-
-	// Create restore MCR command
-	restore = cmdbuilder.NewCommand("restore", "Restore a deleted MCR").
-		WithArgs(cobra.ExactArgs(1)).
-		WithColorAwareRunFunc(RestoreMCR).
-		WithLongDesc("Restore a previously deleted MCR.\n\nThis command allows you to restore a previously deleted MCR, provided it has not yet been fully decommissioned.").
-		WithExample("megaport-cli mcr restore [mcrUID]").
-		WithRootCmd(rootCmd).
 		Build()
 
 	// Create lock MCR command

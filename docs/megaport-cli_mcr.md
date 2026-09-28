@@ -49,7 +49,6 @@ megaport-cli mcr [flags]
 * [list-tags](megaport-cli_mcr_list-tags.md)
 * [lock](megaport-cli_mcr_lock.md)
 * [looking-glass](megaport-cli_mcr_looking-glass.md)
-* [restore](megaport-cli_mcr_restore.md)
 * [status](megaport-cli_mcr_status.md)
 * [unlock](megaport-cli_mcr_unlock.md)
 * [update](megaport-cli_mcr_update.md)

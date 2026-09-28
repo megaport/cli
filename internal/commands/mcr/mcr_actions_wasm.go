@@ -18,7 +18,6 @@ func init() {
 	buyMCRFunc = buyMCRWasmImpl
 	updateMCRFunc = updateMCRWasmImpl
 	deleteMCRFunc = deleteMCRWasmImpl
-	restoreMCRFunc = restoreMCRWasmImpl
 	lockMCRFunc = lockMCRWasmImpl
 	unlockMCRFunc = unlockMCRWasmImpl
 	createMCRPrefixFilterListFunc = createMCRPrefixFilterListWasmImpl
@@ -159,37 +158,6 @@ func deleteMCRWasmImpl(ctx context.Context, client *megaport.Client, req *megapo
 	}
 
 	js.Global().Get("console").Call("log", "✅ SDK DeleteMCR successful")
-	return response, nil
-}
-
-// restoreMCRWasmImpl uses the SDK's MCRService.RestoreMCR() method
-func restoreMCRWasmImpl(ctx context.Context, client *megaport.Client, mcrUID string) (*megaport.RestoreMCRResponse, error) {
-	js.Global().Get("console").Call("log", fmt.Sprintf("🚀 Using SDK MCRService.RestoreMCR() for MCR %s", mcrUID))
-
-	if client == nil {
-		var err error
-		client, err = config.Login(ctx)
-		if err != nil {
-			js.Global().Get("console").Call("error", fmt.Sprintf("❌ Login failed: %v", err))
-			return nil, fmt.Errorf("failed to log in: %w", err)
-		}
-	}
-
-	js.Global().Get("console").Call("log", "📡 Calling SDK MCRService.RestoreMCR()...")
-	response, err := client.MCRService.RestoreMCR(ctx, mcrUID)
-	if err != nil {
-		js.Global().Get("console").Call("error", fmt.Sprintf("❌ SDK RestoreMCR failed: %v", err))
-
-		if isAuthError(err) {
-			js.Global().Get("console").Call("warn", "🔓 Authentication token expired or invalid, clearing cache")
-			config.ClearCachedToken()
-			return nil, fmt.Errorf("authentication token expired. Please run the command again to re-authenticate")
-		}
-
-		return nil, fmt.Errorf("failed to restore MCR: %w", err)
-	}
-
-	js.Global().Get("console").Call("log", "✅ SDK RestoreMCR successful")
 	return response, nil
 }
 

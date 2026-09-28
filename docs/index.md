@@ -66,7 +66,6 @@
 | [megaport-cli mcr looking-glass ip-routes](megaport-cli_mcr_looking-glass_ip-routes.md) | List IP routes from the MCR routing table |
 | [megaport-cli mcr looking-glass ping](megaport-cli_mcr_looking-glass_ping.md) | Run a ping from the MCR to a destination |
 | [megaport-cli mcr looking-glass traceroute](megaport-cli_mcr_looking-glass_traceroute.md) | Run a traceroute from the MCR to a destination |
-| [megaport-cli mcr restore](megaport-cli_mcr_restore.md) | Restore a deleted MCR |
 | [megaport-cli mcr status](megaport-cli_mcr_status.md) | Check the provisioning status of an MCR |
 | [megaport-cli mcr unlock](megaport-cli_mcr_unlock.md) | Unlock an MCR |
 | [megaport-cli mcr update](megaport-cli_mcr_update.md) | Update an existing MCR |
@@ -110,7 +109,6 @@
 | [megaport-cli ports list](megaport-cli_ports_list.md) | List all ports with optional filters |
 | [megaport-cli ports list-tags](megaport-cli_ports_list-tags.md) | List resource tags on a specific port. |
 | [megaport-cli ports lock](megaport-cli_ports_lock.md) | Lock a port |
-| [megaport-cli ports restore](megaport-cli_ports_restore.md) | Restore a deleted port |
 | [megaport-cli ports status](megaport-cli_ports_status.md) | Check the provisioning status of a port |
 | [megaport-cli ports unlock](megaport-cli_ports_unlock.md) | Unlock a port |
 | [megaport-cli ports update](megaport-cli_ports_update.md) | Update a port's details |
