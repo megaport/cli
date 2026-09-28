@@ -1026,6 +1026,49 @@ func TestParseVRouterConfigBGP(t *testing.T) {
 			},
 			expectedError: "importWhitelist must be a number",
 		},
+		{
+			name: "second of two BGP connections wrong type reports index 1, not index 0",
+			config: map[string]interface{}{
+				"connectType": "VROUTER",
+				"interfaces": []interface{}{
+					map[string]interface{}{
+						"bgpConnections": []interface{}{
+							map[string]interface{}{
+								"peerAsn":        65000.0,
+								"localIpAddress": "192.168.1.1",
+								"peerIpAddress":  "192.168.1.2",
+							},
+							map[string]interface{}{"shutdown": "yes"},
+						},
+					},
+				},
+			},
+			expectedError: "shutdown must be a boolean in BGP connection 1 of interface 0",
+		},
+		{
+			name: "third of three BGP connections wrong type reports index 2",
+			config: map[string]interface{}{
+				"connectType": "VROUTER",
+				"interfaces": []interface{}{
+					map[string]interface{}{
+						"bgpConnections": []interface{}{
+							map[string]interface{}{
+								"peerAsn":        65000.0,
+								"localIpAddress": "192.168.1.1",
+								"peerIpAddress":  "192.168.1.2",
+							},
+							map[string]interface{}{
+								"peerAsn":        65001.0,
+								"localIpAddress": "192.168.1.3",
+								"peerIpAddress":  "192.168.1.4",
+							},
+							map[string]interface{}{"medIn": "lots"},
+						},
+					},
+				},
+			},
+			expectedError: "medIn must be a number in BGP connection 2 of interface 0",
+		},
 	}
 
 	for _, tt := range tests {
