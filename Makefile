@@ -97,10 +97,11 @@ wasm-smoke: wasm
 wasm-compress: wasm
 	go run ./cmd/wasmcompress web/megaport.wasm
 
-# Build the static browser/WASM site into web/vue-demo/ (for CDN hosting)
+# Build the WASM binary + wasm_exec.js loader into web/dist/ (for CDN hosting)
 web-static:
 	./scripts/build-web.sh
 
 # Clean build artifacts
 clean:
-	rm -f megaport-cli cover*.out coverage*.out coverage.html web/megaport.wasm web/megaport.wasm.br web/megaport.wasm.gz web/vue-demo/megaport.wasm web/vue-demo/megaport.wasm.br web/vue-demo/megaport.wasm.gz
+	rm -f megaport-cli cover*.out coverage*.out coverage.html web/megaport.wasm web/megaport.wasm.br web/megaport.wasm.gz web/wasm_exec.js
+	rm -rf web/dist

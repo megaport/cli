@@ -39,8 +39,8 @@ var (
 type PromptRequest struct {
 	ID           string
 	Message      string
-	PromptType   string // "text", "confirm", "resource"
-	ResourceType string // for resource prompts (port, mcr, vxc, etc.)
+	PromptType   string // "text", "confirm", "password", "resource"
+	ResourceType string // set for "resource" prompts and secret-resource prompts sent as "password" (port, mcr, vxc, etc.); empty otherwise
 	ResponseChan chan string
 	ErrorChan    chan error
 }
