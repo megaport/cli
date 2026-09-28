@@ -416,7 +416,7 @@ func DeleteNATGateway(cmd *cobra.Command, args []string, noColor bool) error {
 		return fmt.Errorf("failed to delete NAT Gateway: %w", err)
 	}
 
-	output.PrintResourceDeleted("NAT Gateway", uid, true, noColor)
+	output.PrintResourceDeleted("NAT Gateway", uid, noColor)
 	return nil
 }
 

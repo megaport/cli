@@ -378,12 +378,12 @@ func TestMCRUpdateTagsHasGenerateSkeleton(t *testing.T) {
 }
 
 func TestMCRListHasTagFlag(t *testing.T) {
-	_, _, _, _, _, _, _, list, _, _ := buildMCRCommands(nil)
+	_, _, _, _, _, _, list, _, _ := buildMCRCommands(nil)
 	require.NotNil(t, list.Flags().Lookup("tag"), "list command should have --tag flag")
 }
 
 func TestMCRBuyAndValidateRejectPositionalArgs(t *testing.T) {
-	_, buy, _, _, _, _, _, _, _, validate := buildMCRCommands(nil)
+	_, buy, _, _, _, _, _, _, validate := buildMCRCommands(nil)
 
 	require.NotNil(t, buy.Args, "buy command should restrict positional args")
 	assert.Error(t, buy.Args(buy, []string{"false"}),

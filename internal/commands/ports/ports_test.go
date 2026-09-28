@@ -387,7 +387,7 @@ func TestPortsUpdateHasGenerateSkeleton(t *testing.T) {
 }
 
 func TestPortsListHasTagFlag(t *testing.T) {
-	list, _, _, _, _, _, _, _ := buildPortManagementCommands(nil)
+	list, _, _, _, _, _, _ := buildPortManagementCommands(nil)
 	require.NotNil(t, list.Flags().Lookup("tag"), "list command should have --tag flag")
 }
 

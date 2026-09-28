@@ -12,14 +12,13 @@ import (
 func AddCommandsTo(rootCmd *cobra.Command) {
 	// Create ports parent command
 	portsCmd := cmdbuilder.NewCommand("ports", "Manage ports in the Megaport API").
-		WithLongDesc("Manage ports in the Megaport API.\n\nThis command groups operations related to ports. You can use the subcommands to list all ports, get details for a specific port, buy a new port, buy a LAG port, update an existing port, delete a port, restore a deleted port, lock a port, unlock a port, and check VLAN availability on a port.").
+		WithLongDesc("Manage ports in the Megaport API.\n\nThis command groups operations related to ports. You can use the subcommands to list all ports, get details for a specific port, buy a new port, buy a LAG port, update an existing port, delete a port, lock a port, unlock a port, and check VLAN availability on a port.").
 		WithExample("megaport-cli ports list").
 		WithExample("megaport-cli ports get [portUID]").
 		WithExample("megaport-cli ports buy --interactive").
 		WithExample("megaport-cli ports buy-lag --interactive").
 		WithExample("megaport-cli ports update [portUID] --name \"Updated Port Name\"").
 		WithExample("megaport-cli ports delete [portUID]").
-		WithExample("megaport-cli ports restore [portUID]").
 		WithExample("megaport-cli ports lock [portUID]").
 		WithExample("megaport-cli ports unlock [portUID]").
 		WithExample("megaport-cli ports check-vlan [portUID] [vlan]").
@@ -27,12 +26,12 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		Build()
 
 	buy, buyLag, update, validate, validateLag := buildPortBuyCommands(rootCmd)
-	list, get, status, deleteCmd, restore, lock, unlock, checkVLAN := buildPortManagementCommands(rootCmd)
+	list, get, status, deleteCmd, lock, unlock, checkVLAN := buildPortManagementCommands(rootCmd)
 	listTags, updateTags := buildPortTagCommands()
 
 	portsCmd.AddCommand(
 		buy, buyLag, update, validate, validateLag,
-		list, get, status, deleteCmd, restore, lock, unlock, checkVLAN,
+		list, get, status, deleteCmd, lock, unlock, checkVLAN,
 		listTags, updateTags,
 	)
 	rootCmd.AddCommand(portsCmd)
@@ -190,8 +189,8 @@ func buildPortBuyCommands(rootCmd *cobra.Command) (buy, buyLag, update, validate
 	return buy, buyLag, update, validate, validateLag
 }
 
-// buildPortManagementCommands creates the list, get, status, delete, restore, lock, unlock, and check-vlan commands.
-func buildPortManagementCommands(rootCmd *cobra.Command) (list, get, status, deleteCmd, restore, lock, unlock, checkVLAN *cobra.Command) {
+// buildPortManagementCommands creates the list, get, status, delete, lock, unlock, and check-vlan commands.
+func buildPortManagementCommands(rootCmd *cobra.Command) (list, get, status, deleteCmd, lock, unlock, checkVLAN *cobra.Command) {
 	list = cmdbuilder.NewCommand("list", "List all ports with optional filters").
 		WithOutputFormatRunFunc(ListPorts).
 		WithPortFilterFlags().
@@ -251,25 +250,10 @@ func buildPortManagementCommands(rootCmd *cobra.Command) (list, get, status, del
 		WithOptionalFlag("safe-delete", "Fail if the resource has attached VXCs or other active services").
 		WithImportantNote("All VXCs associated with the port must be deleted before the port can be deleted").
 		WithImportantNote("Ports are deleted immediately; the previous 'terminate later' option is no longer available").
-		WithImportantNote("You can restore a deleted port before it's fully decommissioned using the 'restore' command").
-		WithImportantNote("Once a port is fully decommissioned, restoration is not possible").
 		WithExample("megaport-cli ports delete 1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p").
 		WithExample("megaport-cli ports delete 1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p --force").
 		WithRootCmd(rootCmd).
 		WithAliases([]string{"rm"}).
-		Build()
-
-	restore = cmdbuilder.NewCommand("restore", "Restore a deleted port").
-		WithArgs(cobra.ExactArgs(1)).
-		WithColorAwareRunFunc(RestorePort).
-		WithLongDesc("Restore a previously deleted port in the Megaport API.\n\nThis command allows you to restore a port that has been marked for deletion but not yet fully decommissioned. The port will be reinstated with its original configuration.").
-		WithImportantNote("You can only restore ports that are in a \"DECOMMISSIONING\" state").
-		WithImportantNote("Once a port is fully decommissioned, it cannot be restored").
-		WithImportantNote("The restoration process is immediate but may take a few minutes to complete").
-		WithImportantNote("All port attributes will be restored to their pre-deletion state").
-		WithImportantNote("You will resume being billed for the port according to your original terms").
-		WithExample("megaport-cli ports restore 1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p").
-		WithRootCmd(rootCmd).
 		Build()
 
 	lock = cmdbuilder.NewCommand("lock", "Lock a port").
@@ -306,7 +290,7 @@ func buildPortManagementCommands(rootCmd *cobra.Command) (list, get, status, del
 		WithRootCmd(rootCmd).
 		Build()
 
-	return list, get, status, deleteCmd, restore, lock, unlock, checkVLAN
+	return list, get, status, deleteCmd, lock, unlock, checkVLAN
 }
 
 // buildPortTagCommands creates the list-tags and update-tags commands.

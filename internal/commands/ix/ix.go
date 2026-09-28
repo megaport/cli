@@ -97,13 +97,11 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 	deleteIXCmd := cmdbuilder.NewCommand("delete", "Delete an IX from your account").
 		WithArgs(cobra.ExactArgs(1)).
 		WithColorAwareRunFunc(DeleteIX).
-		WithDeferredDeleteFlags().
-		WithLongDesc("Delete an IX from your account.\n\nDeletion is immediate by default; pass --later to schedule cancellation at the end of the current billing cycle instead.").
+		WithImmediateDeleteFlags().
+		WithLongDesc("Delete an IX from your account.\n\nDeletion is immediate.").
 		WithExample("megaport-cli ix delete [ixUID]").
 		WithExample("megaport-cli ix delete [ixUID] --force").
-		WithExample("megaport-cli ix delete [ixUID] --later").
-		WithImportantNote("Deletion is immediate by default; billing stops right away").
-		WithImportantNote("Use --later to defer cancellation to the end of the current billing cycle").
+		WithImportantNote("Billing stops right away").
 		WithRootCmd(rootCmd).
 		WithAliases([]string{"rm"}).
 		Build()

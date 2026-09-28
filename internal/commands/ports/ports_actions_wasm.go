@@ -19,7 +19,6 @@ func init() {
 	getPortFunc = getPortWasmImpl
 	updatePortFunc = updatePortWasmImpl
 	deletePortFunc = deletePortWasmImpl
-	restorePortFunc = restorePortWasmImpl
 	lockPortFunc = lockPortWasmImpl
 	unlockPortFunc = unlockPortWasmImpl
 	checkPortVLANAvailabilityFunc = checkPortVLANAvailabilityWasmImpl
@@ -164,37 +163,6 @@ func deletePortWasmImpl(ctx context.Context, client *megaport.Client, req *megap
 	}
 
 	js.Global().Get("console").Call("log", "✅ SDK DeletePort successful")
-	return response, nil
-}
-
-// restorePortWasmImpl uses the SDK's PortService.RestorePort() method
-func restorePortWasmImpl(ctx context.Context, client *megaport.Client, portUID string) (*megaport.RestorePortResponse, error) {
-	js.Global().Get("console").Call("log", fmt.Sprintf("🚀 Using SDK PortService.RestorePort() for port %s", portUID))
-
-	if client == nil {
-		var err error
-		client, err = config.Login(ctx)
-		if err != nil {
-			js.Global().Get("console").Call("error", fmt.Sprintf("❌ Login failed: %v", err))
-			return nil, fmt.Errorf("failed to log in: %w", err)
-		}
-	}
-
-	js.Global().Get("console").Call("log", "📡 Calling SDK PortService.RestorePort()...")
-	response, err := client.PortService.RestorePort(ctx, portUID)
-	if err != nil {
-		js.Global().Get("console").Call("error", fmt.Sprintf("❌ SDK RestorePort failed: %v", err))
-
-		if isAuthError(err) {
-			js.Global().Get("console").Call("warn", "🔓 Authentication token expired or invalid, clearing cache")
-			config.ClearCachedToken()
-			return nil, fmt.Errorf("authentication token expired. Please run the command again to re-authenticate")
-		}
-
-		return nil, fmt.Errorf("failed to restore port: %w", err)
-	}
-
-	js.Global().Get("console").Call("log", "✅ SDK RestorePort successful")
 	return response, nil
 }
 

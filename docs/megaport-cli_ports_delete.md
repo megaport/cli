@@ -15,8 +15,6 @@ This command deletes an existing port by providing the UID of the port as an arg
 ### Important Notes
   - All VXCs associated with the port must be deleted before the port can be deleted
   - Ports are deleted immediately; the previous 'terminate later' option is no longer available
-  - You can restore a deleted port before it's fully decommissioned using the 'restore' command
-  - Once a port is fully decommissioned, restoration is not possible
 
 ### Example Usage
 

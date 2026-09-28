@@ -176,7 +176,7 @@ megaport-cli vxc delete vxc-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 megaport-cli ports delete port-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
-> **Note:** All `delete` commands now cancel resources immediately by default — billing stops right away. VXCs and IXs are the only resource types that still accept deferred cancellation; pass `--later` to schedule cancellation for the end of the current billing cycle instead.
+> **Note:** All `delete` commands cancel resources immediately, and billing stops right away.
 
 ### Manage billing contact
 
