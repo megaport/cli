@@ -437,6 +437,118 @@ func TestUpdateNATGateway_EmptyUIDResponse(t *testing.T) {
 	assert.Contains(t, err.Error(), "no NAT Gateway UID")
 }
 
+func TestUpdateNATGateway_MatrixRejectsUnsupportedSpeed(t *testing.T) {
+	mock := &MockNATGatewayService{
+		GetResult: &megaport.NATGateway{
+			ProductUID: "uid-upd", ProductName: "GW",
+			LocationID: 100, Speed: 1000, Term: 12,
+		},
+		SessionsResult: []*megaport.NATGatewaySession{
+			{SpeedMbps: 1000, SessionCount: []int{1, 2, 4}},
+		},
+	}
+	defer setupMockNATGateway(mock)()
+
+	cmd := newTestCmd("update")
+	require.NoError(t, cmd.Flags().Set("speed", "5000"))
+
+	err := UpdateNATGateway(cmd, []string{"uid-upd"}, true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "speed")
+	assert.Contains(t, err.Error(), "1000")
+	assert.Nil(t, mock.CapturedUpdateReq)
+}
+
+func TestUpdateNATGateway_MatrixRejectsUnsupportedSessionCount(t *testing.T) {
+	mock := &MockNATGatewayService{
+		GetResult: &megaport.NATGateway{
+			ProductUID: "uid-upd", ProductName: "GW",
+			LocationID: 100, Speed: 1000, Term: 12,
+		},
+		SessionsResult: []*megaport.NATGatewaySession{
+			{SpeedMbps: 1000, SessionCount: []int{1, 2, 4}},
+		},
+	}
+	defer setupMockNATGateway(mock)()
+
+	cmd := newTestCmd("update")
+	require.NoError(t, cmd.Flags().Set("session-count", "3"))
+
+	err := UpdateNATGateway(cmd, []string{"uid-upd"}, true)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "session count")
+	assert.Contains(t, err.Error(), "[1 2 4]")
+	assert.Nil(t, mock.CapturedUpdateReq)
+}
+
+func TestUpdateNATGateway_MatrixAllowsSupportedPair(t *testing.T) {
+	mock := &MockNATGatewayService{
+		GetResult: &megaport.NATGateway{
+			ProductUID: "uid-upd", ProductName: "GW",
+			LocationID: 100, Speed: 1000, Term: 12,
+		},
+		UpdateResult: &megaport.NATGateway{ProductUID: "uid-upd"},
+		SessionsResult: []*megaport.NATGatewaySession{
+			{SpeedMbps: 1000, SessionCount: []int{1, 2, 4}},
+		},
+	}
+	defer setupMockNATGateway(mock)()
+
+	cmd := newTestCmd("update")
+	require.NoError(t, cmd.Flags().Set("session-count", "2"))
+
+	err := UpdateNATGateway(cmd, []string{"uid-upd"}, true)
+	assert.NoError(t, err)
+	require.NotNil(t, mock.CapturedUpdateReq)
+	assert.Equal(t, 2, mock.CapturedUpdateReq.Config.SessionCount)
+}
+
+func TestUpdateNATGateway_MatrixFetchFailureFallsThrough(t *testing.T) {
+	mock := &MockNATGatewayService{
+		GetResult: &megaport.NATGateway{
+			ProductUID: "uid-upd", ProductName: "GW",
+			LocationID: 100, Speed: 1000, Term: 12,
+		},
+		UpdateResult: &megaport.NATGateway{ProductUID: "uid-upd"},
+		SessionsErr:  fmt.Errorf("matrix unavailable"),
+	}
+	defer setupMockNATGateway(mock)()
+
+	cmd := newTestCmd("update")
+	require.NoError(t, cmd.Flags().Set("speed", "5000"))
+
+	err := UpdateNATGateway(cmd, []string{"uid-upd"}, true)
+	assert.NoError(t, err)
+	require.NotNil(t, mock.CapturedUpdateReq)
+}
+
+func TestUpdateNATGateway_MatrixSkippedWhenSpeedAndSessionUnchanged(t *testing.T) {
+	mock := &MockNATGatewayService{
+		GetResult: &megaport.NATGateway{
+			ProductUID: "uid-upd", ProductName: "Old Name",
+			LocationID: 100, Speed: 1000, Term: 12,
+			Config: megaport.NATGatewayNetworkConfig{SessionCount: 4},
+		},
+		UpdateResult: &megaport.NATGateway{ProductUID: "uid-upd", ProductName: "New Name"},
+		// Matrix no longer lists the grandfathered 1000 Mbps / 4-session pair,
+		// so validation would reject it if it ran.
+		SessionsResult: []*megaport.NATGatewaySession{
+			{SpeedMbps: 2000, SessionCount: []int{1, 2, 4}},
+		},
+	}
+	defer setupMockNATGateway(mock)()
+
+	cmd := newTestCmd("update")
+	require.NoError(t, cmd.Flags().Set("name", "New Name"))
+
+	err := UpdateNATGateway(cmd, []string{"uid-upd"}, true)
+	assert.NoError(t, err)
+	require.NotNil(t, mock.CapturedUpdateReq)
+	assert.Equal(t, "New Name", mock.CapturedUpdateReq.ProductName)
+	assert.Equal(t, 1000, mock.CapturedUpdateReq.Speed)
+	assert.Equal(t, 4, mock.CapturedUpdateReq.Config.SessionCount)
+}
+
 // ---- Delete ----
 
 func TestDeleteNATGateway_Force(t *testing.T) {
