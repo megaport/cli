@@ -851,6 +851,7 @@ func TestParseVRouterConfigBGP(t *testing.T) {
 								"exportBlacklist":    202.0,
 								"asPathPrependCount": 3.0,
 								"peerType":           "NON_CLOUD",
+								"asOverride":         true,
 							},
 						},
 					},
@@ -882,6 +883,31 @@ func TestParseVRouterConfigBGP(t *testing.T) {
 				assert.Equal(t, 202, conn.ExportBlacklist)
 				assert.Equal(t, 3, conn.AsPathPrependCount)
 				assert.Equal(t, "NON_CLOUD", conn.PeerType)
+				if assert.NotNil(t, conn.AsOverride) {
+					assert.True(t, *conn.AsOverride)
+				}
+			},
+		},
+		{
+			name: "asOverride false sets pointer to false",
+			config: map[string]interface{}{
+				"connectType": "VROUTER",
+				"interfaces": []interface{}{
+					map[string]interface{}{
+						"bgpConnections": []interface{}{
+							map[string]interface{}{
+								"peerAsn":    65000.0,
+								"asOverride": false,
+							},
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, cfg *megaport.VXCOrderVrouterPartnerConfig) {
+				conn := cfg.Interfaces[0].BgpConnections[0]
+				if assert.NotNil(t, conn.AsOverride) {
+					assert.False(t, *conn.AsOverride)
+				}
 			},
 		},
 		{
@@ -906,6 +932,7 @@ func TestParseVRouterConfigBGP(t *testing.T) {
 				assert.Nil(t, conn.LocalAsn)
 				assert.Nil(t, conn.PermitExportTo)
 				assert.Nil(t, conn.DenyExportTo)
+				assert.Nil(t, conn.AsOverride)
 			},
 		},
 		{
@@ -1064,6 +1091,7 @@ func TestParseVRouterConfigBGP(t *testing.T) {
 		{"exportBlacklist", "nope", "exportBlacklist must be a number"},
 		{"asPathPrependCount", "lots", "asPathPrependCount must be a number"},
 		{"peerType", 123, "peerType must be a string"},
+		{"asOverride", "yes", "asOverride must be a boolean"},
 	}
 	for _, tc := range bgpFieldTypeErrors {
 		tc := tc
