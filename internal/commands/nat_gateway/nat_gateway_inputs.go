@@ -259,6 +259,8 @@ func processFlagUpdateNATGatewayInput(cmd *cobra.Command, uid string) (*megaport
 		if err := json.Unmarshal(tagData, &tagsMap); err != nil {
 			return nil, fmt.Errorf("failed to parse resource tags JSON: %w", err)
 		}
+		// A non-nil empty list clears the tags instead of keeping the current ones.
+		resourceTags = make([]megaport.ResourceTag, 0, len(tagsMap))
 		for k, v := range tagsMap {
 			resourceTags = append(resourceTags, megaport.ResourceTag{Key: k, Value: v})
 		}

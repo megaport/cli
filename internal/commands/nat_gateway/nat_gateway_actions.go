@@ -358,7 +358,7 @@ func mergeUpdateDefaults(req *megaport.UpdateNATGatewayRequest, original *megapo
 	if req.ServiceLevelReference == "" {
 		req.ServiceLevelReference = original.ServiceLevelReference
 	}
-	// The API replaces the tag set, so a missing list removes every tag.
+	// The API replaces the tags, so a missing tag list removes every tag.
 	if req.ResourceTags == nil {
 		req.ResourceTags = original.ResourceTags
 	}

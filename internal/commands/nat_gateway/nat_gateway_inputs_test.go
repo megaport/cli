@@ -357,6 +357,16 @@ func TestProcessFlagUpdateNATGatewayInput_WithResourceTags(t *testing.T) {
 	assert.Len(t, req.ResourceTags, 1)
 }
 
+func TestProcessFlagUpdateNATGatewayInput_EmptyResourceTags(t *testing.T) {
+	cmd := newUpdateFlagsCmd()
+	require.NoError(t, cmd.Flags().Set("resource-tags", `{}`))
+
+	req, err := processFlagUpdateNATGatewayInput(cmd, "uid-tags")
+	require.NoError(t, err)
+	assert.NotNil(t, req.ResourceTags)
+	assert.Empty(t, req.ResourceTags)
+}
+
 func TestProcessFlagUpdateNATGatewayInput_InvalidResourceTags(t *testing.T) {
 	cmd := newUpdateFlagsCmd()
 	require.NoError(t, cmd.Flags().Set("resource-tags", `{invalid}`))

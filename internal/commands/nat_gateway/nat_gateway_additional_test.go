@@ -657,6 +657,7 @@ func TestMergeUpdateDefaultsResourceTags(t *testing.T) {
 	}{
 		{"nil inherits the original", nil, original.ResourceTags},
 		{"new tags are kept", []megaport.ResourceTag{{Key: "env", Value: "dev"}}, []megaport.ResourceTag{{Key: "env", Value: "dev"}}},
+		{"empty list clears the tags", []megaport.ResourceTag{}, []megaport.ResourceTag{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
