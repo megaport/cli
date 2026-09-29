@@ -473,6 +473,7 @@ func ValidateVrouterPartnerConfig(config *megaport.VXCOrderVrouterPartnerConfig)
 //   - ValidateOraclePartnerConfig
 //   - ValidateIBMPartnerConfig
 //   - ValidateVrouterPartnerConfig
+//   - A Transit configuration cannot be nil (it has no other fields to check)
 //   - Configuration type must be one of the supported types
 //
 // Returns:
@@ -490,6 +491,11 @@ func ValidateVXCPartnerConfig(config megaport.VXCPartnerConfiguration) error {
 		return ValidateOraclePartnerConfig(v)
 	case *megaport.VXCPartnerConfigIBM:
 		return ValidateIBMPartnerConfig(v)
+	case *megaport.VXCPartnerConfigTransit:
+		if v == nil {
+			return NewValidationError("Transit partner config", nil, "cannot be nil")
+		}
+		return nil
 	case *megaport.VXCOrderVrouterPartnerConfig:
 		return ValidateVrouterPartnerConfig(v)
 	default:

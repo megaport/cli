@@ -1220,6 +1220,14 @@ func TestBuildVXCRequestFromJSON(t *testing.T) {
 			},
 		},
 		{
+			name:    "transit partner config",
+			jsonStr: `{"portUid":"port-1","vxcName":"Test VXC","rateLimit":1000,"term":12,"bEndConfiguration":{"partnerConfig":{"connectType":"TRANSIT"}}}`,
+			validate: func(t *testing.T, req *megaport.BuyVXCRequest) {
+				_, ok := req.BEndConfiguration.PartnerConfig.(*megaport.VXCPartnerConfigTransit)
+				assert.True(t, ok, "expected *megaport.VXCPartnerConfigTransit")
+			},
+		},
+		{
 			name:          "missing portUid",
 			jsonStr:       `{"vxcName":"Test VXC","rateLimit":1000,"term":12}`,
 			expectedError: "portUid",

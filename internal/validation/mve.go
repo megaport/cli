@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	megaport "github.com/megaport/megaportgo"
 )
@@ -89,7 +90,7 @@ func ValidateBuyMVERequest(req *megaport.BuyMVERequest) error {
 	if req.Name == "" {
 		return NewValidationError("MVE name", req.Name, "cannot be empty")
 	}
-	if len(req.Name) > MaxMVENameLength {
+	if utf8.RuneCountInString(req.Name) > MaxMVENameLength {
 		return NewValidationError("MVE name", req.Name, fmt.Sprintf("cannot exceed %d characters", MaxMVENameLength))
 	}
 	if err := ValidateContractTerm(req.Term); err != nil {
@@ -173,7 +174,7 @@ func ValidateMVERequest(name string, term int, locationID int) error {
 	if name == "" {
 		return NewValidationError("MVE name", name, "cannot be empty")
 	}
-	if len(name) > MaxMVENameLength {
+	if utf8.RuneCountInString(name) > MaxMVENameLength {
 		return NewValidationError("MVE name", name, fmt.Sprintf("cannot exceed %d characters", MaxMVENameLength))
 	}
 	if err := ValidateContractTerm(term); err != nil {
