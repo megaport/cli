@@ -183,6 +183,9 @@ func init() {
 		}
 	}
 
+	// Help rebuilds cmd.Long, so keep each command's first Long to render from on every run.
+	originalLongs := make(map[*cobra.Command]string)
+
 	// Create a help function that runs the help.CommandHelpBuilder with the current noColor setting
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		// For the root command, regenerate the help text completely
@@ -190,11 +193,16 @@ func init() {
 			rootHelp := getRootHelpBuilder(noColor)
 			cmd.Long = rootHelp.Build(rootCmd)
 		} else if cmd.Long != "" {
+			original, seen := originalLongs[cmd]
+			if !seen {
+				original = cmd.Long
+				originalLongs[cmd] = original
+			}
 			// For non-root commands, modify the existing help text only if there is a Long description
 			helpBuilder := &help.CommandHelpBuilder{
 				CommandName:  cmd.UseLine(),
 				ShortDesc:    cmd.Short,
-				LongDesc:     cmd.Long,
+				LongDesc:     original,
 				DisableColor: noColor,
 			}
 			cmd.Long = helpBuilder.Build(rootCmd)
