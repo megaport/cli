@@ -133,8 +133,8 @@ func processFlagCreateNATGatewayInput(cmd *cobra.Command) (*megaport.CreateNATGa
 // value is ambiguous. Fields with genuinely invalid zero values
 // (LocationID, Speed, Term — all must be positive) do not need tracking
 // because 0 can only mean "omitted". The update API has no promo code field,
-// so PromoCode stays a plain string. ServiceLevelReference is plain too;
-// mergeUpdateDefaults inherits it from the original gateway.
+// so PromoCode stays a plain string. ServiceLevelReference and ResourceTags are
+// plain too; mergeUpdateDefaults inherits them from the original gateway.
 type updateExplicitFields struct {
 	AutoRenewTerm      bool // was autoRenewTerm present in input?
 	BGPShutdownDefault bool // was bgpShutdownDefault present in input?
