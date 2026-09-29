@@ -615,6 +615,32 @@ func TestMergeUpdateDefaultsExplicitBools(t *testing.T) {
 	})
 }
 
+func TestMergeUpdateDefaultsServiceLevelReference(t *testing.T) {
+	original := &megaport.NATGateway{
+		ProductName:           "Original",
+		LocationID:            1,
+		Speed:                 1000,
+		Term:                  12,
+		ServiceLevelReference: "SLR-ORIGINAL",
+	}
+
+	tests := []struct {
+		name string
+		req  string
+		want string
+	}{
+		{"empty inherits the original", "", "SLR-ORIGINAL"},
+		{"new value is kept", "SLR-NEW", "SLR-NEW"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &megaport.UpdateNATGatewayRequest{ProductUID: "uid", ServiceLevelReference: tt.req}
+			mergeUpdateDefaults(req, original, updateExplicitFields{})
+			assert.Equal(t, tt.want, req.ServiceLevelReference)
+		})
+	}
+}
+
 func TestProcessFlagCreateNATGatewayInput(t *testing.T) {
 	cmd := newTestCmd("create")
 	require.NoError(t, cmd.Flags().Set("name", "Flag GW"))
