@@ -224,6 +224,10 @@ func (m *ConfigManager) SetDefault(key string, value interface{}) error {
 
 func (m *ConfigManager) Save() error {
 	configPath := m.configPath
+	// Replace the symlink target, not the symlink itself.
+	if resolved, err := filepath.EvalSymlinks(configPath); err == nil {
+		configPath = resolved
+	}
 	configData, err := json.MarshalIndent(m.config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)

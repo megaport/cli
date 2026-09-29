@@ -643,6 +643,9 @@ func TestConfigVersionHandling(t *testing.T) {
 	assert.Equal(t, ConfigVersion, manager.config.Version, "Config should be upgraded to current version")
 }
 func TestReadOnlyConfigFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ignores the read-only attribute on directories")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}
@@ -776,6 +779,33 @@ func TestSymlinkConfigDir(t *testing.T) {
 	// Config file should exist in the real directory
 	_, err = os.Stat(filepath.Join(realDir, "config.json"))
 	require.NoError(t, err)
+}
+
+func TestSaveThroughSymlinkedConfigFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("creating symlinks needs extra privileges on Windows")
+	}
+
+	configDir := setupTestConfig(t)
+	realDir := t.TempDir()
+	realPath := filepath.Join(realDir, "config.json")
+	data, err := json.MarshalIndent(NewConfigFile(), "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(realPath, data, 0600))
+	linkPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.Symlink(realPath, linkPath))
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+	manager.config.ActiveProfile = "changed"
+	require.NoError(t, manager.Save())
+
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.NotZero(t, info.Mode()&os.ModeSymlink, "config symlink must stay a symlink")
+	saved, err := os.ReadFile(realPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(saved), "changed")
 }
 
 func TestImportWithMissingFields(t *testing.T) {
