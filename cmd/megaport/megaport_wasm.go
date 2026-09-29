@@ -190,6 +190,9 @@ func init() {
 			rootHelp := getRootHelpBuilder(noColor)
 			cmd.Long = rootHelp.Build(rootCmd)
 		} else if cmd.Long != "" {
+			// The command tree persists across runs, so restore Long for the next run to build from.
+			original := cmd.Long
+			defer func() { cmd.Long = original }()
 			// For non-root commands, modify the existing help text only if there is a Long description
 			helpBuilder := &help.CommandHelpBuilder{
 				CommandName:  cmd.UseLine(),
