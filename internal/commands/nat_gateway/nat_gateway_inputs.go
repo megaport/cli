@@ -132,9 +132,9 @@ func processFlagCreateNATGatewayInput(cmd *cobra.Command) (*megaport.CreateNATGa
 // BGPShutdownDefault *bool) get a corresponding entry here because their zero
 // value is ambiguous. Fields with genuinely invalid zero values
 // (LocationID, Speed, Term — all must be positive) do not need tracking
-// because 0 can only mean "omitted". Fields with omitempty on the SDK request
-// (PromoCode, ServiceLevelReference, ResourceTags) are safe to leave as plain
-// strings/slices because the API ignores empty/nil values for those.
+// because 0 can only mean "omitted". The update API has no promo code field,
+// so PromoCode stays a plain string. ServiceLevelReference and ResourceTags are
+// plain too; mergeUpdateDefaults inherits them from the original gateway.
 type updateExplicitFields struct {
 	AutoRenewTerm      bool // was autoRenewTerm present in input?
 	BGPShutdownDefault bool // was bgpShutdownDefault present in input?
@@ -148,8 +148,8 @@ type updateExplicitFields struct {
 // zero value could be a valid intentional value (bool, int for ASN/SessionCount,
 // string for DiversityZone) use pointer types in the raw struct so nil means
 // "not provided" and mergeUpdateDefaults will inherit from the original resource.
-// Fields with genuinely invalid zero values (LocationID, Speed, Term) or omitempty
-// in the SDK request (PromoCode, ServiceLevelReference) use plain types.
+// Fields with genuinely invalid zero values (LocationID, Speed, Term), PromoCode,
+// and ServiceLevelReference use plain types.
 func processJSONUpdateNATGatewayInput(jsonStr, jsonFile, uid string) (*megaport.UpdateNATGatewayRequest, updateExplicitFields, error) {
 	jsonData, err := utils.ReadJSONInput(jsonStr, jsonFile)
 	if err != nil {
@@ -259,6 +259,8 @@ func processFlagUpdateNATGatewayInput(cmd *cobra.Command, uid string) (*megaport
 		if err := json.Unmarshal(tagData, &tagsMap); err != nil {
 			return nil, fmt.Errorf("failed to parse resource tags JSON: %w", err)
 		}
+		// A non-nil empty list clears the tags instead of keeping the current ones.
+		resourceTags = make([]megaport.ResourceTag, 0, len(tagsMap))
 		for k, v := range tagsMap {
 			resourceTags = append(resourceTags, megaport.ResourceTag{Key: k, Value: v})
 		}

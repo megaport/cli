@@ -217,6 +217,14 @@ func TestProcessJSONUpdateNATGatewayInput_ValidResourceTags(t *testing.T) {
 	assert.Equal(t, "prod", req.ResourceTags[0].Value)
 }
 
+func TestProcessJSONUpdateNATGatewayInput_EmptyResourceTags(t *testing.T) {
+	req, _, err := processJSONUpdateNATGatewayInput(
+		`{"name":"GW","resourceTags":{}}`, "", "uid-empty-tags")
+	require.NoError(t, err)
+	assert.NotNil(t, req.ResourceTags)
+	assert.Empty(t, req.ResourceTags)
+}
+
 func TestProcessJSONUpdateNATGatewayInput_Valid(t *testing.T) {
 	req, explicit, err := processJSONUpdateNATGatewayInput(
 		`{"name":"Updated GW","locationId":2,"speed":2000,"term":24}`, "", "uid-123")
@@ -227,6 +235,7 @@ func TestProcessJSONUpdateNATGatewayInput_Valid(t *testing.T) {
 	assert.Equal(t, 2000, req.Speed)
 	assert.Equal(t, 24, req.Term)
 	assert.False(t, explicit.AutoRenewTerm)
+	assert.Nil(t, req.ResourceTags)
 }
 
 func TestProcessJSONUpdateNATGatewayInput_EmptyStrings(t *testing.T) {
@@ -338,6 +347,7 @@ func TestProcessFlagUpdateNATGatewayInput_Valid(t *testing.T) {
 	assert.Equal(t, "uid-upd", req.ProductUID)
 	assert.Equal(t, "Updated GW", req.ProductName)
 	assert.Equal(t, 24, req.Term)
+	assert.Nil(t, req.ResourceTags)
 }
 
 func TestProcessFlagUpdateNATGatewayInput_EmptyUID(t *testing.T) {
@@ -355,6 +365,16 @@ func TestProcessFlagUpdateNATGatewayInput_WithResourceTags(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "uid-tags", req.ProductUID)
 	assert.Len(t, req.ResourceTags, 1)
+}
+
+func TestProcessFlagUpdateNATGatewayInput_EmptyResourceTags(t *testing.T) {
+	cmd := newUpdateFlagsCmd()
+	require.NoError(t, cmd.Flags().Set("resource-tags", `{}`))
+
+	req, err := processFlagUpdateNATGatewayInput(cmd, "uid-tags")
+	require.NoError(t, err)
+	assert.NotNil(t, req.ResourceTags)
+	assert.Empty(t, req.ResourceTags)
 }
 
 func TestProcessFlagUpdateNATGatewayInput_InvalidResourceTags(t *testing.T) {

@@ -354,6 +354,14 @@ func mergeUpdateDefaults(req *megaport.UpdateNATGatewayRequest, original *megapo
 	if req.ProductName == "" {
 		req.ProductName = original.ProductName
 	}
+	// The API clears a missing reference on a DESIGN-state gateway.
+	if req.ServiceLevelReference == "" {
+		req.ServiceLevelReference = original.ServiceLevelReference
+	}
+	// The API replaces the tags, so a missing tag list removes every tag.
+	if req.ResourceTags == nil {
+		req.ResourceTags = original.ResourceTags
+	}
 	if req.LocationID == 0 {
 		req.LocationID = original.LocationID
 	}
