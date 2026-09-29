@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -14,7 +15,7 @@ import (
 var (
 	ErrProfileNotFound = errors.New("profile not found")
 
-	// renameFile and chmodFile are variables so tests can inject errors into the backup path.
+	// renameFile and chmodFile are variables so tests can inject errors into the backup and save paths.
 	renameFile = os.Rename
 	chmodFile  = os.Chmod
 )
@@ -223,11 +224,33 @@ func (m *ConfigManager) SetDefault(key string, value interface{}) error {
 
 func (m *ConfigManager) Save() error {
 	configPath := m.configPath
+	// Replace the symlink target, not the symlink itself.
+	if resolved, err := filepath.EvalSymlinks(configPath); err == nil {
+		configPath = resolved
+	}
 	configData, err := json.MarshalIndent(m.config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	if err := os.WriteFile(configPath, configData, 0600); err != nil {
+
+	// CreateTemp makes the file with mode 0600, so a rename leaves the config at 0600.
+	tmp, err := os.CreateTemp(filepath.Dir(configPath), filepath.Base(configPath)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	_, err = tmp.Write(configData)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = renameFile(tmpPath, configPath)
+	}
+	if err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 	return nil

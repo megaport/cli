@@ -4,9 +4,11 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/megaport/megaport-cli/internal/utils"
@@ -641,6 +643,9 @@ func TestConfigVersionHandling(t *testing.T) {
 	assert.Equal(t, ConfigVersion, manager.config.Version, "Config should be upgraded to current version")
 }
 func TestReadOnlyConfigFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ignores the read-only attribute on directories")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}
@@ -667,12 +672,12 @@ func TestReadOnlyConfigFile(t *testing.T) {
 	err = os.WriteFile(configPath, data, 0644)
 	require.NoError(t, err)
 
-	// Make the config file read-only
-	err = os.Chmod(configPath, 0444)
-	require.NoError(t, err)
+	// Make the config directory read-only: Save writes a temp file there
+	require.NoError(t, os.Chmod(configDir, 0500))
+	defer func() { _ = os.Chmod(configDir, 0700) }()
 
 	// Try to load config - should fail due to version migration
-	// attempting to save to read-only file
+	// attempting to save into a read-only directory
 	_, err = NewConfigManager()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
@@ -776,6 +781,33 @@ func TestSymlinkConfigDir(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestSaveThroughSymlinkedConfigFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("creating symlinks needs extra privileges on Windows")
+	}
+
+	configDir := setupTestConfig(t)
+	realDir := t.TempDir()
+	realPath := filepath.Join(realDir, "config.json")
+	data, err := json.MarshalIndent(NewConfigFile(), "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(realPath, data, 0600))
+	linkPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.Symlink(realPath, linkPath))
+
+	manager, err := NewConfigManager()
+	require.NoError(t, err)
+	manager.config.ActiveProfile = "changed"
+	require.NoError(t, manager.Save())
+
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.NotZero(t, info.Mode()&os.ModeSymlink, "config symlink must stay a symlink")
+	saved, err := os.ReadFile(realPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(saved), "changed")
+}
+
 func TestImportWithMissingFields(t *testing.T) {
 	setupTestConfigEnv(t)
 
@@ -867,4 +899,67 @@ func TestExportWithMaxProfiles(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 100, len(exportedConfig.Profiles), "Export should contain all 100 profiles")
+}
+
+func TestSave(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission bits are not enforced on Windows")
+	}
+
+	tests := []struct {
+		name       string
+		renameErr  error
+		initMode   os.FileMode
+		wantErr    bool
+		wantUpdate bool
+		wantMode   os.FileMode
+	}{
+		{name: "replaces file and tightens 0644 to 0600", initMode: 0644, wantUpdate: true, wantMode: 0600},
+		{name: "keeps existing file when rename fails", renameErr: errors.New("rename failed"), initMode: 0644, wantErr: true, wantMode: 0644},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := setupTestConfig(t)
+			manager, err := NewConfigManager()
+			require.NoError(t, err)
+
+			configPath := filepath.Join(tempDir, "config.json")
+			before, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			require.NoError(t, os.Chmod(configPath, tt.initMode))
+
+			if tt.renameErr != nil {
+				old := renameFile
+				defer func() { renameFile = old }()
+				renameFile = func(_, _ string) error { return tt.renameErr }
+			}
+
+			manager.config.ActiveProfile = "changed"
+			err = manager.Save()
+			if tt.wantErr {
+				assert.ErrorIs(t, err, tt.renameErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			after, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			if tt.wantUpdate {
+				assert.Contains(t, string(after), "changed")
+			} else {
+				assert.Equal(t, string(before), string(after), "existing file must stay intact")
+			}
+
+			info, err := os.Stat(configPath)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantMode, info.Mode().Perm())
+
+			entries, err := os.ReadDir(tempDir)
+			require.NoError(t, err)
+			for _, e := range entries {
+				assert.Equal(t, "config.json", e.Name(), "no temp files should remain")
+			}
+		})
+	}
 }

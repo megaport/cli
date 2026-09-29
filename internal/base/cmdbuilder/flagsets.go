@@ -81,7 +81,7 @@ func (b *CommandBuilder) WithDeferredDeleteFlags() *CommandBuilder {
 
 // WithBuyConfirmFlags adds the --yes/-y flag to skip buy confirmation prompts
 func (b *CommandBuilder) WithBuyConfirmFlags() *CommandBuilder {
-	b.WithBoolFlagP("yes", "y", false, "Skip confirmation prompt for purchase")
+	b.WithBoolFlagP("yes", "y", false, "Skip confirmation prompt for purchase (JSON input never prompts)")
 	return b
 }
 
