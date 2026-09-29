@@ -217,6 +217,14 @@ func TestProcessJSONUpdateNATGatewayInput_ValidResourceTags(t *testing.T) {
 	assert.Equal(t, "prod", req.ResourceTags[0].Value)
 }
 
+func TestProcessJSONUpdateNATGatewayInput_EmptyResourceTags(t *testing.T) {
+	req, _, err := processJSONUpdateNATGatewayInput(
+		`{"name":"GW","resourceTags":{}}`, "", "uid-empty-tags")
+	require.NoError(t, err)
+	assert.NotNil(t, req.ResourceTags)
+	assert.Empty(t, req.ResourceTags)
+}
+
 func TestProcessJSONUpdateNATGatewayInput_Valid(t *testing.T) {
 	req, explicit, err := processJSONUpdateNATGatewayInput(
 		`{"name":"Updated GW","locationId":2,"speed":2000,"term":24}`, "", "uid-123")
