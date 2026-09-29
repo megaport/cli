@@ -195,6 +195,13 @@ func TestPromptIBMConfig(t *testing.T) {
 				assert.Equal(t, "6.7.8.9", cfg.ProviderIPAddress)
 			},
 		},
+		{
+			name:      "empty customer ASN",
+			responses: []string{"acct-789", "ibm-empty-asn", "", "", ""},
+			verify: func(t *testing.T, cfg *megaport.VXCPartnerConfigIBM) {
+				assert.Equal(t, 0, cfg.CustomerASN)
+			},
+		},
 	}
 
 	for _, tc := range tests {

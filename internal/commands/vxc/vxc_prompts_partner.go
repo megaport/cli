@@ -340,9 +340,11 @@ func promptIBMConfig(noColor bool) (*megaport.VXCPartnerConfigIBM, error) {
 	if err != nil {
 		return nil, err
 	}
-	customerASN, err = validation.ParseInt("customer ASN", customerASNStr)
-	if err != nil {
-		return nil, err
+	if customerASNStr != "" {
+		customerASN, err = validation.ParseInt("customer ASN", customerASNStr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	customerIPAddress, err := utils.ResourcePrompt("vxc", "Enter customer IP address (optional): ", noColor)
