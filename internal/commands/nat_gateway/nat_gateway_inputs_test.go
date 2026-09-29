@@ -235,6 +235,7 @@ func TestProcessJSONUpdateNATGatewayInput_Valid(t *testing.T) {
 	assert.Equal(t, 2000, req.Speed)
 	assert.Equal(t, 24, req.Term)
 	assert.False(t, explicit.AutoRenewTerm)
+	assert.Nil(t, req.ResourceTags)
 }
 
 func TestProcessJSONUpdateNATGatewayInput_EmptyStrings(t *testing.T) {
@@ -346,6 +347,7 @@ func TestProcessFlagUpdateNATGatewayInput_Valid(t *testing.T) {
 	assert.Equal(t, "uid-upd", req.ProductUID)
 	assert.Equal(t, "Updated GW", req.ProductName)
 	assert.Equal(t, 24, req.Term)
+	assert.Nil(t, req.ResourceTags)
 }
 
 func TestProcessFlagUpdateNATGatewayInput_EmptyUID(t *testing.T) {
