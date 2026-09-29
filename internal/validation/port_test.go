@@ -235,3 +235,26 @@ func TestValidatePortName(t *testing.T) {
 		})
 	}
 }
+
+func TestPortNameLengthCountsCharacters(t *testing.T) {
+	tests := []struct {
+		name     string
+		portName string
+		wantErr  bool
+	}{
+		{"64 multibyte characters", strings.Repeat("é", MaxPortNameLength), false},
+		{"65 multibyte characters", strings.Repeat("é", MaxPortNameLength+1), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantErr, ValidatePortName(tt.portName) != nil, "ValidatePortName")
+
+			req := &megaport.BuyPortRequest{Name: tt.portName, LocationId: 100, PortSpeed: 10000, Term: 12}
+			assert.Equal(t, tt.wantErr, ValidatePortRequest(req) != nil, "ValidatePortRequest")
+
+			req.LagCount = 2
+			assert.Equal(t, tt.wantErr, ValidateLAGPortRequest(req) != nil, "ValidateLAGPortRequest")
+		})
+	}
+}

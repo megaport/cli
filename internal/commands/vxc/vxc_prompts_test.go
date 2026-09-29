@@ -465,6 +465,34 @@ func TestPromptAzurePeeringConfig(t *testing.T) {
 	assert.Equal(t, 200, peer.VLAN)
 }
 
+func TestPromptAzurePeeringConfig_VLAN(t *testing.T) {
+	tests := []struct {
+		name          string
+		vlanInput     string
+		expectedVLAN  int
+		expectedError string
+	}{
+		{name: "numeric VLAN", vlanInput: "200", expectedVLAN: 200},
+		{name: "empty VLAN means auto-assign", vlanInput: "", expectedVLAN: 0},
+		{name: "non-numeric VLAN", vlanInput: "abc", expectedError: `invalid peering VLAN: "abc" is not a valid whole number`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := mockPrompts([]string{"Microsoft", "", "", "", "", "", tt.vlanInput})
+			defer cleanup()
+
+			peer, err := promptAzurePeeringConfig(true)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedVLAN, peer.VLAN)
+		})
+	}
+}
+
 func TestPromptPartnerConfig(t *testing.T) {
 	tests := []struct {
 		name      string

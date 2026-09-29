@@ -2,6 +2,7 @@ package validation
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	megaport "github.com/megaport/megaportgo"
@@ -876,6 +877,38 @@ func TestValidateMVEVendorConfig(t *testing.T) {
 				assert.IsType(t, &ValidationError{}, err, "Expected ValidationError type")
 				assert.Equal(t, tt.errText, err.Error(), "Error message mismatch")
 			}
+		})
+	}
+}
+
+func TestMVENameLengthCountsCharacters(t *testing.T) {
+	tests := []struct {
+		name    string
+		mveName string
+		wantErr bool
+	}{
+		{"64 multibyte characters", strings.Repeat("é", MaxMVENameLength), false},
+		{"65 multibyte characters", strings.Repeat("é", MaxMVENameLength+1), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantErr, ValidateMVERequest(tt.mveName, 12, 100) != nil, "ValidateMVERequest")
+
+			req := &megaport.BuyMVERequest{
+				Name:       tt.mveName,
+				Term:       12,
+				LocationID: 100,
+				VendorConfig: &megaport.CiscoConfig{
+					Vendor:            "cisco",
+					ImageID:           123,
+					ProductSize:       "MEDIUM",
+					AdminSSHPublicKey: "ssh-rsa AAAA...",
+					SSHPublicKey:      "ssh-rsa AAAA...",
+					ManageLocally:     true,
+				},
+			}
+			assert.Equal(t, tt.wantErr, ValidateBuyMVERequest(req) != nil, "ValidateBuyMVERequest")
 		})
 	}
 }
