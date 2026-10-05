@@ -287,7 +287,7 @@ func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 			require.Error(t, execErr)
 			assert.Contains(t, execErr.Error(), tc.wantErr)
 			assert.Equal(t, exitcodes.Usage, exitCodeFromError(execErr))
-			assert.NotContains(t, captured, "Saved defaults")
+			assert.NotContains(t, captured, "--quiet and --verbose", "conflict warning")
 		})
 	}
 }
