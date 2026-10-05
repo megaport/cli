@@ -275,7 +275,7 @@ func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 
 			rootCmd.SetArgs(tc.args)
 			var execErr error
-			_ = output.CaptureOutput(func() {
+			captured := output.CaptureOutput(func() {
 				execErr = rootCmd.Execute()
 			})
 			if tc.wantErr == "" {
@@ -287,6 +287,7 @@ func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 			require.Error(t, execErr)
 			assert.Contains(t, execErr.Error(), tc.wantErr)
 			assert.Equal(t, exitcodes.Usage, exitCodeFromError(execErr))
+			assert.NotContains(t, captured, "Saved defaults")
 		})
 	}
 }
