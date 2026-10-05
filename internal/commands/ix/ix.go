@@ -98,10 +98,10 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithArgs(cobra.ExactArgs(1)).
 		WithColorAwareRunFunc(DeleteIX).
 		WithImmediateDeleteFlags().
-		WithLongDesc("Delete an IX from your account.\n\nDeletion is immediate.").
+		WithLongDesc("Delete an IX from your account.").
 		WithExample("megaport-cli ix delete [ixUID]").
 		WithExample("megaport-cli ix delete [ixUID] --force").
-		WithImportantNote("Billing stops right away").
+		WithImportantNote("Deletion is immediate; billing stops right away").
 		WithRootCmd(rootCmd).
 		WithAliases([]string{"rm"}).
 		Build()

@@ -6,10 +6,8 @@ Delete an IX from your account
 
 Delete an IX from your account.
 
-Deletion is immediate.
-
 ### Important Notes
-  - Billing stops right away
+  - Deletion is immediate; billing stops right away
 
 ### Example Usage
 
