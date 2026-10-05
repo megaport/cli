@@ -67,7 +67,9 @@ func TestNoPagerDefaultApplied(t *testing.T) {
 	defer func() {
 		output.ResetState()
 		noPager = false
-		_ = rootCmd.PersistentFlags().Set("no-pager", "false")
+		f := rootCmd.PersistentFlags().Lookup("no-pager")
+		_ = f.Value.Set("false")
+		f.Changed = false
 	}()
 
 	// Fire a lightweight command through the real rootCmd so PersistentPreRunE runs.
