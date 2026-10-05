@@ -46,6 +46,12 @@ func TestE2E_Contract(t *testing.T) {
 			stdoutContains: []string{"Usage:", "ports"},
 		},
 		{
+			name:           "group with no subcommand exits zero with its help",
+			args:           []string{"ports"},
+			wantExit:       exitcodes.Success,
+			stdoutContains: []string{"Usage:", "ports"},
+		},
+		{
 			name:           "completion bash emits the bash marker",
 			args:           []string{"completion", "bash"},
 			wantExit:       exitcodes.Success,
@@ -68,6 +74,18 @@ func TestE2E_Contract(t *testing.T) {
 			args:           []string{"boguscommand"},
 			wantExit:       exitcodes.Usage,
 			stderrContains: []string{"unknown command"},
+		},
+		{
+			name:           "unknown subcommand under a group is a usage error",
+			args:           []string{"ports", "bogus"},
+			wantExit:       exitcodes.Usage,
+			stderrContains: []string{`unknown command "bogus" for "megaport-cli ports"`},
+		},
+		{
+			name:           "unknown subcommand under a nested group is a usage error",
+			args:           []string{"mcr", "looking-glass", "bogus"},
+			wantExit:       exitcodes.Usage,
+			stderrContains: []string{`unknown command "bogus" for "megaport-cli mcr looking-glass"`},
 		},
 		{
 			name:           "unknown flag is a usage error",
