@@ -190,10 +190,7 @@ func TestApplyDefaultSettings_ResolvesQuietVerboseConflict(t *testing.T) {
 
 	defer func() {
 		output.ResetState()
-		quiet = false
-		verbose = false
-		_ = rootCmd.PersistentFlags().Set("quiet", "false")
-		_ = rootCmd.PersistentFlags().Set("verbose", "false")
+		resetVerbosityFlags(t)
 	}()
 
 	warnings := applyDefaultSettings(rootCmd)
@@ -242,23 +239,30 @@ func TestApplyDefaultSettings_CLIVerboseOverridesConfigQuiet(t *testing.T) {
 // TestSavedQuietAndVerboseDefaults_ConflictCheck runs a command end to end, so
 // cobra's mutual-exclusion check sees the flags applyDefaultSettings set.
 func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
+	both := map[string]bool{"quiet": true, "verbose": true}
 	cases := []struct {
 		name    string
+		saved   map[string]bool
 		args    []string
 		wantErr string
 	}{
-		{"both saved", []string{"version"}, ""},
-		{"CLI quiet wins over saved verbose", []string{"version", "--quiet"}, ""},
-		{"both on the CLI", []string{"version", "--quiet", "--verbose"}, "[quiet verbose] were all set"},
+		{"both saved", both, []string{"version"}, ""},
+		{"both saved false", map[string]bool{"quiet": false, "verbose": false}, []string{"version"}, ""},
+		{"CLI quiet wins over saved verbose", both, []string{"version", "--quiet"}, ""},
+		{"CLI verbose wins over saved quiet", both, []string{"version", "--verbose"}, ""},
+		{"CLI quiet=false over saved verbose", both, []string{"version", "--quiet=false"}, ""},
+		{"both on the CLI", both, []string{"version", "--quiet", "--verbose"}, "[quiet verbose] were all set"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			resetVerbosityFlags(t)
 			t.Setenv("MEGAPORT_CONFIG_DIR", t.TempDir())
 			mgr, err := config.NewConfigManager()
 			require.NoError(t, err)
-			require.NoError(t, mgr.SetDefault("quiet", true))
-			require.NoError(t, mgr.SetDefault("verbose", true))
+			for key, val := range tc.saved {
+				require.NoError(t, mgr.SetDefault(key, val))
+			}
 			defer func() {
 				output.ResetState()
 				resetVerbosityFlags(t)
