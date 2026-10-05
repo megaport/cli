@@ -129,6 +129,7 @@ func TestRegisterAll_GroupsRejectUnknownSubcommands(t *testing.T) {
 		{name: "nested group", args: []string{"group", "nested", "bogus"}, wantErr: `unknown command "bogus" for "root group nested"`},
 		{name: "bare group prints help", args: []string{"group"}, wantHelp: true},
 		{name: "leaf keeps its own RunE", args: []string{"group", "leaf", "extra"}, wantLeaf: true},
+		{name: "root keeps cobra's suggestion", args: []string{"grop"}, wantErr: "unknown command \"grop\" for \"root\"\n\nDid you mean this?\n\tgroup\n"},
 	}
 
 	for _, tc := range cases {
