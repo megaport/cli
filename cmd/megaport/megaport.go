@@ -243,7 +243,8 @@ func applyDefaultSettings(cmd *cobra.Command) []string {
 	// can set both) and bypass cobra's validation. Resolve by preferring the
 	// explicitly-set flag; if both are from config, drop quiet so unexpected
 	// output surfaces a problem to the user rather than silently suppressing it.
-	if quiet && verbose {
+	// If both came from the CLI, leave the conflict for cobra to reject.
+	if quiet && verbose && (!cliQuiet || !cliVerbose) {
 		dropped := "quiet"
 		switch {
 		case cliQuiet && !cliVerbose:
@@ -256,6 +257,10 @@ func applyDefaultSettings(cmd *cobra.Command) []string {
 		default:
 			quiet = false
 			_ = cmd.Flags().Set("quiet", "false")
+		}
+		// Set marks the flag Changed, which would still trip cobra's exclusion check.
+		if f := cmd.Flags().Lookup(dropped); f != nil {
+			f.Changed = false
 		}
 		warnings = append(warnings, fmt.Sprintf("Saved defaults set both --quiet and --verbose; dropping --%s", dropped))
 	}

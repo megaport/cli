@@ -239,6 +239,46 @@ func TestApplyDefaultSettings_CLIVerboseOverridesConfigQuiet(t *testing.T) {
 	assert.False(t, quiet, "config-sourced quiet should be dropped when CLI set verbose")
 }
 
+// TestSavedQuietAndVerboseDefaults_ConflictCheck runs a command end to end, so
+// cobra's mutual-exclusion check sees the flags applyDefaultSettings set.
+func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{"both saved", []string{"version"}, ""},
+		{"CLI quiet wins over saved verbose", []string{"version", "--quiet"}, ""},
+		{"both on the CLI", []string{"version", "--quiet", "--verbose"}, "[quiet verbose] were all set"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("MEGAPORT_CONFIG_DIR", t.TempDir())
+			mgr, err := config.NewConfigManager()
+			require.NoError(t, err)
+			require.NoError(t, mgr.SetDefault("quiet", true))
+			require.NoError(t, mgr.SetDefault("verbose", true))
+			defer func() {
+				output.ResetState()
+				resetVerbosityFlags(t)
+			}()
+
+			rootCmd.SetArgs(tc.args)
+			var execErr error
+			_ = output.CaptureOutput(func() {
+				execErr = rootCmd.Execute()
+			})
+			if tc.wantErr == "" {
+				assert.NoError(t, execErr)
+				return
+			}
+			require.Error(t, execErr)
+			assert.Contains(t, execErr.Error(), tc.wantErr)
+		})
+	}
+}
+
 // resetVerbosityFlags resets the quiet/verbose package vars, their cobra flag
 // values, and — critically — their Changed state so the mutually-exclusive
 // group check does not fire on subsequent tests that share the global rootCmd.
