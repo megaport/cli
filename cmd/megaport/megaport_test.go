@@ -256,7 +256,7 @@ func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 		{"CLI quiet wins over saved verbose", both, []string{"version", "--quiet"}, true, false, ""},
 		{"CLI verbose wins over saved quiet", both, []string{"version", "--verbose"}, false, true, ""},
 		{"CLI quiet=false wins over saved quiet", both, []string{"version", "--quiet=false"}, false, true, ""},
-		{"both on the CLI", both, []string{"version", "--quiet", "--verbose"}, false, false, "[quiet verbose] were all set"},
+		{name: "both on the CLI", saved: both, args: []string{"version", "--quiet", "--verbose"}, wantErr: "[quiet verbose] were all set"},
 	}
 
 	for _, tc := range cases {
