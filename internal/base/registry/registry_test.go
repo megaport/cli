@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -19,6 +20,26 @@ func (m *testModule) Name() string { return m.name }
 func (m *testModule) RegisterCommands(root *cobra.Command) {
 	m.registered = true
 	root.AddCommand(&cobra.Command{Use: m.name})
+}
+
+// groupModule registers a group holding a nested group and a leaf. The leaf's
+// only child is a hidden docs command, the shape cmdbuilder gives every leaf.
+type groupModule struct {
+	leafRan bool
+}
+
+func (m *groupModule) Name() string { return "group" }
+func (m *groupModule) RegisterCommands(root *cobra.Command) {
+	leaf := &cobra.Command{Use: "leaf", RunE: func(*cobra.Command, []string) error {
+		m.leafRan = true
+		return nil
+	}}
+	leaf.AddCommand(&cobra.Command{Use: "docs", Hidden: true, Run: func(*cobra.Command, []string) {}})
+	nested := &cobra.Command{Use: "nested"}
+	nested.AddCommand(&cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}})
+	group := &cobra.Command{Use: "group"}
+	group.AddCommand(leaf, nested)
+	root.AddCommand(group)
 }
 
 func TestNewRegistry(t *testing.T) {
@@ -94,4 +115,46 @@ func TestRegister_Duplicate(t *testing.T) {
 	// Both modules get RegisterCommands called (no dedup).
 	assert.True(t, mod1.registered)
 	assert.True(t, mod2.registered)
+}
+
+func TestRegisterAll_GroupsRejectUnknownSubcommands(t *testing.T) {
+	cases := []struct {
+		name     string
+		args     []string
+		wantErr  string
+		wantHelp bool
+		wantLeaf bool
+	}{
+		{name: "group", args: []string{"group", "bogus"}, wantErr: `unknown command "bogus" for "root group"`},
+		{name: "nested group", args: []string{"group", "nested", "bogus"}, wantErr: `unknown command "bogus" for "root group nested"`},
+		{name: "bare group prints help", args: []string{"group"}, wantHelp: true},
+		{name: "leaf keeps its own RunE", args: []string{"group", "leaf", "extra"}, wantLeaf: true},
+		{name: "root keeps cobra's suggestion", args: []string{"grop"}, wantErr: "unknown command \"grop\" for \"root\"\n\nDid you mean this?\n\tgroup\n"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mod := &groupModule{}
+			r := NewRegistry()
+			r.Register(mod)
+			root := &cobra.Command{Use: "root"}
+			r.RegisterAll(root)
+
+			var out bytes.Buffer
+			root.SetOut(&out)
+			root.SetErr(&out)
+			root.SetArgs(tc.args)
+			err := root.Execute()
+
+			if tc.wantErr != "" {
+				assert.EqualError(t, err, tc.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+			if tc.wantHelp {
+				assert.Contains(t, out.String(), "Usage:")
+			}
+			assert.Equal(t, tc.wantLeaf, mod.leafRan)
+		})
+	}
 }

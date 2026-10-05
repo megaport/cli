@@ -67,7 +67,9 @@ func TestNoPagerDefaultApplied(t *testing.T) {
 	defer func() {
 		output.ResetState()
 		noPager = false
-		_ = rootCmd.PersistentFlags().Set("no-pager", "false")
+		f := rootCmd.PersistentFlags().Lookup("no-pager")
+		_ = f.Value.Set("false")
+		f.Changed = false
 	}()
 
 	// Fire a lightweight command through the real rootCmd so PersistentPreRunE runs.
@@ -190,10 +192,7 @@ func TestApplyDefaultSettings_ResolvesQuietVerboseConflict(t *testing.T) {
 
 	defer func() {
 		output.ResetState()
-		quiet = false
-		verbose = false
-		_ = rootCmd.PersistentFlags().Set("quiet", "false")
-		_ = rootCmd.PersistentFlags().Set("verbose", "false")
+		resetVerbosityFlags(t)
 	}()
 
 	warnings := applyDefaultSettings(rootCmd)
@@ -237,6 +236,60 @@ func TestApplyDefaultSettings_CLIVerboseOverridesConfigQuiet(t *testing.T) {
 
 	assert.True(t, verbose, "CLI-set --verbose should win over config quiet")
 	assert.False(t, quiet, "config-sourced quiet should be dropped when CLI set verbose")
+}
+
+// TestSavedQuietAndVerboseDefaults_ConflictCheck runs a command end to end, so
+// cobra's mutual-exclusion check sees the flags applyDefaultSettings set.
+func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
+	both := map[string]bool{"quiet": true, "verbose": true}
+	neither := map[string]bool{"quiet": false, "verbose": false}
+	cases := []struct {
+		name        string
+		saved       map[string]bool
+		args        []string
+		wantQuiet   bool
+		wantVerbose bool
+		wantErr     string
+	}{
+		{"both saved", both, []string{"version"}, false, true, ""},
+		{"both saved false", neither, []string{"version"}, false, false, ""},
+		{"CLI quiet wins over saved verbose", both, []string{"version", "--quiet"}, true, false, ""},
+		{"CLI verbose wins over saved quiet", both, []string{"version", "--verbose"}, false, true, ""},
+		{"CLI quiet=false wins over saved quiet", both, []string{"version", "--quiet=false"}, false, true, ""},
+		{name: "both on the CLI", saved: both, args: []string{"version", "--quiet", "--verbose"}, wantErr: "[quiet verbose] were all set"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetVerbosityFlags(t)
+			t.Setenv("MEGAPORT_CONFIG_DIR", t.TempDir())
+			mgr, err := config.NewConfigManager()
+			require.NoError(t, err)
+			for key, val := range tc.saved {
+				require.NoError(t, mgr.SetDefault(key, val))
+			}
+			defer func() {
+				output.ResetState()
+				resetVerbosityFlags(t)
+			}()
+
+			rootCmd.SetArgs(tc.args)
+			var execErr error
+			captured := output.CaptureOutput(func() {
+				execErr = rootCmd.Execute()
+			})
+			if tc.wantErr == "" {
+				assert.NoError(t, execErr)
+				assert.Equal(t, tc.wantQuiet, output.IsQuiet(), "quiet")
+				assert.Equal(t, tc.wantVerbose, output.IsVerbose(), "verbose")
+				return
+			}
+			require.Error(t, execErr)
+			assert.Contains(t, execErr.Error(), tc.wantErr)
+			assert.Equal(t, exitcodes.Usage, exitCodeFromError(execErr))
+			assert.NotContains(t, captured, "--quiet and --verbose", "conflict warning")
+		})
+	}
 }
 
 // resetVerbosityFlags resets the quiet/verbose package vars, their cobra flag
@@ -344,6 +397,36 @@ func TestExitCodeFromError_CobraArgValidators(t *testing.T) {
 				SilenceUsage:  true,
 				SilenceErrors: true,
 			}
+			cmd.SetArgs(tt.argv)
+			err := cmd.Execute()
+			require.Error(t, err)
+			assert.Equal(t, exitcodes.Usage, exitCodeFromError(err), "cobra error: %v", err)
+		})
+	}
+}
+
+// TestExitCodeFromError_CobraFlagGroups drives cobra's own flag-group checks.
+func TestExitCodeFromError_CobraFlagGroups(t *testing.T) {
+	tests := []struct {
+		name string
+		mark func(cmd *cobra.Command)
+		argv []string
+	}{
+		{"mutually exclusive", func(c *cobra.Command) { c.MarkFlagsMutuallyExclusive("a", "b") }, []string{"--a", "--b"}},
+		{"required together", func(c *cobra.Command) { c.MarkFlagsRequiredTogether("a", "b") }, []string{"--a"}},
+		{"one required", func(c *cobra.Command) { c.MarkFlagsOneRequired("a", "b") }, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &cobra.Command{
+				Use:           "get",
+				RunE:          func(cmd *cobra.Command, args []string) error { return nil },
+				SilenceUsage:  true,
+				SilenceErrors: true,
+			}
+			cmd.Flags().Bool("a", false, "")
+			cmd.Flags().Bool("b", false, "")
+			tt.mark(cmd)
 			cmd.SetArgs(tt.argv)
 			err := cmd.Execute()
 			require.Error(t, err)

@@ -32,4 +32,22 @@ func (r *Registry) RegisterAll(rootCmd *cobra.Command) {
 	for _, module := range r.modules {
 		module.RegisterCommands(rootCmd)
 	}
+	for _, cmd := range rootCmd.Commands() {
+		rejectUnknownSubcommands(cmd)
+	}
+}
+
+// rejectUnknownSubcommands makes each group below the root return cobra's
+// "unknown command" error for an unmatched argument. Cobra checks this only on
+// the root, and a group with no Run prints its help and exits 0 instead.
+func rejectUnknownSubcommands(cmd *cobra.Command) {
+	if cmd.HasSubCommands() && !cmd.Runnable() {
+		cmd.Args = cobra.NoArgs
+		cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		}
+	}
+	for _, sub := range cmd.Commands() {
+		rejectUnknownSubcommands(sub)
+	}
 }

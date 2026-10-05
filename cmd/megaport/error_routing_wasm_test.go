@@ -35,6 +35,37 @@ func TestExecuteWithArgs_UnknownCommand_RoutesErrorNotOutput(t *testing.T) {
 	assert.Contains(t, out, "Run 'megaport-cli --help'", "the usage hint may stay in output")
 }
 
+// TestExecuteWithArgs_UnknownSubcommand_RoutesError covers an unknown
+// subcommand under a group: the error must reach result.error. A bare group
+// still prints its help and returns nil.
+func TestExecuteWithArgs_UnknownSubcommand_RoutesError(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{"group", []string{"megaport-cli", "ports", "bogus"}, `unknown command "bogus" for "megaport-cli ports"`},
+		{"nested group", []string{"megaport-cli", "mcr", "looking-glass", "bogus"}, `unknown command "bogus" for "megaport-cli mcr looking-glass"`},
+		{"bare group", []string{"megaport-cli", "ports"}, ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wasm.ResetOutputBuffers()
+			err := ExecuteWithArgs(tc.args)
+			out := wasm.GetCapturedOutput()
+			if tc.wantErr == "" {
+				assert.NoError(t, err)
+				assert.Contains(t, out, "Usage:\n  megaport-cli ports")
+				return
+			}
+			require.Error(t, err)
+			assert.Equal(t, tc.wantErr, err.Error())
+			assert.NotContains(t, out, "unknown command", "the error text must not stay in output")
+		})
+	}
+}
+
 // TestExecuteWithArgs_MissingRequiredArg_RoutesError covers the other parser-layer
 // failure named in the ticket: a command that requires an argument (cobra.ExactArgs)
 // invoked without one. Cobra's arg validation fails before RunE and is not a
