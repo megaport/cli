@@ -261,8 +261,8 @@ func applyDefaultSettings(cmd *cobra.Command) []string {
 		warnings = append(warnings, fmt.Sprintf("Saved defaults set both --quiet and --verbose; dropping --%s", dropped))
 	}
 
-	// Set marks a flag Changed, and cobra's exclusion check reads Changed.
-	// Clear it on saved values so that only CLI flags count.
+	// Cobra's mutually exclusive check reads Changed, which Set also marks.
+	// Clear Changed on a flag the CLI did not set.
 	for name, fromCLI := range map[string]bool{"quiet": cliQuiet, "verbose": cliVerbose} {
 		if f := cmd.Flags().Lookup(name); f != nil && !fromCLI {
 			f.Changed = false
@@ -331,7 +331,7 @@ func isCobraUsageError(msg string) bool {
 		// MaximumNArgs, and RangeArgs all phrase their error as "... arg(s) ...".
 		"arg(s)",
 		"required flag(s)",
-		// Covers cobra's mutually exclusive, required-together, and one-required groups.
+		// Covers MarkFlagsMutuallyExclusive, MarkFlagsRequiredTogether, and MarkFlagsOneRequired.
 		"flags in the group",
 	}
 	for _, p := range cobraPatterns {

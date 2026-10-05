@@ -242,18 +242,21 @@ func TestApplyDefaultSettings_CLIVerboseOverridesConfigQuiet(t *testing.T) {
 // cobra's mutual-exclusion check sees the flags applyDefaultSettings set.
 func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 	both := map[string]bool{"quiet": true, "verbose": true}
+	neither := map[string]bool{"quiet": false, "verbose": false}
 	cases := []struct {
-		name    string
-		saved   map[string]bool
-		args    []string
-		wantErr string
+		name        string
+		saved       map[string]bool
+		args        []string
+		wantQuiet   bool
+		wantVerbose bool
+		wantErr     string
 	}{
-		{"both saved", both, []string{"version"}, ""},
-		{"both saved false", map[string]bool{"quiet": false, "verbose": false}, []string{"version"}, ""},
-		{"CLI quiet wins over saved verbose", both, []string{"version", "--quiet"}, ""},
-		{"CLI verbose wins over saved quiet", both, []string{"version", "--verbose"}, ""},
-		{"CLI quiet=false over saved verbose", both, []string{"version", "--quiet=false"}, ""},
-		{"both on the CLI", both, []string{"version", "--quiet", "--verbose"}, "[quiet verbose] were all set"},
+		{"both saved", both, []string{"version"}, false, true, ""},
+		{"both saved false", neither, []string{"version"}, false, false, ""},
+		{"CLI quiet wins over saved verbose", both, []string{"version", "--quiet"}, true, false, ""},
+		{"CLI verbose wins over saved quiet", both, []string{"version", "--verbose"}, false, true, ""},
+		{"CLI quiet=false wins over saved quiet", both, []string{"version", "--quiet=false"}, false, true, ""},
+		{"both on the CLI", both, []string{"version", "--quiet", "--verbose"}, false, false, "[quiet verbose] were all set"},
 	}
 
 	for _, tc := range cases {
@@ -277,6 +280,8 @@ func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 			})
 			if tc.wantErr == "" {
 				assert.NoError(t, execErr)
+				assert.Equal(t, tc.wantQuiet, output.IsQuiet(), "quiet")
+				assert.Equal(t, tc.wantVerbose, output.IsVerbose(), "verbose")
 				return
 			}
 			require.Error(t, execErr)
@@ -352,8 +357,6 @@ func TestExitCodeFromError(t *testing.T) {
 		{"cobra exact args", errors.New(`accepts 1 arg(s), received 0`), exitcodes.Usage},
 		{"cobra minimum n args", errors.New(`requires at least 2 arg(s), only received 1`), exitcodes.Usage},
 		{"cobra required flag(s)", errors.New(`required flag(s) "name" not set`), exitcodes.Usage},
-		{"cobra flags required together", errors.New(`if any flags in the group [from to] are set they must all be set; missing [to]`), exitcodes.Usage},
-		{"cobra one required flag", errors.New(`at least one of the flags in the group [days from] is required`), exitcodes.Usage},
 
 		// PersistentPreRunE format validation
 		{"invalid output format", errors.New("invalid output format: yaml"), exitcodes.Usage},
@@ -393,6 +396,36 @@ func TestExitCodeFromError_CobraArgValidators(t *testing.T) {
 				SilenceUsage:  true,
 				SilenceErrors: true,
 			}
+			cmd.SetArgs(tt.argv)
+			err := cmd.Execute()
+			require.Error(t, err)
+			assert.Equal(t, exitcodes.Usage, exitCodeFromError(err), "cobra error: %v", err)
+		})
+	}
+}
+
+// TestExitCodeFromError_CobraFlagGroups drives cobra's own flag-group checks.
+func TestExitCodeFromError_CobraFlagGroups(t *testing.T) {
+	tests := []struct {
+		name string
+		mark func(cmd *cobra.Command)
+		argv []string
+	}{
+		{"mutually exclusive", func(c *cobra.Command) { c.MarkFlagsMutuallyExclusive("a", "b") }, []string{"--a", "--b"}},
+		{"required together", func(c *cobra.Command) { c.MarkFlagsRequiredTogether("a", "b") }, []string{"--a"}},
+		{"one required", func(c *cobra.Command) { c.MarkFlagsOneRequired("a", "b") }, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &cobra.Command{
+				Use:           "get",
+				RunE:          func(cmd *cobra.Command, args []string) error { return nil },
+				SilenceUsage:  true,
+				SilenceErrors: true,
+			}
+			cmd.Flags().Bool("a", false, "")
+			cmd.Flags().Bool("b", false, "")
+			tt.mark(cmd)
 			cmd.SetArgs(tt.argv)
 			err := cmd.Execute()
 			require.Error(t, err)
