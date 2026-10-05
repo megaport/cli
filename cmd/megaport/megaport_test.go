@@ -281,6 +281,7 @@ func TestSavedQuietAndVerboseDefaults_ConflictCheck(t *testing.T) {
 			}
 			require.Error(t, execErr)
 			assert.Contains(t, execErr.Error(), tc.wantErr)
+			assert.Equal(t, exitcodes.Usage, exitCodeFromError(execErr))
 		})
 	}
 }
@@ -351,6 +352,8 @@ func TestExitCodeFromError(t *testing.T) {
 		{"cobra exact args", errors.New(`accepts 1 arg(s), received 0`), exitcodes.Usage},
 		{"cobra minimum n args", errors.New(`requires at least 2 arg(s), only received 1`), exitcodes.Usage},
 		{"cobra required flag(s)", errors.New(`required flag(s) "name" not set`), exitcodes.Usage},
+		{"cobra flags required together", errors.New(`if any flags in the group [from to] are set they must all be set; missing [to]`), exitcodes.Usage},
+		{"cobra one required flag", errors.New(`at least one of the flags in the group [days from] is required`), exitcodes.Usage},
 
 		// PersistentPreRunE format validation
 		{"invalid output format", errors.New("invalid output format: yaml"), exitcodes.Usage},

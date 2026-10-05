@@ -331,6 +331,8 @@ func isCobraUsageError(msg string) bool {
 		// MaximumNArgs, and RangeArgs all phrase their error as "... arg(s) ...".
 		"arg(s)",
 		"required flag(s)",
+		// Covers cobra's mutually exclusive, required-together, and one-required groups.
+		"flags in the group",
 	}
 	for _, p := range cobraPatterns {
 		if strings.Contains(msg, p) {
