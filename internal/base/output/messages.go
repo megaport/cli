@@ -144,16 +144,11 @@ func PrintResourceUpdated(resourceType, uid string, noColor bool) {
 	PrintSuccess("%s updated %s", noColor, resourceType, FormatUID(uid, noColor))
 }
 
-func PrintResourceDeleted(resourceType, uid string, immediate, noColor bool) {
+func PrintResourceDeleted(resourceType, uid string, noColor bool) {
 	if IsQuiet() {
 		return
 	}
-	msg := fmt.Sprintf("%s deleted %s", resourceType, FormatUID(uid, noColor))
-	if immediate {
-		msg += "\nThe resource will be deleted immediately"
-	} else {
-		msg += "\nThe resource will be deleted at the end of the current billing period"
-	}
+	msg := fmt.Sprintf("%s deleted %s\nThe resource will be deleted immediately", resourceType, FormatUID(uid, noColor))
 	PrintSuccess(msg, noColor)
 }
 

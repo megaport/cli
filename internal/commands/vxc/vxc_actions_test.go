@@ -2294,29 +2294,14 @@ func TestDeleteVXC(t *testing.T) {
 		expectedOutput string
 	}{
 		{
-			name:   "force delete defaults to immediate",
+			name:   "force delete is immediate",
 			vxcUID: "vxc-del-1",
 			flags: map[string]string{
 				"force": "true",
 			},
 			setupMock: func() {
 				deleteVXCFunc = func(ctx context.Context, client *megaport.Client, vxcUID string, req *megaport.DeleteVXCRequest) error {
-					assert.True(t, req.DeleteNow, "default delete must be immediate")
-					return nil
-				}
-			},
-			expectedOutput: "deleted",
-		},
-		{
-			name:   "force with --later defers cancellation",
-			vxcUID: "vxc-del-2",
-			flags: map[string]string{
-				"force": "true",
-				"later": "true",
-			},
-			setupMock: func() {
-				deleteVXCFunc = func(ctx context.Context, client *megaport.Client, vxcUID string, req *megaport.DeleteVXCRequest) error {
-					assert.False(t, req.DeleteNow, "--later must defer cancellation")
+					assert.True(t, req.DeleteNow, "delete must be immediate")
 					return nil
 				}
 			},
@@ -2381,7 +2366,6 @@ func TestDeleteVXC(t *testing.T) {
 
 			cmd := &cobra.Command{Use: "delete [vxcUID]"}
 			cmd.Flags().Bool("force", false, "")
-			cmd.Flags().Bool("later", false, "")
 
 			testutil.SetFlags(t, cmd, tt.flags)
 

@@ -319,9 +319,6 @@ megaport-cli ports update PORT_UID --json-file ./update-port-config.json
 # Delete a port (ports are always deleted immediately)
 megaport-cli ports delete PORT_UID
 
-# Restore a deleted port
-megaport-cli ports restore PORT_UID
-
 # Lock a port
 megaport-cli ports lock PORT_UID
 
@@ -356,9 +353,6 @@ megaport-cli mcr update MCR_UID --json-file ./update-mcr-config.json
 
 # Delete an MCR (immediate)
 megaport-cli mcr delete MCR_UID
-
-# Restore a deleted MCR
-megaport-cli mcr restore MCR_UID
 
 # Create a prefix filter list on an MCR
 megaport-cli mcr create-prefix-filter-list MCR_UID --interactive

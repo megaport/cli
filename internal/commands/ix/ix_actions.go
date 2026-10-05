@@ -423,12 +423,6 @@ func DeleteIX(cmd *cobra.Command, args []string, noColor bool) error {
 
 	ixUID := args[0]
 
-	later, err := cmd.Flags().GetBool("later")
-	if err != nil {
-		return err
-	}
-	deleteNow := !later
-
 	force, err := cmd.Flags().GetBool("force")
 	if err != nil {
 		return err
@@ -437,8 +431,9 @@ func DeleteIX(cmd *cobra.Command, args []string, noColor bool) error {
 		return err
 	}
 
+	// The API no longer accepts end-of-term cancellation (CANCEL).
 	deleteRequest := &megaport.DeleteIXRequest{
-		DeleteNow: deleteNow,
+		DeleteNow: true,
 	}
 
 	spinner := output.PrintResourceDeleting("IX", ixUID, noColor)
@@ -454,7 +449,7 @@ func DeleteIX(cmd *cobra.Command, args []string, noColor bool) error {
 		return fmt.Errorf("failed to delete IX: %w", err)
 	}
 
-	output.PrintResourceDeleted("IX", ixUID, deleteNow, noColor)
+	output.PrintResourceDeleted("IX", ixUID, noColor)
 
 	return nil
 }

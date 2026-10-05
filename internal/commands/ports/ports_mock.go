@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"fmt"
 
 	megaport "github.com/megaport/megaportgo"
 )
@@ -32,9 +33,6 @@ type MockPortService struct {
 	ModifyPortErr              error
 	ModifyPortResult           *megaport.ModifyPortResponse
 	CapturedModifyPortRequest  *megaport.ModifyPortRequest
-	RestorePortErr             error
-	RestorePortResult          *megaport.RestorePortResponse
-	CapturedRestorePortUID     string
 	LockPortErr                error
 	LockPortResult             *megaport.LockPortResponse
 	CapturedLockPortUID        string
@@ -162,16 +160,7 @@ func (m *MockPortService) ModifyPort(ctx context.Context, req *megaport.ModifyPo
 }
 
 func (m *MockPortService) RestorePort(ctx context.Context, portId string) (*megaport.RestorePortResponse, error) {
-	m.CapturedRestorePortUID = portId
-	if m.RestorePortErr != nil {
-		return nil, m.RestorePortErr
-	}
-	if m.RestorePortResult != nil {
-		return m.RestorePortResult, nil
-	}
-	return &megaport.RestorePortResponse{
-		IsRestored: true,
-	}, nil
+	return nil, fmt.Errorf("mock: RestorePort not configured")
 }
 
 func (m *MockPortService) UnlockPort(ctx context.Context, portId string) (*megaport.UnlockPortResponse, error) {
@@ -224,9 +213,6 @@ func (m *MockPortService) Reset() {
 	m.ModifyPortErr = nil
 	m.ModifyPortResult = nil
 	m.CapturedModifyPortRequest = nil
-	m.RestorePortErr = nil
-	m.RestorePortResult = nil
-	m.CapturedRestorePortUID = ""
 	m.LockPortErr = nil
 	m.LockPortResult = nil
 	m.CapturedLockPortUID = ""

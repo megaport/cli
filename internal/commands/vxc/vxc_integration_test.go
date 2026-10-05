@@ -137,7 +137,6 @@ func newDeletePortCmd() *cobra.Command {
 func newDeleteVXCCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "delete"}
 	cmd.Flags().Bool("force", false, "")
-	cmd.Flags().Bool("later", false, "")
 	return cmd
 }
 

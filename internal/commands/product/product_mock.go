@@ -2,6 +2,7 @@ package product
 
 import (
 	"context"
+	"fmt"
 
 	megaport "github.com/megaport/megaportgo"
 )
@@ -21,9 +22,6 @@ type MockProductService struct {
 
 	DeleteProductErr    error
 	DeleteProductResult *megaport.DeleteProductResponse
-
-	RestoreProductErr    error
-	RestoreProductResult *megaport.RestoreProductResponse
 
 	ManageProductLockErr    error
 	ManageProductLockResult *megaport.ManageProductLockResponse
@@ -63,7 +61,7 @@ func (m *MockProductService) DeleteProduct(ctx context.Context, req *megaport.De
 }
 
 func (m *MockProductService) RestoreProduct(ctx context.Context, productId string) (*megaport.RestoreProductResponse, error) {
-	return m.RestoreProductResult, m.RestoreProductErr
+	return nil, fmt.Errorf("mock: RestoreProduct not configured")
 }
 
 func (m *MockProductService) ManageProductLock(ctx context.Context, req *megaport.ManageProductLockRequest) (*megaport.ManageProductLockResponse, error) {

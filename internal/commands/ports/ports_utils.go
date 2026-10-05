@@ -20,10 +20,6 @@ var deletePortFunc = func(ctx context.Context, client *megaport.Client, req *meg
 	return client.PortService.DeletePort(ctx, req)
 }
 
-var restorePortFunc = func(ctx context.Context, client *megaport.Client, portUID string) (*megaport.RestorePortResponse, error) {
-	return client.PortService.RestorePort(ctx, portUID)
-}
-
 var lockPortFunc = func(ctx context.Context, client *megaport.Client, portUID string) (*megaport.LockPortResponse, error) {
 	return client.PortService.LockPort(ctx, portUID)
 }

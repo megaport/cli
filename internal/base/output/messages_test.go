@@ -132,40 +132,10 @@ func TestPrintResourceUpdated(t *testing.T) {
 }
 
 func TestPrintResourceDeleted(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceType string
-		uid          string
-		immediate    bool
-		noColor      bool
-		expected     string
-	}{
-		{
-			name:         "delete immediate",
-			resourceType: "Port",
-			uid:          "port-123",
-			immediate:    true,
-			noColor:      true,
-			expected:     "✓ Port deleted port-123\nThe resource will be deleted immediately\n",
-		},
-		{
-			name:         "delete at end of billing period",
-			resourceType: "Port",
-			uid:          "port-123",
-			immediate:    false,
-			noColor:      true,
-			expected:     "✓ Port deleted port-123\nThe resource will be deleted at the end of the current billing period\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := captureStderr(t, func() {
-				PrintResourceDeleted(tt.resourceType, tt.uid, tt.immediate, tt.noColor)
-			})
-			assert.Equal(t, tt.expected, output)
-		})
-	}
+	output := captureStderr(t, func() {
+		PrintResourceDeleted("Port", "port-123", true)
+	})
+	assert.Equal(t, "✓ Port deleted port-123\nThe resource will be deleted immediately\n", output)
 }
 
 func TestSpinner(t *testing.T) {

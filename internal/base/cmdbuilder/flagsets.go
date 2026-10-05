@@ -69,16 +69,6 @@ func (b *CommandBuilder) WithImmediateDeleteFlags() *CommandBuilder {
 	return b
 }
 
-// WithDeferredDeleteFlags adds delete flags for resources where immediate
-// deletion is the default and deferred end-of-term cancellation is opt-in
-// via --later. Used by VXC and IX, which are the only product types whose
-// API still accepts CANCEL (end-of-term).
-func (b *CommandBuilder) WithDeferredDeleteFlags() *CommandBuilder {
-	b.WithBoolFlagP("force", "f", false, "Skip confirmation prompt")
-	b.WithBoolFlag("later", false, "Schedule deletion at the end of the current billing cycle (default: delete immediately)")
-	return b
-}
-
 // WithBuyConfirmFlags adds the --yes/-y flag to skip buy confirmation prompts
 func (b *CommandBuilder) WithBuyConfirmFlags() *CommandBuilder {
 	b.WithBoolFlagP("yes", "y", false, "Skip confirmation prompt for purchase")
