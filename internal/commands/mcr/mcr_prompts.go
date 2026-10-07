@@ -280,26 +280,26 @@ func promptPrefixFilterEntry(noColor bool) (*megaport.MCRPrefixListEntry, error)
 	if err != nil {
 		return nil, err
 	}
-	var ge int
+	var ge *int
 	if geStr != "" {
 		geVal, err := strconv.Atoi(geStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid GE value, must be a number")
 		}
-		ge = geVal
+		ge = &geVal
 	}
 
 	leStr, err := utils.ResourcePrompt("mcr", "Enter LE value (optional): ", noColor)
 	if err != nil {
 		return nil, err
 	}
-	var le int
+	var le *int
 	if leStr != "" {
 		leVal, err := strconv.Atoi(leStr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid LE value, must be a number")
 		}
-		le = leVal
+		le = &leVal
 	}
 
 	return &megaport.MCRPrefixListEntry{
@@ -308,6 +308,14 @@ func promptPrefixFilterEntry(noColor bool) (*megaport.MCRPrefixListEntry, error)
 		Ge:     ge,
 		Le:     le,
 	}, nil
+}
+
+// formatPrefixBound shows a nil ge or le as "unset" so it does not read as 0.
+func formatPrefixBound(bound *int) string {
+	if bound == nil {
+		return "unset"
+	}
+	return strconv.Itoa(*bound)
 }
 
 // promptAddNewPrefixEntries prompts the user to add new prefix filter entries in a loop.
@@ -332,8 +340,8 @@ func promptAddNewPrefixEntries(noColor bool) ([]*megaport.MCRPrefixListEntry, er
 func promptUpdateExistingEntries(currentEntries []*megaport.MCRPrefixListEntry, noColor bool) ([]*megaport.MCRPrefixListEntry, error) {
 	var entries []*megaport.MCRPrefixListEntry
 	for i, entry := range currentEntries {
-		output.PrintPlain("Entry %d - Current: Action: %s, Prefix: %s, GE: %d, LE: %d", noColor,
-			i+1, entry.Action, entry.Prefix, entry.Ge, entry.Le)
+		output.PrintPlain("Entry %d - Current: Action: %s, Prefix: %s, GE: %s, LE: %s", noColor,
+			i+1, entry.Action, entry.Prefix, formatPrefixBound(entry.Ge), formatPrefixBound(entry.Le))
 
 		keepEntryStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Keep entry %d? (y/yes/true/n/no/false) (required): ", i+1), noColor)
 		if err != nil {
@@ -373,7 +381,7 @@ func promptUpdateExistingEntries(currentEntries []*megaport.MCRPrefixListEntry, 
 					return nil, fmt.Errorf("invalid action, must be permit or deny")
 				}
 
-				geStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new GE value for entry %d (current: %d): ", i+1, entry.Ge), noColor)
+				geStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new GE value for entry %d (current: %s): ", i+1, formatPrefixBound(entry.Ge)), noColor)
 				if err != nil {
 					return nil, err
 				}
@@ -383,10 +391,10 @@ func promptUpdateExistingEntries(currentEntries []*megaport.MCRPrefixListEntry, 
 					if err != nil {
 						return nil, fmt.Errorf("invalid GE value, must be a number")
 					}
-					ge = geVal
+					ge = &geVal
 				}
 
-				leStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new LE value for entry %d (current: %d): ", i+1, entry.Le), noColor)
+				leStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new LE value for entry %d (current: %s): ", i+1, formatPrefixBound(entry.Le)), noColor)
 				if err != nil {
 					return nil, err
 				}
@@ -396,7 +404,7 @@ func promptUpdateExistingEntries(currentEntries []*megaport.MCRPrefixListEntry, 
 					if err != nil {
 						return nil, fmt.Errorf("invalid LE value, must be a number")
 					}
-					le = leVal
+					le = &leVal
 				}
 
 				entries = append(entries, &megaport.MCRPrefixListEntry{

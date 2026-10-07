@@ -675,6 +675,21 @@ func TestGetMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 			expectedOutput: "Test Prefix Filter List",
 		},
 		{
+			name:         "absent ge prints blank, not 0",
+			mcrUID:       "mcr-123",
+			prefixListID: 1,
+			setupMock: func(m *MockMCRService) {
+				m.GetMCRPrefixFilterListResult = &megaport.MCRPrefixFilterList{
+					ID:          1,
+					Description: "Test Prefix Filter List",
+					Entries: []*megaport.MCRPrefixListEntry{
+						{Action: "permit", Prefix: "10.0.0.0/24", Le: megaport.PtrTo(28)},
+					},
+				}
+			},
+			expectedOutput: `"prefix":"10.0.0.0/24","le":28`,
+		},
+		{
 			name:         "API error",
 			mcrUID:       "mcr-123",
 			prefixListID: 1,

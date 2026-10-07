@@ -273,7 +273,7 @@ func TestIntegration_MCRLifecycle(t *testing.T) {
 		"addressFamily": "IPv4",
 		"entries": [
 			{"action": "permit", "prefix": "10.0.1.0/24", "ge": 25, "le": 32},
-			{"action": "deny", "prefix": "10.0.2.0/24", "ge": 0, "le": 25}
+			{"action": "deny", "prefix": "10.0.2.0/24", "le": 25}
 		]
 	}`
 
@@ -318,7 +318,7 @@ func TestIntegration_MCRLifecycle(t *testing.T) {
 		"addressFamily": "IPv4",
 		"entries": [
 			{"action": "permit", "prefix": "10.0.1.0/24", "ge": 25, "le": 32},
-			{"action": "deny", "prefix": "10.0.2.0/24", "ge": 0, "le": 25},
+			{"action": "deny", "prefix": "10.0.2.0/24", "le": 25},
 			{"action": "permit", "prefix": "192.168.0.0/16", "ge": 24, "le": 32}
 		]
 	}`
@@ -419,8 +419,8 @@ func TestIntegration_MCRJSONInputLifecycle(t *testing.T) {
 type prefixEntry struct {
 	action string
 	prefix string
-	ge     int
-	le     int
+	ge     *int
+	le     *int
 }
 
 // canonicalPrefix normalizes an IP prefix so textual differences (IPv6 case,
@@ -579,8 +579,8 @@ func TestIntegration_MCRIPv6PrefixFilterLifecycle(t *testing.T) {
 	assert.Equal(t, "IPv6", created.AddressFamily, "address family should be IPv6")
 	assert.Equal(t, "Test IPv6 Prefix Filter List", created.Description)
 	assertPrefixEntries(t, created.Entries, []prefixEntry{
-		{action: "permit", prefix: "2001:db8::/32", ge: 48, le: 64},
-		{action: "deny", prefix: "2001:db8:abcd::/48", ge: 56, le: 64},
+		{action: "permit", prefix: "2001:db8::/32", ge: megaport.PtrTo(48), le: megaport.PtrTo(64)},
+		{action: "deny", prefix: "2001:db8:abcd::/48", ge: megaport.PtrTo(56), le: megaport.PtrTo(64)},
 	})
 
 	// Update the list via the CLI, adding a third IPv6 entry.
@@ -606,9 +606,9 @@ func TestIntegration_MCRIPv6PrefixFilterLifecycle(t *testing.T) {
 	assert.Equal(t, "IPv6", updated.AddressFamily, "address family should remain IPv6")
 	assert.Equal(t, "Test IPv6 Prefix Filter List Updated", updated.Description)
 	assertPrefixEntries(t, updated.Entries, []prefixEntry{
-		{action: "permit", prefix: "2001:db8::/32", ge: 48, le: 64},
-		{action: "deny", prefix: "2001:db8:abcd::/48", ge: 56, le: 64},
-		{action: "permit", prefix: "2001:db8:1234::/48", ge: 56, le: 64},
+		{action: "permit", prefix: "2001:db8::/32", ge: megaport.PtrTo(48), le: megaport.PtrTo(64)},
+		{action: "deny", prefix: "2001:db8:abcd::/48", ge: megaport.PtrTo(56), le: megaport.PtrTo(64)},
+		{action: "permit", prefix: "2001:db8:1234::/48", ge: megaport.PtrTo(56), le: megaport.PtrTo(64)},
 	})
 
 	// Delete via the CLI and assert it is gone via the SDK.
