@@ -551,7 +551,7 @@ func TestProcessFlagUpdatePrefixFilterListInput(t *testing.T) {
 	}
 }
 
-// A ge of 0 reaches the SDK as a set value, and an omitted bound stays nil.
+// A ge or le of 0 reaches the SDK as a set value, and an omitted bound stays nil.
 func TestPrefixFilterListInputs_KeepGeLePointers(t *testing.T) {
 	originalGetPFL := getMCRPrefixFilterListFunc
 	originalLogin := config.GetLoginFunc()
@@ -566,7 +566,7 @@ func TestPrefixFilterListInputs_KeepGeLePointers(t *testing.T) {
 		return &megaport.MCRPrefixFilterList{ID: 1, Description: "Current PFL", AddressFamily: "IPv4"}, nil
 	}
 
-	const entriesJSON = `[{"action":"permit","prefix":"0.0.0.0/0","ge":0,"le":32},{"action":"deny","prefix":"10.0.0.0/8"}]`
+	const entriesJSON = `[{"action":"permit","prefix":"0.0.0.0/0","ge":0,"le":32},{"action":"deny","prefix":"10.0.0.0/8"},{"action":"permit","prefix":"0.0.0.0/0","le":0}]`
 	const listJSON = `{"description":"PFL","addressFamily":"IPv4","entries":` + entriesJSON + `}`
 
 	flagCmd := func(t *testing.T) *cobra.Command {
@@ -618,11 +618,13 @@ func TestPrefixFilterListInputs_KeepGeLePointers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			entries, err := tt.decode(t)
 			require.NoError(t, err)
-			require.Len(t, entries, 2)
+			require.Len(t, entries, 3)
 			assert.Equal(t, megaport.PtrTo(0), entries[0].Ge)
 			assert.Equal(t, megaport.PtrTo(32), entries[0].Le)
 			assert.Nil(t, entries[1].Ge)
 			assert.Nil(t, entries[1].Le)
+			assert.Nil(t, entries[2].Ge)
+			assert.Equal(t, megaport.PtrTo(0), entries[2].Le)
 		})
 	}
 }

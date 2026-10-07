@@ -671,6 +671,24 @@ func TestPromptUpdateExistingEntries_UnsetBound(t *testing.T) {
 	assert.Nil(t, entries[1].Le)
 }
 
+func TestPromptUpdateExistingEntries_ZeroBound(t *testing.T) {
+	originalPrompt := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(originalPrompt) }()
+
+	current := []*megaport.MCRPrefixListEntry{
+		{Prefix: "0.0.0.0/0", Action: "permit", Ge: megaport.PtrTo(8), Le: megaport.PtrTo(16)},
+	}
+
+	// keep=yes, modify=yes, keep prefix and action, then type 0 for ge and le.
+	utils.SetResourcePrompt(mockPromptSequence([]string{"yes", "yes", "", "", "0", "0"}))
+
+	entries, err := promptUpdateExistingEntries(current, true)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, megaport.PtrTo(0), entries[0].Ge)
+	assert.Equal(t, megaport.PtrTo(0), entries[0].Le)
+}
+
 func TestPromptUpdateExistingEntries_DeleteEntry(t *testing.T) {
 	originalPrompt := utils.GetResourcePrompt()
 	defer func() { utils.SetResourcePrompt(originalPrompt) }()
