@@ -551,7 +551,7 @@ func TestProcessFlagUpdatePrefixFilterListInput(t *testing.T) {
 	}
 }
 
-// A ge of 0 must reach the SDK as a set value and an omitted bound as nil.
+// A ge of 0 reaches the SDK as a set value, and an omitted bound stays nil.
 func TestPrefixFilterListInputs_KeepGeLePointers(t *testing.T) {
 	originalGetPFL := getMCRPrefixFilterListFunc
 	originalLogin := config.GetLoginFunc()

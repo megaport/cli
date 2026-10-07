@@ -675,21 +675,6 @@ func TestGetMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 			expectedOutput: "Test Prefix Filter List",
 		},
 		{
-			name:         "absent ge prints blank, not 0",
-			mcrUID:       "mcr-123",
-			prefixListID: 1,
-			setupMock: func(m *MockMCRService) {
-				m.GetMCRPrefixFilterListResult = &megaport.MCRPrefixFilterList{
-					ID:          1,
-					Description: "Test Prefix Filter List",
-					Entries: []*megaport.MCRPrefixListEntry{
-						{Action: "permit", Prefix: "10.0.0.0/24", Le: megaport.PtrTo(28)},
-					},
-				}
-			},
-			expectedOutput: `"prefix":"10.0.0.0/24","le":28`,
-		},
-		{
 			name:         "API error",
 			mcrUID:       "mcr-123",
 			prefixListID: 1,
@@ -744,6 +729,39 @@ func TestGetMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The API omits a bound equal to the prefix length, so get must not print it as 0.
+func TestGetMCRPrefixFilterList_AbsentBoundsStayAbsent(t *testing.T) {
+	mockMCRService := &MockMCRService{
+		GetMCRPrefixFilterListResult: &megaport.MCRPrefixFilterList{
+			ID:          1,
+			Description: "Test Prefix Filter List",
+			Entries: []*megaport.MCRPrefixListEntry{
+				{Action: "permit", Prefix: "10.0.0.0/24", Le: megaport.PtrTo(28)},
+				{Action: "permit", Prefix: "10.1.0.0/24", Ge: megaport.PtrTo(26)},
+			},
+		},
+	}
+	cleanup := testutil.SetupLogin(func(c *megaport.Client) { c.MCRService = mockMCRService })
+	defer cleanup()
+
+	var err error
+	out := output.CaptureStdout(func() {
+		err = GetMCRPrefixFilterList(&cobra.Command{Use: "get"}, []string{"mcr-123", "1"}, true, "json")
+	})
+	require.NoError(t, err)
+
+	var lists []struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &lists), out)
+	require.Len(t, lists, 1)
+	require.Len(t, lists[0].Entries, 2)
+	assert.NotContains(t, lists[0].Entries[0], "ge")
+	assert.EqualValues(t, 28, lists[0].Entries[0]["le"])
+	assert.EqualValues(t, 26, lists[0].Entries[1]["ge"])
+	assert.NotContains(t, lists[0].Entries[1], "le")
 }
 
 func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {

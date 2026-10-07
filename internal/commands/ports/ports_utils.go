@@ -21,7 +21,7 @@ var deletePortFunc = func(ctx context.Context, client *megaport.Client, req *meg
 }
 
 var restorePortFunc = func(ctx context.Context, client *megaport.Client, portUID string) (*megaport.RestorePortResponse, error) {
-	return client.PortService.RestorePort(ctx, portUID) //nolint:staticcheck // the API removed restore, so the SDK returns ErrRestoreNotAllowed
+	return client.PortService.RestorePort(ctx, portUID) //nolint:staticcheck // the SDK deprecated restore and always returns ErrRestoreNotAllowed
 }
 
 var lockPortFunc = func(ctx context.Context, client *megaport.Client, portUID string) (*megaport.LockPortResponse, error) {

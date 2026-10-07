@@ -381,7 +381,7 @@ func promptUpdateExistingEntries(currentEntries []*megaport.MCRPrefixListEntry, 
 					return nil, fmt.Errorf("invalid action, must be permit or deny")
 				}
 
-				geStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new GE value for entry %d (current: %s): ", i+1, formatPrefixBound(entry.Ge)), noColor)
+				geStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new GE value for entry %d (current: %s, blank keeps it): ", i+1, formatPrefixBound(entry.Ge)), noColor)
 				if err != nil {
 					return nil, err
 				}
@@ -394,7 +394,7 @@ func promptUpdateExistingEntries(currentEntries []*megaport.MCRPrefixListEntry, 
 					ge = &geVal
 				}
 
-				leStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new LE value for entry %d (current: %s): ", i+1, formatPrefixBound(entry.Le)), noColor)
+				leStr, err := utils.ResourcePrompt("mcr", fmt.Sprintf("Enter new LE value for entry %d (current: %s, blank keeps it): ", i+1, formatPrefixBound(entry.Le)), noColor)
 				if err != nil {
 					return nil, err
 				}

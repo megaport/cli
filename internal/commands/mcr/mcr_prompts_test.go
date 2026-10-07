@@ -439,12 +439,25 @@ func TestPromptPrefixFilterEntry_GeLeBounds(t *testing.T) {
 	originalPrompt := utils.GetResourcePrompt()
 	defer func() { utils.SetResourcePrompt(originalPrompt) }()
 
-	utils.SetResourcePrompt(mockPromptSequence([]string{"0.0.0.0/0", "permit", "0", ""}))
+	tests := []struct {
+		name   string
+		ge, le string
+		wantGe *int
+		wantLe *int
+	}{
+		{"ge 0, blank le", "0", "", megaport.PtrTo(0), nil},
+		{"blank ge, le 0", "", "0", nil, megaport.PtrTo(0)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			utils.SetResourcePrompt(mockPromptSequence([]string{"0.0.0.0/0", "permit", tt.ge, tt.le}))
 
-	entry, err := promptPrefixFilterEntry(true)
-	require.NoError(t, err)
-	assert.Equal(t, megaport.PtrTo(0), entry.Ge)
-	assert.Nil(t, entry.Le)
+			entry, err := promptPrefixFilterEntry(true)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantGe, entry.Ge)
+			assert.Equal(t, tt.wantLe, entry.Le)
+		})
+	}
 }
 
 func TestPromptAddNewPrefixEntries_Success(t *testing.T) {
@@ -630,10 +643,11 @@ func TestPromptUpdateExistingEntries_UnsetBound(t *testing.T) {
 
 	current := []*megaport.MCRPrefixListEntry{
 		{Prefix: "10.0.0.0/24", Action: "permit", Le: megaport.PtrTo(28)},
+		{Prefix: "10.1.0.0/24", Action: "permit", Ge: megaport.PtrTo(26)},
 	}
 
-	// keep=yes, modify=yes, then keep prefix, action, ge, and le.
-	responses := []string{"yes", "yes", "", "", "", ""}
+	// For each entry: keep=yes, modify=yes, then keep prefix, action, ge, and le.
+	responses := []string{"yes", "yes", "", "", "", "", "yes", "yes", "", "", "", ""}
 	var prompts []string
 	utils.SetResourcePrompt(func(resourceType, msg string, noColor bool) (string, error) {
 		prompts = append(prompts, msg)
@@ -647,10 +661,14 @@ func TestPromptUpdateExistingEntries_UnsetBound(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Contains(t, shown, "GE: unset, LE: 28")
-	assert.Contains(t, prompts[4], "(current: unset)")
-	require.Len(t, entries, 1)
+	assert.Contains(t, shown, "GE: 26, LE: unset")
+	assert.Contains(t, prompts[4], "(current: unset, blank keeps it)")
+	assert.Contains(t, prompts[11], "(current: unset, blank keeps it)")
+	require.Len(t, entries, 2)
 	assert.Nil(t, entries[0].Ge)
 	assert.Equal(t, megaport.PtrTo(28), entries[0].Le)
+	assert.Equal(t, megaport.PtrTo(26), entries[1].Ge)
+	assert.Nil(t, entries[1].Le)
 }
 
 func TestPromptUpdateExistingEntries_DeleteEntry(t *testing.T) {
