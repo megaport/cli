@@ -275,21 +275,11 @@ func processJSONPrefixFilterListInput(jsonStr, jsonFile string, mcrUID string) (
 
 	entries := make([]*megaport.MCRPrefixListEntry, len(tempData.Entries))
 	for i, entry := range tempData.Entries {
-		var geValue int
-		if entry.Ge != nil {
-			geValue = *entry.Ge
-		}
-
-		var leValue int
-		if entry.Le != nil {
-			leValue = *entry.Le
-		}
-
 		entries[i] = &megaport.MCRPrefixListEntry{
 			Action: entry.Action,
 			Prefix: entry.Prefix,
-			Ge:     geValue,
-			Le:     leValue,
+			Ge:     entry.Ge,
+			Le:     entry.Le,
 		}
 	}
 
@@ -329,21 +319,11 @@ func processFlagPrefixFilterListInput(cmd *cobra.Command, mcrUID string) (*megap
 
 	entries := make([]*megaport.MCRPrefixListEntry, len(entriesData))
 	for i, entry := range entriesData {
-		var geValue int
-		if entry.Ge != nil {
-			geValue = *entry.Ge
-		}
-
-		var leValue int
-		if entry.Le != nil {
-			leValue = *entry.Le
-		}
-
 		entries[i] = &megaport.MCRPrefixListEntry{
 			Action: entry.Action,
 			Prefix: entry.Prefix,
-			Ge:     geValue,
-			Le:     leValue,
+			Ge:     entry.Ge,
+			Le:     entry.Le,
 		}
 	}
 
@@ -414,21 +394,11 @@ func processJSONUpdatePrefixFilterListInput(jsonStr, jsonFile string, mcrUID str
 
 	entries := make([]*megaport.MCRPrefixListEntry, len(tempData.Entries))
 	for i, entry := range tempData.Entries {
-		var geValue int
-		if entry.Ge != nil {
-			geValue = *entry.Ge
-		}
-
-		var leValue int
-		if entry.Le != nil {
-			leValue = *entry.Le
-		}
-
 		entries[i] = &megaport.MCRPrefixListEntry{
 			Action: entry.Action,
 			Prefix: entry.Prefix,
-			Ge:     geValue,
-			Le:     leValue,
+			Ge:     entry.Ge,
+			Le:     entry.Le,
 		}
 	}
 
@@ -505,21 +475,11 @@ func processFlagUpdatePrefixFilterListInput(cmd *cobra.Command, mcrUID string, p
 
 		entries = make([]*megaport.MCRPrefixListEntry, len(entriesData))
 		for i, entry := range entriesData {
-			var geValue int
-			if entry.Ge != nil {
-				geValue = *entry.Ge
-			}
-
-			var leValue int
-			if entry.Le != nil {
-				leValue = *entry.Le
-			}
-
 			entries[i] = &megaport.MCRPrefixListEntry{
 				Action: entry.Action,
 				Prefix: entry.Prefix,
-				Ge:     geValue,
-				Le:     leValue,
+				Ge:     entry.Ge,
+				Le:     entry.Le,
 			}
 		}
 	}

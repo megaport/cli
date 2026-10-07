@@ -181,7 +181,7 @@ func restorePortWasmImpl(ctx context.Context, client *megaport.Client, portUID s
 	}
 
 	js.Global().Get("console").Call("log", "📡 Calling SDK PortService.RestorePort()...")
-	response, err := client.PortService.RestorePort(ctx, portUID)
+	response, err := client.PortService.RestorePort(ctx, portUID) //nolint:staticcheck // the SDK deprecated restore and always returns ErrRestoreNotAllowed
 	if err != nil {
 		js.Global().Get("console").Call("error", fmt.Sprintf("❌ SDK RestorePort failed: %v", err))
 

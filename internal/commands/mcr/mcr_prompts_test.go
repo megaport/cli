@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/megaport/megaport-cli/internal/base/output"
 	"github.com/megaport/megaport-cli/internal/utils"
 	megaport "github.com/megaport/megaportgo"
 	"github.com/stretchr/testify/assert"
@@ -397,8 +398,8 @@ func TestPromptPrefixFilterEntry_Success(t *testing.T) {
 	assert.NotNil(t, entry)
 	assert.Equal(t, "192.168.0.0/24", entry.Prefix)
 	assert.Equal(t, "permit", entry.Action)
-	assert.Equal(t, 16, entry.Ge)
-	assert.Equal(t, 24, entry.Le)
+	assert.Equal(t, megaport.PtrTo(16), entry.Ge)
+	assert.Equal(t, megaport.PtrTo(24), entry.Le)
 }
 
 func TestPromptPrefixFilterEntry_EmptyPrefix(t *testing.T) {
@@ -432,6 +433,31 @@ func TestPromptPrefixFilterEntry_InvalidGE(t *testing.T) {
 	_, err := promptPrefixFilterEntry(true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid GE value")
+}
+
+func TestPromptPrefixFilterEntry_GeLeBounds(t *testing.T) {
+	originalPrompt := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(originalPrompt) }()
+
+	tests := []struct {
+		name   string
+		ge, le string
+		wantGe *int
+		wantLe *int
+	}{
+		{"ge 0, blank le", "0", "", megaport.PtrTo(0), nil},
+		{"blank ge, le 0", "", "0", nil, megaport.PtrTo(0)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			utils.SetResourcePrompt(mockPromptSequence([]string{"0.0.0.0/0", "permit", tt.ge, tt.le}))
+
+			entry, err := promptPrefixFilterEntry(true)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantGe, entry.Ge)
+			assert.Equal(t, tt.wantLe, entry.Le)
+		})
+	}
 }
 
 func TestPromptAddNewPrefixEntries_Success(t *testing.T) {
@@ -577,7 +603,7 @@ func TestPromptUpdateExistingEntries_KeepUnmodified(t *testing.T) {
 	defer func() { utils.SetResourcePrompt(originalPrompt) }()
 
 	current := []*megaport.MCRPrefixListEntry{
-		{Prefix: "10.0.0.0/8", Action: "permit", Ge: 16, Le: 24},
+		{Prefix: "10.0.0.0/8", Action: "permit", Ge: megaport.PtrTo(16), Le: megaport.PtrTo(24)},
 	}
 
 	// keep=yes, modify=no
@@ -594,7 +620,7 @@ func TestPromptUpdateExistingEntries_ModifyEntry(t *testing.T) {
 	defer func() { utils.SetResourcePrompt(originalPrompt) }()
 
 	current := []*megaport.MCRPrefixListEntry{
-		{Prefix: "10.0.0.0/8", Action: "permit", Ge: 16, Le: 24},
+		{Prefix: "10.0.0.0/8", Action: "permit", Ge: megaport.PtrTo(16), Le: megaport.PtrTo(24)},
 	}
 
 	// keep=yes, modify=yes, new prefix, new action, new ge, new le
@@ -607,8 +633,60 @@ func TestPromptUpdateExistingEntries_ModifyEntry(t *testing.T) {
 	assert.Len(t, entries, 1)
 	assert.Equal(t, "192.168.0.0/16", entries[0].Prefix)
 	assert.Equal(t, "deny", entries[0].Action)
-	assert.Equal(t, 20, entries[0].Ge)
-	assert.Equal(t, 28, entries[0].Le)
+	assert.Equal(t, megaport.PtrTo(20), entries[0].Ge)
+	assert.Equal(t, megaport.PtrTo(28), entries[0].Le)
+}
+
+func TestPromptUpdateExistingEntries_UnsetBound(t *testing.T) {
+	originalPrompt := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(originalPrompt) }()
+
+	current := []*megaport.MCRPrefixListEntry{
+		{Prefix: "10.0.0.0/24", Action: "permit", Le: megaport.PtrTo(28)},
+		{Prefix: "10.1.0.0/24", Action: "permit", Ge: megaport.PtrTo(26)},
+	}
+
+	// For each entry: keep=yes, modify=yes, then keep prefix, action, ge, and le.
+	responses := []string{"yes", "yes", "", "", "", "", "yes", "yes", "", "", "", ""}
+	var prompts []string
+	utils.SetResourcePrompt(func(resourceType, msg string, noColor bool) (string, error) {
+		prompts = append(prompts, msg)
+		return responses[len(prompts)-1], nil
+	})
+
+	var entries []*megaport.MCRPrefixListEntry
+	var err error
+	shown := output.CaptureOutput(func() {
+		entries, err = promptUpdateExistingEntries(current, true)
+	})
+	require.NoError(t, err)
+	assert.Contains(t, shown, "GE: unset, LE: 28")
+	assert.Contains(t, shown, "GE: 26, LE: unset")
+	assert.Contains(t, prompts[4], "(current: unset, blank keeps it)")
+	assert.Contains(t, prompts[11], "(current: unset, blank keeps it)")
+	require.Len(t, entries, 2)
+	assert.Nil(t, entries[0].Ge)
+	assert.Equal(t, megaport.PtrTo(28), entries[0].Le)
+	assert.Equal(t, megaport.PtrTo(26), entries[1].Ge)
+	assert.Nil(t, entries[1].Le)
+}
+
+func TestPromptUpdateExistingEntries_ZeroBound(t *testing.T) {
+	originalPrompt := utils.GetResourcePrompt()
+	defer func() { utils.SetResourcePrompt(originalPrompt) }()
+
+	current := []*megaport.MCRPrefixListEntry{
+		{Prefix: "0.0.0.0/0", Action: "permit", Ge: megaport.PtrTo(8), Le: megaport.PtrTo(16)},
+	}
+
+	// keep=yes, modify=yes, keep prefix and action, then type 0 for ge and le.
+	utils.SetResourcePrompt(mockPromptSequence([]string{"yes", "yes", "", "", "0", "0"}))
+
+	entries, err := promptUpdateExistingEntries(current, true)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, megaport.PtrTo(0), entries[0].Ge)
+	assert.Equal(t, megaport.PtrTo(0), entries[0].Le)
 }
 
 func TestPromptUpdateExistingEntries_DeleteEntry(t *testing.T) {
@@ -632,7 +710,7 @@ func TestPromptUpdateExistingEntries_KeepUnmodified_ShorthandYN(t *testing.T) {
 	defer func() { utils.SetResourcePrompt(originalPrompt) }()
 
 	current := []*megaport.MCRPrefixListEntry{
-		{Prefix: "10.0.0.0/8", Action: "permit", Ge: 16, Le: 24},
+		{Prefix: "10.0.0.0/8", Action: "permit", Ge: megaport.PtrTo(16), Le: megaport.PtrTo(24)},
 	}
 
 	// keep=y, modify=n -- a "y" answer must keep the entry, not drop it.

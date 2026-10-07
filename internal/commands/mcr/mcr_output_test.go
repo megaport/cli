@@ -56,7 +56,7 @@ func TestToPrefixFilterListOutput_Valid(t *testing.T) {
 		Description:   "Test PFL",
 		AddressFamily: "IPv4",
 		Entries: []*megaport.MCRPrefixListEntry{
-			{Action: "permit", Prefix: "10.0.0.0/8", Ge: 16, Le: 24},
+			{Action: "permit", Prefix: "10.0.0.0/8", Ge: megaport.PtrTo(16), Le: megaport.PtrTo(24)},
 		},
 	}
 

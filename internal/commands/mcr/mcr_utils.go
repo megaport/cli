@@ -45,7 +45,7 @@ var deleteMCRFunc = func(ctx context.Context, client *megaport.Client, req *mega
 }
 
 var restoreMCRFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) (*megaport.RestoreMCRResponse, error) {
-	return client.MCRService.RestoreMCR(ctx, mcrUID)
+	return client.MCRService.RestoreMCR(ctx, mcrUID) //nolint:staticcheck // the SDK deprecated restore and always returns ErrRestoreNotAllowed
 }
 
 var listMCRResourceTagsFunc = func(ctx context.Context, client *megaport.Client, mcrUID string) (map[string]string, error) {

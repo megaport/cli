@@ -176,7 +176,7 @@ func restoreMCRWasmImpl(ctx context.Context, client *megaport.Client, mcrUID str
 	}
 
 	js.Global().Get("console").Call("log", "📡 Calling SDK MCRService.RestoreMCR()...")
-	response, err := client.MCRService.RestoreMCR(ctx, mcrUID)
+	response, err := client.MCRService.RestoreMCR(ctx, mcrUID) //nolint:staticcheck // the SDK deprecated restore and always returns ErrRestoreNotAllowed
 	if err != nil {
 		js.Global().Get("console").Call("error", fmt.Sprintf("❌ SDK RestoreMCR failed: %v", err))
 

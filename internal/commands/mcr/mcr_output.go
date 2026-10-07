@@ -107,8 +107,8 @@ type prefixFilterListEntryOutput struct {
 	output.Output `json:"-" header:"-"`
 	Action        string `json:"action"`
 	Prefix        string `json:"prefix"`
-	Ge            int    `json:"ge,omitempty"`
-	Le            int    `json:"le,omitempty"`
+	Ge            *int   `json:"ge,omitempty"`
+	Le            *int   `json:"le,omitempty"`
 }
 
 func toPrefixFilterListOutput(prefixFilterList *megaport.MCRPrefixFilterList) (prefixFilterListOutput, error) {

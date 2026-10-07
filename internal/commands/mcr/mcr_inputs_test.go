@@ -551,6 +551,84 @@ func TestProcessFlagUpdatePrefixFilterListInput(t *testing.T) {
 	}
 }
 
+// A ge or le of 0 reaches the SDK as a set value, and an omitted bound stays nil.
+func TestPrefixFilterListInputs_KeepGeLePointers(t *testing.T) {
+	originalGetPFL := getMCRPrefixFilterListFunc
+	originalLogin := config.GetLoginFunc()
+	defer func() {
+		getMCRPrefixFilterListFunc = originalGetPFL
+		config.SetLoginFunc(originalLogin)
+	}()
+	config.SetLoginFunc(func(ctx context.Context) (*megaport.Client, error) {
+		return &megaport.Client{}, nil
+	})
+	getMCRPrefixFilterListFunc = func(ctx context.Context, client *megaport.Client, mcrUID string, pflID int) (*megaport.MCRPrefixFilterList, error) {
+		return &megaport.MCRPrefixFilterList{ID: 1, Description: "Current PFL", AddressFamily: "IPv4"}, nil
+	}
+
+	const entriesJSON = `[{"action":"permit","prefix":"0.0.0.0/0","ge":0,"le":32},{"action":"deny","prefix":"10.0.0.0/8"},{"action":"permit","prefix":"0.0.0.0/0","le":0}]`
+	const listJSON = `{"description":"PFL","addressFamily":"IPv4","entries":` + entriesJSON + `}`
+
+	flagCmd := func(t *testing.T) *cobra.Command {
+		cmd := &cobra.Command{Use: "test"}
+		cmd.Flags().String("description", "", "")
+		cmd.Flags().String("address-family", "", "")
+		cmd.Flags().String("entries", "", "")
+		require.NoError(t, cmd.Flags().Set("description", "PFL"))
+		require.NoError(t, cmd.Flags().Set("address-family", "IPv4"))
+		require.NoError(t, cmd.Flags().Set("entries", entriesJSON))
+		return cmd
+	}
+
+	tests := []struct {
+		name   string
+		decode func(t *testing.T) ([]*megaport.MCRPrefixListEntry, error)
+	}{
+		{"create JSON", func(t *testing.T) ([]*megaport.MCRPrefixListEntry, error) {
+			req, err := processJSONPrefixFilterListInput(listJSON, "", "mcr-123")
+			if err != nil {
+				return nil, err
+			}
+			return req.PrefixFilterList.Entries, nil
+		}},
+		{"create flags", func(t *testing.T) ([]*megaport.MCRPrefixListEntry, error) {
+			req, err := processFlagPrefixFilterListInput(flagCmd(t), "mcr-123")
+			if err != nil {
+				return nil, err
+			}
+			return req.PrefixFilterList.Entries, nil
+		}},
+		{"update JSON", func(t *testing.T) ([]*megaport.MCRPrefixListEntry, error) {
+			pfl, err := processJSONUpdatePrefixFilterListInput(listJSON, "", "mcr-123", 1)
+			if err != nil {
+				return nil, err
+			}
+			return pfl.Entries, nil
+		}},
+		{"update flags", func(t *testing.T) ([]*megaport.MCRPrefixListEntry, error) {
+			pfl, err := processFlagUpdatePrefixFilterListInput(flagCmd(t), "mcr-123", 1)
+			if err != nil {
+				return nil, err
+			}
+			return pfl.Entries, nil
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entries, err := tt.decode(t)
+			require.NoError(t, err)
+			require.Len(t, entries, 3)
+			assert.Equal(t, megaport.PtrTo(0), entries[0].Ge)
+			assert.Equal(t, megaport.PtrTo(32), entries[0].Le)
+			assert.Nil(t, entries[1].Ge)
+			assert.Nil(t, entries[1].Le)
+			assert.Nil(t, entries[2].Ge)
+			assert.Equal(t, megaport.PtrTo(0), entries[2].Le)
+		})
+	}
+}
+
 func TestProcessJSONMCRInput_WithTunnelCount(t *testing.T) {
 	tests := []struct {
 		name          string
