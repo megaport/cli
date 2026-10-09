@@ -19,14 +19,10 @@ fi
 echo "✅ Test binary built: wasm.test ($(du -h wasm.test | cut -f1))"
 echo ""
 
-# Check if wasm_exec.js exists
-if [ ! -f "../../web/wasm_exec.js" ]; then
-    echo "⚠️  wasm_exec.js not found in ../../web/"
-    echo "   Copying from Go installation..."
-    GOROOT=$(go env GOROOT)
-    cp "$GOROOT/lib/wasm/wasm_exec.js" ../../web/wasm_exec.js
-    echo "✅ Copied wasm_exec.js"
-fi
+# Copy wasm_exec.js on every run so it matches the toolchain that built wasm.test
+GOROOT=$(go env GOROOT)
+cp -f "$GOROOT/lib/wasm/wasm_exec.js" ../../web/wasm_exec.js
+echo "✅ Copied wasm_exec.js from the Go installation"
 
 echo "🌐 Starting test server on http://localhost:8765"
 echo ""
