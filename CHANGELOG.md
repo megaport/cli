@@ -11,19 +11,10 @@ workflow (scripts/update-changelog.sh). Don't hand-edit them or add entries unde
 
 ## [Unreleased]
 
-### Added
-- `servicekeys create` and `servicekeys update` now support `--json`/`--json-file` and `--interactive` input modes, matching the input-mode contract used elsewhere in the CLI. The update path's merge behavior (unset fields keep their current value rather than being cleared) is preserved across all three input modes (ESD-1591)
+## [v0.14.1] - 2026-10-09
 
-### Changed
-- **Breaking (WASM):** `window.executeMegaportCommand` no longer executes commands. A synchronous call blocked the JS event loop while the CLI waited on the browser's fetch transport, hanging the tab, and bypassed the mutex that guards the shared output buffers. It is kept as a deprecated stub for one release and always returns `{ error: "synchronous execution is not supported; use executeMegaportCommandAsync" }`. Use `window.executeMegaportCommandAsync` instead (ESD-1598)
-
-### Fixed
-- `partners list` filters (`--product-name`, `--connect-type`, `--company-name`, `--diversity-zone`) now match case-insensitive substrings instead of requiring an exact match, matching the documented partial-match behavior (ESD-1590)
-- default JSON-created users to active when `active` is omitted, matching the flags and interactive paths; an explicit `active: false` is still honored (ESD-1592)
-- repair the `js/wasm` build of `./...` (the WASM config manager was missing `GetProfile`, which `auth status` needs) and enforce the full wasm build, vet, test compilation, and wasm-tagged linting in CI so wasm code stops rotting silently (ESD-1578)
-- require Cisco FMC fields only when not managing locally on the `mve buy` and `mve validate` flags and JSON paths, matching the validator (ESD-1571)
-- `mve buy` and `mve validate` now apply `resourceTags` from JSON input, and interactive `mve buy` now prompts for tags, matching MCR. Previously the JSON path silently dropped the documented `resourceTags` field and interactive mode never asked. The JSON path shares the same value and empty-key validation as the flags path, so non-string values and empty keys return a usage error before the order is placed
-- abort the browser fetch when `req.Context()` is cancelled or the WASM transport timeout fires, instead of leaving it running behind a dead command; also drop the forbidden `Accept-Encoding` header the browser silently stripped (ESD-1594)
+### Other Changes
+- Bump the Go toolchain to 1.26.9 and x/net to v0.60.0 (#583)
 
 ## [v1.0.0-beta.1] - 2026-07-01
 
@@ -476,7 +467,8 @@ workflow (scripts/update-changelog.sh). Don't hand-edit them or add entries unde
 - Credential support via environment variables (`MEGAPORT_ACCESS_KEY`, `MEGAPORT_SECRET_KEY`, `MEGAPORT_ENVIRONMENT`)
 - Automated CI with golangci-lint and Go test suite
 
-[Unreleased]: https://github.com/megaport/megaport-cli/compare/v1.0.0-beta.1...HEAD
+[Unreleased]: https://github.com/megaport/megaport-cli/compare/v0.14.1...HEAD
+[v0.14.1]: https://github.com/megaport/megaport-cli/compare/v0.14.0...v0.14.1
 [v1.0.0-beta.1]: https://github.com/megaport/megaport-cli/compare/v0.13.0...v1.0.0-beta.1
 [v0.13.0]: https://github.com/megaport/megaport-cli/compare/v0.12.0...v0.13.0
 [v0.12.0]: https://github.com/megaport/megaport-cli/compare/v0.11.0...v0.12.0
