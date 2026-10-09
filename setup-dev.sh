@@ -21,9 +21,15 @@ fi
 echo "✓ Go is installed: $(go version)"
 
 # Check that golangci-lint v2 is installed; .golangci.yml uses the v2 format
-if ! golangci-lint version 2>/dev/null | grep -Eq 'version v?2\.'; then
+lint_is_v2() { golangci-lint version 2>/dev/null | grep -Eq 'version v?2\.'; }
+if ! lint_is_v2; then
     echo "⚠️  golangci-lint v2 is not installed. Installing..."
     go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+    if ! lint_is_v2; then
+        bin_dir=$(go env GOBIN)
+        echo "❌ golangci-lint on PATH is still not v2. Put ${bin_dir:-$(go env GOPATH)/bin} first on PATH, then run this script again."
+        exit 1
+    fi
     echo "✓ golangci-lint installed"
 else
     echo "✓ golangci-lint v2 is installed"
