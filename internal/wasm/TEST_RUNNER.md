@@ -62,7 +62,7 @@ The test suite includes comprehensive tests for the `setAuthToken` functionality
 
 **Build fails:**
 
-- Ensure you have Go 1.21+ installed
+- Ensure you have Go 1.26+ installed
 - Verify GOOS=js GOARCH=wasm environment variables
 
 **Server won't start:**

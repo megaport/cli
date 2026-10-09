@@ -6,7 +6,7 @@ Thank you for your interest in contributing to megaport-cli! This guide will hel
 
 ### Prerequisites
 
-- Go 1.25 or later (matches `go.mod`)
+- Go 1.26 or later (matches `go.mod`)
 - Git
 
 ### Initial Setup

@@ -246,7 +246,7 @@ to this site, since it removes anything else under that prefix.
 ### Can't build WASM
 
 ```bash
-# Make sure you have Go 1.25 or later (matches go.mod)
+# Make sure you have Go 1.26 or later (matches go.mod)
 go version
 
 # Check WASM support

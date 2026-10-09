@@ -15,7 +15,7 @@ GOOS=js GOARCH=wasm go build -o web/megaport.wasm ./main_wasm.go
 # Find and copy wasm_exec.js
 GO_ROOT=$(go env GOROOT)
 
-# Try multiple known locations (lib/wasm is the Go 1.21+ location)
+# Try multiple known locations (lib/wasm is the Go 1.24+ location)
 POSSIBLE_PATHS=(
   "$GO_ROOT/lib/wasm/wasm_exec.js"
   "$GO_ROOT/misc/wasm/wasm_exec.js"
@@ -53,18 +53,18 @@ if [ "$FOUND" = false ]; then
   MAJOR_MINOR=$(echo $GO_VERSION | cut -d "." -f 1-2)
   
   # URL for wasm_exec.js based on Go version
-  WASM_EXEC_URL="https://raw.githubusercontent.com/golang/go/release-branch.go$MAJOR_MINOR/misc/wasm/wasm_exec.js"
+  WASM_EXEC_URL="https://raw.githubusercontent.com/golang/go/release-branch.go$MAJOR_MINOR/lib/wasm/wasm_exec.js"
   
   # Download the file
-  if curl -s -o ./web/wasm_exec.js "$WASM_EXEC_URL"; then
+  if curl -fs -o ./web/wasm_exec.js "$WASM_EXEC_URL"; then
     echo "Successfully downloaded wasm_exec.js for Go $GO_VERSION"
     FOUND=true
   else
     echo "Failed to download wasm_exec.js from primary location."
     
     # Try alternate location (master branch)
-    ALT_URL="https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js"
-    if curl -s -o ./web/wasm_exec.js "$ALT_URL"; then
+    ALT_URL="https://raw.githubusercontent.com/golang/go/master/lib/wasm/wasm_exec.js"
+    if curl -fs -o ./web/wasm_exec.js "$ALT_URL"; then
       echo "Successfully downloaded wasm_exec.js from master branch"
       FOUND=true
     else

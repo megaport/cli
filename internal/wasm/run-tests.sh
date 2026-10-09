@@ -24,7 +24,7 @@ if [ ! -f "../../web/wasm_exec.js" ]; then
     echo "⚠️  wasm_exec.js not found in ../../web/"
     echo "   Copying from Go installation..."
     GOROOT=$(go env GOROOT)
-    cp "$GOROOT/misc/wasm/wasm_exec.js" ../../web/wasm_exec.js
+    cp "$GOROOT/lib/wasm/wasm_exec.js" ../../web/wasm_exec.js
     echo "✅ Copied wasm_exec.js"
 fi
 
