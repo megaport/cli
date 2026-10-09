@@ -28,7 +28,7 @@ GOOS=js GOARCH=wasm go test -c -o wasm.test .
 
 ```bash
 cd ../.. # Go to project root
-python3 -m http.server 8765
+python3 -m http.server --bind 127.0.0.1 8765
 ```
 
 ### 3. Open in browser
@@ -68,4 +68,4 @@ The test suite includes comprehensive tests for the `setAuthToken` functionality
 **Server won't start:**
 
 - Check if port 8765 is already in use
-- Try a different port: `python3 -m http.server 8766`
+- Try a different port: `python3 -m http.server --bind 127.0.0.1 8766`

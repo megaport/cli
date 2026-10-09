@@ -57,7 +57,7 @@ cp frontend-integration/utils/* utils/megaport-cli/
 
 # Copy WASM files to public directory
 cp web/megaport.wasm public/wasm/
-cp web/wasm_exec.js public/wasm/
+cp -f web/wasm_exec.js public/wasm/
 ```
 
 ### 2. Install Dependencies

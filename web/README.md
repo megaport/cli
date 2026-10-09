@@ -79,11 +79,6 @@ the expected secrets and variables.
 
 ## Local preview
 
-The front end has its own Vite dev server, which serves the wasm with the correct
-`application/wasm` MIME type and reloads on change:
-
-```bash
-cd frontend-integration
-npm install
-npm run dev:demo
-```
+The front end has its own Vite dev server in `frontend-integration/`.
+[Local Development](../WASM_README.md#local-development) shows how to build the wasm into
+that directory and start the server.

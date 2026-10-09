@@ -37,4 +37,4 @@ echo ""
 
 # Start a simple HTTP server from the project root
 cd ../..
-python3 -m http.server 8765
+python3 -m http.server --bind 127.0.0.1 8765

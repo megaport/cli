@@ -148,7 +148,7 @@ and copy the loader into `frontend-integration/` first, then start the server:
 ```bash
 # From the repo root: build the wasm + loader into the dev server's root.
 GOOS=js GOARCH=wasm go build -tags js,wasm -o frontend-integration/megaport.wasm .
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" frontend-integration/wasm_exec.js
+cp -f "$(go env GOROOT)/lib/wasm/wasm_exec.js" frontend-integration/wasm_exec.js
 
 cd frontend-integration
 npm install
@@ -219,7 +219,7 @@ aws sts get-caller-identity
 #    not checked in: copy it fresh from the toolchain so it stays paired with the Go
 #    version that built the wasm (./wasm.sh does both steps if you prefer).
 GOOS=js GOARCH=wasm go build -tags js,wasm -o web/megaport.wasm .
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
+cp -f "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
 
 # 3. Upload the WASM binary and the wasm_exec.js loader.
 #    `--content-type application/wasm` is required so the file isn't served as
