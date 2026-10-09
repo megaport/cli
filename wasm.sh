@@ -62,16 +62,7 @@ if [ "$FOUND" = false ]; then
     echo "Successfully downloaded wasm_exec.js for Go $GO_VERSION"
     FOUND=true
   else
-    echo "Failed to download wasm_exec.js from primary location."
-    
-    # Try alternate location (master branch)
-    ALT_URL="https://raw.githubusercontent.com/golang/go/master/lib/wasm/wasm_exec.js"
-    if curl -fs -o ./web/wasm_exec.js "$ALT_URL"; then
-      echo "Successfully downloaded wasm_exec.js from master branch"
-      FOUND=true
-    else
-      echo "ERROR: Could not obtain wasm_exec.js"
-    fi
+    echo "ERROR: Could not download wasm_exec.js for Go $GO_VERSION"
   fi
 fi
 
