@@ -11,8 +11,9 @@ This directory contains tools for running Go WASM tests in a browser environment
 This will:
 
 1. Build the WASM test binary (`wasm.test`)
-2. Start an HTTP server on port 8765
-3. Open your browser to: http://localhost:8765/internal/wasm/test-runner.html
+2. Copy `wasm_exec.js` from your Go installation to `web/`
+3. Start an HTTP server on port 8765
+4. Open your browser to: http://localhost:8765/internal/wasm/test-runner.html
 
 ## Manual Steps
 
@@ -24,14 +25,20 @@ If you prefer to run steps manually:
 GOOS=js GOARCH=wasm go test -c -o wasm.test .
 ```
 
-### 2. Start HTTP server
+### 2. Copy the WASM loader
+
+```bash
+cp -f "$(go env GOROOT)/lib/wasm/wasm_exec.js" ../../web/wasm_exec.js
+```
+
+### 3. Start HTTP server
 
 ```bash
 cd ../.. # Go to project root
 python3 -m http.server --bind 127.0.0.1 8765
 ```
 
-### 3. Open in browser
+### 4. Open in browser
 
 Navigate to: http://localhost:8765/internal/wasm/test-runner.html
 
