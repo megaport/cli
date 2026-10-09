@@ -20,13 +20,13 @@ fi
 
 echo "✓ Go is installed: $(go version)"
 
-# Check if golangci-lint is installed
-if ! command -v golangci-lint &> /dev/null; then
-    echo "⚠️  golangci-lint is not installed. Installing..."
+# Check that golangci-lint v2 is installed; .golangci.yml uses the v2 format
+if ! golangci-lint version 2>/dev/null | grep -Eq 'version v?2\.'; then
+    echo "⚠️  golangci-lint v2 is not installed. Installing..."
     go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
     echo "✓ golangci-lint installed"
 else
-    echo "✓ golangci-lint is installed"
+    echo "✓ golangci-lint v2 is installed"
 fi
 
 # Build the project
