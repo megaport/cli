@@ -250,11 +250,7 @@ export default defineConfig({
 
 ### 1. Run Demo Application
 
-```bash
-cd frontend-integration
-npm install
-npm run dev
-```
+[Local Development](../WASM_README.md#local-development) shows how to build the WASM binary into this directory and start the dev server.
 
 ### 2. Test Commands
 

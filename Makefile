@@ -88,10 +88,8 @@ wasm-vet:
 
 # Smoke-test a read-only command end-to-end through the browser fetch transport.
 # Builds the WASM binary, then runs it under Node against a live API (default: staging).
-# wasm_exec.js is copied to /tmp to avoid dirtying the working tree.
 wasm-smoke: wasm
-	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" /tmp/wasm_exec_smoke.js
-	WASM_EXEC_JS=/tmp/wasm_exec_smoke.js node scripts/wasm-smoke.mjs
+	WASM_EXEC_JS="$$(go env GOROOT)/lib/wasm/wasm_exec.js" node scripts/wasm-smoke.mjs
 
 # Pre-compress the WASM artifact (brotli q11 + gzip -9) for CDN serving
 wasm-compress: wasm

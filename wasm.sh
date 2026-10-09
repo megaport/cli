@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build Megaport CLI for WASM
 
+set -e
+
 # Ensure we're in the project root
 cd "$(dirname "$0")"
 
@@ -15,7 +17,7 @@ GOOS=js GOARCH=wasm go build -o web/megaport.wasm ./main_wasm.go
 # Find and copy wasm_exec.js
 GO_ROOT=$(go env GOROOT)
 
-# Try multiple known locations (lib/wasm is the Go 1.21+ location)
+# Try multiple known locations (lib/wasm is the Go 1.24+ location)
 POSSIBLE_PATHS=(
   "$GO_ROOT/lib/wasm/wasm_exec.js"
   "$GO_ROOT/misc/wasm/wasm_exec.js"
@@ -27,7 +29,7 @@ POSSIBLE_PATHS=(
 FOUND=false
 for path in "${POSSIBLE_PATHS[@]}"; do
   if [ -f "$path" ]; then
-    cp "$path" ./web/
+    cp -f "$path" ./web/
     echo "Copied wasm_exec.js from $path"
     FOUND=true
     break
@@ -40,7 +42,7 @@ if [ "$FOUND" = false ]; then
   FOUND_PATH=$(find "$GO_ROOT" -name "wasm_exec.js" -type f | head -n 1)
   
   if [ -n "$FOUND_PATH" ]; then
-    cp "$FOUND_PATH" ./web/
+    cp -f "$FOUND_PATH" ./web/
     echo "Copied wasm_exec.js from $FOUND_PATH"
     FOUND=true
   fi
@@ -53,29 +55,20 @@ if [ "$FOUND" = false ]; then
   MAJOR_MINOR=$(echo $GO_VERSION | cut -d "." -f 1-2)
   
   # URL for wasm_exec.js based on Go version
-  WASM_EXEC_URL="https://raw.githubusercontent.com/golang/go/release-branch.go$MAJOR_MINOR/misc/wasm/wasm_exec.js"
+  WASM_EXEC_URL="https://raw.githubusercontent.com/golang/go/release-branch.go$MAJOR_MINOR/lib/wasm/wasm_exec.js"
   
   # Download the file
-  if curl -s -o ./web/wasm_exec.js "$WASM_EXEC_URL"; then
+  if curl -fs -o ./web/wasm_exec.js "$WASM_EXEC_URL"; then
     echo "Successfully downloaded wasm_exec.js for Go $GO_VERSION"
     FOUND=true
   else
-    echo "Failed to download wasm_exec.js from primary location."
-    
-    # Try alternate location (master branch)
-    ALT_URL="https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js"
-    if curl -s -o ./web/wasm_exec.js "$ALT_URL"; then
-      echo "Successfully downloaded wasm_exec.js from master branch"
-      FOUND=true
-    else
-      echo "ERROR: Could not obtain wasm_exec.js"
-    fi
+    echo "ERROR: Could not download wasm_exec.js for Go $GO_VERSION"
   fi
 fi
 
 if [ "$FOUND" = true ]; then
   echo "Build complete. Files in ./web/ directory."
-  echo "For a browser preview: cd frontend-integration && npm run dev:demo"
+  echo "For a browser preview, build into frontend-integration/ with the Local Development steps in WASM_README.md."
 else
   echo "Build incomplete. Missing wasm_exec.js"
   exit 1

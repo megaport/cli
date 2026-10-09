@@ -14,19 +14,25 @@ echo "✓ Git hooks configured"
 
 # Check if Go is installed
 if ! command -v go &> /dev/null; then
-    echo "❌ Go is not installed. Please install Go 1.21 or later."
+    echo "❌ Go is not installed. Please install Go 1.26 or later."
     exit 1
 fi
 
 echo "✓ Go is installed: $(go version)"
 
-# Check if golangci-lint is installed
-if ! command -v golangci-lint &> /dev/null; then
-    echo "⚠️  golangci-lint is not installed. Installing..."
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+# Check that golangci-lint v2 is installed; .golangci.yml uses the v2 format
+lint_is_v2() { golangci-lint version 2>/dev/null | grep -Eq 'version v?2\.'; }
+if ! lint_is_v2; then
+    echo "⚠️  golangci-lint v2 is not installed. Installing..."
+    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+    if ! lint_is_v2; then
+        bin_dir=$(go env GOBIN)
+        echo "❌ golangci-lint on PATH is still not v2. Put ${bin_dir:-$(go env GOPATH)/bin} first on PATH, then run this script again."
+        exit 1
+    fi
     echo "✓ golangci-lint installed"
 else
-    echo "✓ golangci-lint is installed"
+    echo "✓ golangci-lint v2 is installed"
 fi
 
 # Build the project
