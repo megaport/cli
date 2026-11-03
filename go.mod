@@ -2,15 +2,15 @@ module github.com/megaport/megaport-cli
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
-	github.com/andybalholm/brotli v1.2.6
+	github.com/andybalholm/brotli v1.2.7
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/fatih/color v1.19.0
 	github.com/jedib0t/go-pretty/v6 v6.8.3
 	github.com/jmespath/go-jmespath v0.4.0
-	github.com/megaport/megaportgo v1.30.0
+	github.com/megaport/megaportgo v1.31.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

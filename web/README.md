@@ -40,7 +40,8 @@ SRI hashes) under these prefixes:
 
 - `<version>/`: immutable, long-lived cache. Treat a version label as write-once, so use
   a fresh tag or `version` input per release.
-- `latest/`: short TTL, refreshed on every run unless the `publish_latest` input is false.
+- `latest/`: short TTL, refreshed on every tag run unless the `publish_latest` input is
+  false. A branch run never moves it.
 
 These filenames are kept stable rather than content-hashed, so a consumer such as the
 portal can load `megaport.wasm` and `wasm_exec.js` by static config URL. The version

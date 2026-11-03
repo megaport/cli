@@ -40,7 +40,7 @@ var mockBillingMarkets = []*megaport.BillingMarket{
 		Region:              "North America",
 		BillingContactName:  "John Doe",
 		BillingContactEmail: "john@example.com",
-		BillingContactPhone: "+1234567890",
+		BillingContactPhone: "+14155552671",
 		Address1:            "123 Main St",
 		City:                "New York",
 		State:               "NY",
@@ -125,7 +125,7 @@ func TestBillingMarketOutput_JSON(t *testing.T) {
     "region": "North America",
     "billing_contact_name": "John Doe",
     "billing_contact_email": "john@example.com",
-    "billing_contact_phone": "+1234567890",
+    "billing_contact_phone": "+14155552671",
     "address1": "123 Main St",
     "city": "New York",
     "state": "NY",
@@ -306,7 +306,7 @@ func TestSetBillingMarketAction(t *testing.T) {
 		"currency":              "USD",
 		"language":              "en",
 		"billing-contact-name":  "John Doe",
-		"billing-contact-phone": "+1234567890",
+		"billing-contact-phone": "+14155552671",
 		"billing-contact-email": "john@example.com",
 		"address1":              "123 Main St",
 		"city":                  "New York",
@@ -323,7 +323,7 @@ func TestSetBillingMarketAction(t *testing.T) {
 	assert.Equal(t, "USD", mockSvc.CapturedSetBillingMarketRequest.CurrencyEnum)
 	assert.Equal(t, "en", mockSvc.CapturedSetBillingMarketRequest.Language)
 	assert.Equal(t, "John Doe", mockSvc.CapturedSetBillingMarketRequest.BillingContactName)
-	assert.Equal(t, "+1234567890", mockSvc.CapturedSetBillingMarketRequest.BillingContactPhone)
+	assert.Equal(t, "+14155552671", mockSvc.CapturedSetBillingMarketRequest.BillingContactPhone)
 	assert.Equal(t, "john@example.com", mockSvc.CapturedSetBillingMarketRequest.BillingContactEmail)
 	assert.Equal(t, "123 Main St", mockSvc.CapturedSetBillingMarketRequest.Address1)
 	assert.Equal(t, "New York", mockSvc.CapturedSetBillingMarketRequest.City)

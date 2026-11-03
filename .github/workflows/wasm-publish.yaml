@@ -62,7 +62,7 @@ on:
         required: false
         type: string
       publish_latest:
-        description: 'Also update the moving latest/ alias'
+        description: 'Also update the moving latest/ alias (tag runs only)'
         required: false
         default: true
         type: boolean
@@ -82,6 +82,9 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      # The Portal loads latest/, so only a tag run may move it.
+      PUBLISH_LATEST: ${{ inputs.publish_latest && github.ref_type == 'tag' }}
     steps:
       - name: Check required configuration
         env:
@@ -130,6 +133,7 @@ jobs:
           # leading alphanumeric, only [A-Za-z0-9._-], and no '..' segment.
           case "$version" in
             *..*) echo "::error::Invalid version label '$version'; must not contain '..'"; exit 1 ;;
+            latest) echo "::error::Version label 'latest' is reserved for the latest/ alias"; exit 1 ;;
           esac
           if ! printf '%s' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*$'; then
             echo "::error::Invalid version label '$version'; must start with an alphanumeric and match [A-Za-z0-9._-]"
@@ -208,7 +212,6 @@ jobs:
           BUCKET: ${{ vars.WASM_S3_BUCKET }}
           PREFIX: ${{ vars.WASM_S3_PREFIX }}
           VERSION: ${{ steps.version.outputs.version }}
-          PUBLISH_LATEST: ${{ inputs.publish_latest }}
         run: |
           set -euo pipefail
           src=web/dist
@@ -252,7 +255,6 @@ jobs:
           DISTRIBUTION_ID: ${{ vars.WASM_CLOUDFRONT_DISTRIBUTION_ID }}
           PREFIX: ${{ vars.WASM_S3_PREFIX }}
           VERSION: ${{ steps.version.outputs.version }}
-          PUBLISH_LATEST: ${{ inputs.publish_latest }}
         run: |
           set -euo pipefail
           # The shared s3-prod-deploy role has no cloudfront:* permission; setting
@@ -273,7 +275,6 @@ jobs:
         env:
           PREFIX: ${{ vars.WASM_S3_PREFIX }}
           VERSION: ${{ steps.version.outputs.version }}
-          PUBLISH_LATEST: ${{ inputs.publish_latest }}
           WASM_SHA256: ${{ steps.hashes.outputs.wasm_sha256 }}
           WASM_EXEC_SRI: ${{ steps.hashes.outputs.wasm_exec_sri }}
         run: |

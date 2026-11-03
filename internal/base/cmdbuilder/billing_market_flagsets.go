@@ -5,7 +5,7 @@ func (b *CommandBuilder) WithBillingMarketSetFlags() *CommandBuilder {
 	b.WithFlag("currency", "", "Billing currency (e.g., USD, AUD, EUR)")
 	b.WithFlag("language", "", "Two-letter language code (e.g., en)")
 	b.WithFlag("billing-contact-name", "", "Name of the billing contact")
-	b.WithFlag("billing-contact-phone", "", "Phone number of the billing contact")
+	b.WithFlag("billing-contact-phone", "", "Phone number of the billing contact in E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +14155552671)")
 	b.WithFlag("billing-contact-email", "", "Email address of the billing contact")
 	b.WithFlag("address1", "", "Physical address line 1")
 	b.WithFlag("address2", "", "Physical address line 2")

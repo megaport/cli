@@ -45,7 +45,7 @@ func promptForCreateUserDetails(noColor bool) (*megaport.CreateUserRequest, erro
 		return nil, fmt.Errorf("invalid position: %s. Valid positions: %s", position, userPosition.ValidPositions())
 	}
 
-	phone, err := utils.ResourcePrompt("user", "Enter phone number (optional, international format e.g. +61412345678): ", noColor)
+	phone, err := utils.ResourcePrompt("user", "Enter phone number (optional; E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number, e.g., +61412345678): ", noColor)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func promptForUpdateUserDetails(noColor bool) (*megaport.UpdateUserRequest, erro
 		fieldsUpdated = true
 	}
 
-	phone, err := utils.ResourcePrompt("user", "Enter new phone number (leave empty to skip): ", noColor)
+	phone, err := utils.ResourcePrompt("user", "Enter new phone number (leave empty to skip; E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number, e.g., +61412345678): ", noColor)
 	if err != nil {
 		return nil, err
 	}

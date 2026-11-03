@@ -14,7 +14,7 @@ This command allows you to update specific properties of an existing user. Only 
   - `first-name`: New first name
   - `last-name`: New last name
   - `notification-enabled`: Enable/disable notifications
-  - `phone`: New phone number
+  - `phone`: New phone number in E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +61412345678)
   - `position`: New position/role
 
 ### Important Notes
@@ -66,6 +66,6 @@ megaport-cli users update [flags]
 | `--json-file` |  |  | Path to JSON file containing configuration | false |
 | `--last-name` |  |  | New last name | false |
 | `--notification-enabled` |  | `false` | Enable/disable notifications | false |
-| `--phone` |  |  | New phone number | false |
+| `--phone` |  |  | New phone number in E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +61412345678) | false |
 | `--position` |  |  | New position/role | false |
 

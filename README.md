@@ -585,7 +585,7 @@ megaport-cli billing-market get -o json
 
 # Set billing market configuration
 megaport-cli billing-market set --currency USD --language en \
-  --billing-contact-name "John Doe" --billing-contact-phone "+1234567890" \
+  --billing-contact-name "John Doe" --billing-contact-phone "+14155552671" \
   --billing-contact-email "john@example.com" \
   --address1 "123 Main St" --city "New York" --state "NY" \
   --postcode "10001" --country US --first-party-id 1558

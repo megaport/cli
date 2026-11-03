@@ -114,9 +114,11 @@ brews:
         base:
           branch: main
     directory: Formula
-    homepage: "https://github.com/megaport/megaport-cli"
+    homepage: "https://github.com/megaport/cli"
     description: "CLI tool for managing Megaport network infrastructure"
     license: "MPL-2.0"
+    # Never remove or lower: Homebrew ranks 1.0.0-beta.1 above 0.x unless the scheme is higher.
+    custom_block: "version_scheme 1"
     install: |
       if File.exist?("megaport-cli_v#{version}")
         bin.install "megaport-cli_v#{version}" => "megaport-cli"

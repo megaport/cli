@@ -15,7 +15,7 @@ This command allows you to create a new user by providing the necessary details.
   - `position`: Position/role (Company Admin, Technical Admin, Technical Contact, Finance, Financial Contact, Read Only)
 
 ### Optional Fields
-  - `phone`: Phone number in international format
+  - `phone`: Phone number in E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +61412345678)
 
 ### Important Notes
   - Valid positions: Company Admin, Technical Admin, Technical Contact, Finance, Financial Contact, Read Only
@@ -61,6 +61,6 @@ megaport-cli users create [flags]
 | `--json` |  |  | JSON string containing configuration | false |
 | `--json-file` |  |  | Path to JSON file containing configuration | false |
 | `--last-name` |  |  | Last name of the user | true |
-| `--phone` |  |  | Phone number in international format (optional) | false |
+| `--phone` |  |  | Phone number in E.164 format (optional): a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +61412345678) | false |
 | `--position` |  |  | Position/role (Company Admin, Technical Admin, Technical Contact, Finance, Financial Contact, Read Only) | true |
 

@@ -52,7 +52,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithDocumentedRequiredFlag("last-name", "Last name of the user").
 		WithDocumentedRequiredFlag("email", "Email address of the user").
 		WithDocumentedRequiredFlag("position", "Position/role (Company Admin, Technical Admin, Technical Contact, Finance, Financial Contact, Read Only)").
-		WithOptionalFlag("phone", "Phone number in international format").
+		WithOptionalFlag("phone", "Phone number in E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +61412345678)").
 		WithExample("megaport-cli users create --interactive").
 		WithExample(`megaport-cli users create --first-name "John" --last-name "Doe" --email "john@example.com" --position "Technical Admin"`).
 		WithExample(`megaport-cli users create --json '{"firstName":"John","lastName":"Doe","email":"john@example.com","position":"Technical Admin"}'`).
@@ -80,7 +80,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithOptionalFlag("last-name", "New last name").
 		WithOptionalFlag("email", "New email address").
 		WithOptionalFlag("position", "New position/role").
-		WithOptionalFlag("phone", "New phone number").
+		WithOptionalFlag("phone", "New phone number in E.164 format: a leading +, digits only, no spaces, dashes or parentheses, and a real number (e.g., +61412345678)").
 		WithOptionalFlag("active", "Set user active status").
 		WithOptionalFlag("notification-enabled", "Enable/disable notifications").
 		WithExample("megaport-cli users update 12345 --interactive").

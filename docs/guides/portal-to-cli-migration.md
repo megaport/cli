@@ -189,7 +189,7 @@ megaport-cli billing-market set \
   --currency USD \
   --language en \
   --billing-contact-name "Jane Smith" \
-  --billing-contact-phone "+1-555-0100" \
+  --billing-contact-phone "+14155552671" \
   --billing-contact-email "jane@example.com" \
   --address1 "123 Main St" \
   --city "New York" \
