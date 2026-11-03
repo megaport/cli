@@ -37,7 +37,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 
 	availability := cmdbuilder.NewCommand("availability", "List the products your company can order and the markets for each").
 		WithArgs(cobra.NoArgs).
-		WithOutputFormatRunFunc(ProductAvailability).
+		WithOutputFormatRunFunc(ListProductAvailability).
 		WithLongDesc("List the products your company can order and the markets for each.\n\nThis command looks up the company your API key belongs to. It prints one row for each product and market.").
 		WithExample("megaport-cli product availability").
 		WithExample("megaport-cli product availability --output json").

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	megaport "github.com/megaport/megaportgo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestListProducts(t *testing.T) {
@@ -496,25 +498,35 @@ func availabilityFixture() []*megaport.CompanyProductAvailability {
 	}
 }
 
-func TestProductAvailability(t *testing.T) {
+func setupAvailabilityLogin(companyErr error, list []*megaport.CompanyProductAvailability, listErr error) (*MockProductAvailabilityService, func()) {
+	availabilityMock := &MockProductAvailabilityService{
+		ListCompanyProductAvailabilityResult: list,
+		ListCompanyProductAvailabilityErr:    listErr,
+	}
+	cleanup := testutil.SetupLogin(func(c *megaport.Client) {
+		c.CompanyService = &MockCompanyService{
+			GetCurrentCompanyResult: &megaport.CurrentCompany{CompanyUID: "company-uid-1"},
+			GetCurrentCompanyErr:    companyErr,
+		}
+		c.ProductAvailabilityService = availabilityMock
+	})
+	return availabilityMock, cleanup
+}
+
+func TestListProductAvailability(t *testing.T) {
 	output.SetTerminalWidthForTesting(200)
 	defer output.SetTerminalWidthForTesting(0)
 
 	tests := []struct {
 		name         string
-		companyErr   error
-		listErr      error
 		list         []*megaport.CompanyProductAvailability
 		outputFormat string
-		wantErr      string
-		wantListCall bool
 		check        func(t *testing.T, out string)
 	}{
 		{
 			name:         "one row per product and market, skipping a nil product",
 			list:         availabilityFixture(),
 			outputFormat: "json",
-			wantListCall: true,
 			check: func(t *testing.T, out string) {
 				var rows []map[string]any
 				assert.NoError(t, json.Unmarshal([]byte(out), &rows))
@@ -529,7 +541,6 @@ func TestProductAvailability(t *testing.T) {
 			name:         "table headers",
 			list:         availabilityFixture(),
 			outputFormat: "table",
-			wantListCall: true,
 			check: func(t *testing.T, out string) {
 				var header string
 				for _, line := range strings.Split(out, "\n") {
@@ -545,7 +556,6 @@ func TestProductAvailability(t *testing.T) {
 			name:         "no products prints an empty JSON list",
 			list:         []*megaport.CompanyProductAvailability{},
 			outputFormat: "json",
-			wantListCall: true,
 			check: func(t *testing.T, out string) {
 				assert.Equal(t, "[]", strings.TrimSpace(out))
 			},
@@ -554,7 +564,6 @@ func TestProductAvailability(t *testing.T) {
 			name:         "no products prints a message in table format",
 			list:         []*megaport.CompanyProductAvailability{},
 			outputFormat: "table",
-			wantListCall: true,
 			check: func(t *testing.T, out string) {
 				assert.Contains(t, out, "No products available.")
 			},
@@ -563,88 +572,125 @@ func TestProductAvailability(t *testing.T) {
 			name:         "products without markets print the empty message in table format",
 			list:         []*megaport.CompanyProductAvailability{{DisplayName: "Port"}, nil},
 			outputFormat: "table",
-			wantListCall: true,
 			check: func(t *testing.T, out string) {
 				assert.Contains(t, out, "No products available.")
 			},
-		},
-		{
-			name:         "company error stops before the availability call",
-			companyErr:   errors.New("boom"),
-			outputFormat: "table",
-			wantErr:      "failed to get current company",
-		},
-		{
-			name:         "availability error returns no rows",
-			list:         availabilityFixture(),
-			listErr:      errors.New("forbidden"),
-			outputFormat: "table",
-			wantListCall: true,
-			wantErr:      "failed to list product availability",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			companyMock := &MockCompanyService{
-				GetCurrentCompanyResult: &megaport.CurrentCompany{CompanyUID: "company-uid-1"},
-				GetCurrentCompanyErr:    tt.companyErr,
-			}
-			availabilityMock := &MockProductAvailabilityService{
-				ListCompanyProductAvailabilityResult: tt.list,
-				ListCompanyProductAvailabilityErr:    tt.listErr,
-			}
-			cleanup := testutil.SetupLogin(func(c *megaport.Client) {
-				c.CompanyService = companyMock
-				c.ProductAvailabilityService = availabilityMock
-			})
+			availabilityMock, cleanup := setupAvailabilityLogin(nil, tt.list, nil)
 			defer cleanup()
 
 			cmd := &cobra.Command{Use: "availability"}
 			cmd.Flags().StringP("output", "o", "table", "")
 
-			// Data comes from stdout alone; the table-mode empty message goes to stderr.
+			// JSON comes from stdout alone; the table-mode empty message goes to stderr.
 			capture := output.CaptureOutput
-			if tt.outputFormat == "json" || tt.wantErr != "" {
+			if tt.outputFormat == "json" {
 				capture = output.CaptureStdout
 			}
 			var err error
 			out := capture(func() {
-				err = ProductAvailability(cmd, nil, true, tt.outputFormat)
+				err = ListProductAvailability(cmd, nil, true, tt.outputFormat)
 			})
 
-			if tt.wantListCall {
-				assert.Equal(t, 1, availabilityMock.ListCompanyProductAvailabilityCalls)
-				assert.Equal(t, "company-uid-1", availabilityMock.ListCompanyProductAvailabilityCompany)
-			} else {
-				assert.Equal(t, 0, availabilityMock.ListCompanyProductAvailabilityCalls)
-			}
-
-			if tt.wantErr != "" {
-				assert.ErrorContains(t, err, tt.wantErr)
-				var cliErr *exitcodes.CLIError
-				if assert.True(t, errors.As(err, &cliErr)) {
-					assert.Equal(t, exitcodes.API, cliErr.Code)
-				}
-				assert.Empty(t, strings.TrimSpace(out), "an error prints no rows")
-				return
-			}
 			assert.NoError(t, err)
+			assert.Equal(t, 1, availabilityMock.ListCompanyProductAvailabilityCalls)
+			assert.Equal(t, "company-uid-1", availabilityMock.ListCompanyProductAvailabilityCompany)
 			tt.check(t, out)
 		})
 	}
 }
 
-func TestProductAvailabilityLoginError(t *testing.T) {
+func TestListProductAvailabilityErrors(t *testing.T) {
+	tests := []struct {
+		name          string
+		companyErr    error
+		listErr       error
+		wantListCalls int
+		wantErr       string
+	}{
+		{
+			name:          "company error stops before the availability call",
+			companyErr:    errors.New("boom"),
+			wantListCalls: 0,
+			wantErr:       "failed to get current company",
+		},
+		{
+			name:          "availability error returns no rows",
+			listErr:       errors.New("boom"),
+			wantListCalls: 1,
+			wantErr:       "failed to list product availability",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			availabilityMock, cleanup := setupAvailabilityLogin(tt.companyErr, availabilityFixture(), tt.listErr)
+			defer cleanup()
+
+			cmd := &cobra.Command{Use: "availability"}
+			cmd.Flags().StringP("output", "o", "table", "")
+
+			var err error
+			out := output.CaptureStdout(func() {
+				err = ListProductAvailability(cmd, nil, true, "table")
+			})
+
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Equal(t, tt.wantListCalls, availabilityMock.ListCompanyProductAvailabilityCalls)
+			assert.Empty(t, strings.TrimSpace(out), "an error prints no rows")
+		})
+	}
+}
+
+func TestListProductAvailabilityExitCode(t *testing.T) {
+	forbidden := &megaport.ErrorResponse{
+		Response: &http.Response{StatusCode: 403, Header: http.Header{}, Request: &http.Request{}},
+		Message:  "forbidden",
+	}
+
+	tests := []struct {
+		name     string
+		listErr  error
+		wantCode int
+	}{
+		{name: "a 403 exits with the auth code", listErr: forbidden, wantCode: exitcodes.Authentication},
+		{name: "any other error exits with the API code", listErr: errors.New("boom"), wantCode: exitcodes.API},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, cleanup := setupAvailabilityLogin(nil, nil, tt.listErr)
+			defer cleanup()
+
+			root := &cobra.Command{Use: "test-cli", SilenceUsage: true, SilenceErrors: true}
+			root.PersistentFlags().StringP("output", "o", "table", "")
+			AddCommandsTo(root)
+			root.SetArgs([]string{"product", "availability"})
+
+			var err error
+			output.CaptureOutput(func() { err = root.Execute() })
+
+			var cliErr *exitcodes.CLIError
+			require.ErrorAs(t, err, &cliErr)
+			assert.Equal(t, tt.wantCode, cliErr.Code)
+		})
+	}
+}
+
+func TestListProductAvailabilityLoginError(t *testing.T) {
 	cleanup := testutil.SetupLoginError(fmt.Errorf("login failed"))
 	defer cleanup()
 
 	cmd := &cobra.Command{Use: "availability"}
-	err := ProductAvailability(cmd, nil, true, "table")
+	err := ListProductAvailability(cmd, nil, true, "table")
 	assert.ErrorContains(t, err, "failed to log in")
 }
 
-func TestProductAvailabilityRegisteredCommand(t *testing.T) {
+func TestListProductAvailabilityRegisteredCommand(t *testing.T) {
 	cleanup := testutil.SetupLogin(func(c *megaport.Client) {
 		c.CompanyService = &MockCompanyService{GetCurrentCompanyResult: &megaport.CurrentCompany{CompanyUID: "company-uid-1"}}
 		c.ProductAvailabilityService = &MockProductAvailabilityService{ListCompanyProductAvailabilityResult: availabilityFixture()}
