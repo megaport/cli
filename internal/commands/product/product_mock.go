@@ -87,3 +87,26 @@ func (m *MockProductService) GetProductPricing(ctx context.Context, req megaport
 func (m *MockProductService) GetProductPricingForCompany(ctx context.Context, req *megaport.GetProductPricingRequest) (*megaport.PriceBookDTO, error) {
 	return m.GetProductPricingForCompanyResult, m.GetProductPricingForCompanyErr
 }
+
+type MockCompanyService struct {
+	GetCurrentCompanyErr    error
+	GetCurrentCompanyResult *megaport.CurrentCompany
+}
+
+func (m *MockCompanyService) GetCurrentCompany(ctx context.Context) (*megaport.CurrentCompany, error) {
+	return m.GetCurrentCompanyResult, m.GetCurrentCompanyErr
+}
+
+type MockProductAvailabilityService struct {
+	ListCompanyProductAvailabilityErr    error
+	ListCompanyProductAvailabilityResult []*megaport.CompanyProductAvailability
+
+	ListCompanyProductAvailabilityCalls   int
+	ListCompanyProductAvailabilityCompany string
+}
+
+func (m *MockProductAvailabilityService) ListCompanyProductAvailability(ctx context.Context, companyUID string) ([]*megaport.CompanyProductAvailability, error) {
+	m.ListCompanyProductAvailabilityCalls++
+	m.ListCompanyProductAvailabilityCompany = companyUID
+	return m.ListCompanyProductAvailabilityResult, m.ListCompanyProductAvailabilityErr
+}

@@ -116,6 +116,7 @@
 | [megaport-cli ports validate](megaport-cli_ports_validate.md) | Validate a port order without purchasing |
 | [megaport-cli ports validate-lag](megaport-cli_ports_validate-lag.md) | Validate a LAG port order without purchasing |
 | [megaport-cli product](megaport-cli_product.md) | Manage products in the Megaport API |
+| [megaport-cli product availability](megaport-cli_product_availability.md) | List the products your company can order and the markets for each |
 | [megaport-cli product get-type](megaport-cli_product_get-type.md) | Get the type of a product by UID |
 | [megaport-cli product list](megaport-cli_product_list.md) | List all products with optional filters |
 | [megaport-cli servicekeys](megaport-cli_servicekeys.md) | Manage service keys for the Megaport API |

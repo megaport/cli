@@ -8,9 +8,10 @@ import (
 // AddCommandsTo builds the product commands and adds them to the root command
 func AddCommandsTo(rootCmd *cobra.Command) {
 	productCmd := cmdbuilder.NewCommand("product", "Manage products in the Megaport API").
-		WithLongDesc("Manage products in the Megaport API.\n\nThis command groups operations related to products. You can use the subcommands to list all products or get the type of a specific product.").
+		WithLongDesc("Manage products in the Megaport API.\n\nThis command groups operations related to products. You can use the subcommands to list all products, get the type of a specific product, or list the products your company can order.").
 		WithExample("megaport-cli product list").
 		WithExample("megaport-cli product get-type [productUID]").
+		WithExample("megaport-cli product availability").
 		WithRootCmd(rootCmd).
 		Build()
 
@@ -34,6 +35,15 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithRootCmd(rootCmd).
 		Build()
 
-	productCmd.AddCommand(list, getType)
+	availability := cmdbuilder.NewCommand("availability", "List the products your company can order and the markets for each").
+		WithArgs(cobra.NoArgs).
+		WithOutputFormatRunFunc(ListProductAvailability).
+		WithLongDesc("List the products your company can order and the markets for each.\n\nThis command looks up the company your API key belongs to. It prints one row for each product and market.").
+		WithExample("megaport-cli product availability").
+		WithExample("megaport-cli product availability --output json").
+		WithRootCmd(rootCmd).
+		Build()
+
+	productCmd.AddCommand(list, getType, availability)
 	rootCmd.AddCommand(productCmd)
 }

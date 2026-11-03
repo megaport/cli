@@ -48,6 +48,18 @@ func toProductOutput(p megaport.Product) (productOutput, error) {
 	return o, nil
 }
 
+type productAvailabilityOutput struct {
+	output.Output `json:"-" header:"-"`
+	Category      string `json:"category" header:"Category"`
+	DisplayName   string `json:"display_name" header:"Product"`
+	Variant       string `json:"variant" header:"Variant"`
+	Market        string `json:"market" header:"Market"`
+	MarketName    string `json:"market_name" header:"Market Name"`
+	MarketOwner   string `json:"market_owner" header:"Market Owner"`
+	CountryCode   string `json:"country_code" header:"Country"`
+	Source        string `json:"source" header:"Source"`
+}
+
 func printProducts(products []megaport.Product, format string, noColor bool) error {
 	outputs := make([]productOutput, 0, len(products))
 	for _, p := range products {
@@ -58,4 +70,26 @@ func printProducts(products []megaport.Product, format string, noColor bool) err
 		outputs = append(outputs, o)
 	}
 	return output.PrintOutput(outputs, format, noColor)
+}
+
+func toProductAvailabilityOutputs(products []*megaport.CompanyProductAvailability) []productAvailabilityOutput {
+	outputs := make([]productAvailabilityOutput, 0, len(products))
+	for _, p := range products {
+		if p == nil {
+			continue
+		}
+		for _, m := range p.Markets {
+			outputs = append(outputs, productAvailabilityOutput{
+				Category:    string(p.Category),
+				DisplayName: p.DisplayName,
+				Variant:     p.Variant,
+				Market:      m.Market,
+				MarketName:  m.MarketName,
+				MarketOwner: m.MarketOwner,
+				CountryCode: m.CountryCode,
+				Source:      string(m.Source),
+			})
+		}
+	}
+	return outputs
 }
