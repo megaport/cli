@@ -6,7 +6,7 @@ View your own activity log
 
 View your own activity log in the Megaport Portal.
 
-This command displays your 10 most recent entries, newest first. Actions made with an API key are not listed, so commands you run with your access and secret keys do not appear.
+This command displays your 10 most recent entries, newest first. With an API key, the entries belong to the person who created the key. Actions made with an API key are not listed, so commands you run with your access and secret keys do not appear.
 
 ### Example Usage
 
