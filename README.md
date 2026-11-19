@@ -559,7 +559,7 @@ megaport-cli users update EMPLOYEE_ID --first-name "Jane"
 megaport-cli users deactivate EMPLOYEE_ID
 megaport-cli users delete EMPLOYEE_ID --force
 
-# View user activity
+# View your own activity
 megaport-cli users activity
 ```
 

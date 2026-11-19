@@ -8,7 +8,7 @@ import (
 // AddCommandsTo builds the users commands and adds them to the root command
 func AddCommandsTo(rootCmd *cobra.Command) {
 	usersCmd := cmdbuilder.NewCommand("users", "Manage users in the Megaport API").
-		WithLongDesc("Manage users in the Megaport API.\n\nThis command groups operations related to user management. You can use the subcommands to list all company users, get details for a specific user, create a new user, update an existing user, delete a user, deactivate a user, and view user activity.").
+		WithLongDesc("Manage users in the Megaport API.\n\nThis command groups operations related to user management. You can use the subcommands to list all company users, get details for a specific user, create a new user, update an existing user, delete a user, deactivate a user, and view your own activity log.").
 		WithExample("megaport-cli users list").
 		WithExample("megaport-cli users get 12345").
 		WithExample("megaport-cli users create --interactive").
@@ -126,12 +126,10 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithRootCmd(rootCmd).
 		Build()
 
-	activityCmd := cmdbuilder.NewCommand("activity", "View user activity logs").
+	activityCmd := cmdbuilder.NewCommand("activity", "View your own activity log").
 		WithOutputFormatRunFunc(GetUserActivity).
-		WithLongDesc("View activity logs for users in your Megaport company.\n\nThis command retrieves and displays user activity logs. Optionally filter by a specific user.").
-		WithFlag("employee-id", "", "Filter activity by employee ID").
+		WithLongDesc("View your own activity log in the Megaport Portal.\n\nThis command displays your 10 most recent entries, newest first. With an API key, the entries belong to the person who created the key. Actions made with an API key are not listed, so commands you run with your access and secret keys do not appear.").
 		WithExample("megaport-cli users activity").
-		WithExample("megaport-cli users activity --employee-id 12345").
 		WithRootCmd(rootCmd).
 		Build()
 

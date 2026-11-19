@@ -127,7 +127,7 @@
 | [megaport-cli status](megaport-cli_status.md) | Show a dashboard of all Megaport resources |
 | [megaport-cli topology](megaport-cli_topology.md) | Show resource relationship tree |
 | [megaport-cli users](megaport-cli_users.md) | Manage users in the Megaport API |
-| [megaport-cli users activity](megaport-cli_users_activity.md) | View user activity logs |
+| [megaport-cli users activity](megaport-cli_users_activity.md) | View your own activity log |
 | [megaport-cli users create](megaport-cli_users_create.md) | Create a new user |
 | [megaport-cli users deactivate](megaport-cli_users_deactivate.md) | Deactivate a user |
 | [megaport-cli users delete](megaport-cli_users_delete.md) | Delete a user |

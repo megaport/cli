@@ -664,12 +664,12 @@ func TestGetUserActivity(t *testing.T) {
 			})
 
 			cmd := testutil.NewCommand("activity", testutil.OutputAdapter(GetUserActivity))
-			cmd.Flags().String("employee-id", "", "")
 
 			var err error
 			capturedOutput := output.CaptureOutput(func() {
 				err = testutil.OutputAdapter(GetUserActivity)(cmd, nil)
 			})
+			assert.Nil(t, mockService.CapturedActivityReq)
 
 			if tt.expectedError != "" {
 				assert.Error(t, err)
