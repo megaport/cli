@@ -334,7 +334,7 @@ func GetUserActivity(cmd *cobra.Command, args []string, noColor bool, outputForm
 	}
 	defer cancel()
 
-	spinner := output.PrintResourceListing("user activity", noColor)
+	spinner := output.PrintResourceListing("activity log", noColor)
 
 	activities, err := getUserActivityFunc(ctx, client, nil)
 
