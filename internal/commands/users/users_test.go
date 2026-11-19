@@ -23,5 +23,6 @@ func TestUsersActivityHasNoEmployeeIDFlag(t *testing.T) {
 	activityCmd, _, err := root.Find([]string{"users", "activity"})
 	require.NoError(t, err)
 	require.NotNil(t, activityCmd)
+	assert.Equal(t, "activity", activityCmd.Name())
 	assert.Nil(t, activityCmd.Flags().Lookup("employee-id"))
 }

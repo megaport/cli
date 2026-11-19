@@ -669,6 +669,7 @@ func TestGetUserActivity(t *testing.T) {
 			capturedOutput := output.CaptureOutput(func() {
 				err = testutil.OutputAdapter(GetUserActivity)(cmd, nil)
 			})
+			assert.Nil(t, mockService.CapturedActivityReq)
 
 			if tt.expectedError != "" {
 				assert.Error(t, err)

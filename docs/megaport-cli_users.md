@@ -6,7 +6,7 @@ Manage users in the Megaport API
 
 Manage users in the Megaport API.
 
-This command groups operations related to user management. You can use the subcommands to list all company users, get details for a specific user, create a new user, update an existing user, delete a user, deactivate a user, and view user activity.
+This command groups operations related to user management. You can use the subcommands to list all company users, get details for a specific user, create a new user, update an existing user, delete a user, deactivate a user, and view your own activity log.
 
 ### Example Usage
 

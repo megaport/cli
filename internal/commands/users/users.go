@@ -8,7 +8,7 @@ import (
 // AddCommandsTo builds the users commands and adds them to the root command
 func AddCommandsTo(rootCmd *cobra.Command) {
 	usersCmd := cmdbuilder.NewCommand("users", "Manage users in the Megaport API").
-		WithLongDesc("Manage users in the Megaport API.\n\nThis command groups operations related to user management. You can use the subcommands to list all company users, get details for a specific user, create a new user, update an existing user, delete a user, deactivate a user, and view user activity.").
+		WithLongDesc("Manage users in the Megaport API.\n\nThis command groups operations related to user management. You can use the subcommands to list all company users, get details for a specific user, create a new user, update an existing user, delete a user, deactivate a user, and view your own activity log.").
 		WithExample("megaport-cli users list").
 		WithExample("megaport-cli users get 12345").
 		WithExample("megaport-cli users create --interactive").
