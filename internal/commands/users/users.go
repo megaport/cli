@@ -126,12 +126,10 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithRootCmd(rootCmd).
 		Build()
 
-	activityCmd := cmdbuilder.NewCommand("activity", "View user activity logs").
+	activityCmd := cmdbuilder.NewCommand("activity", "View your own activity log").
 		WithOutputFormatRunFunc(GetUserActivity).
-		WithLongDesc("View activity logs for users in your Megaport company.\n\nThis command retrieves and displays user activity logs. Optionally filter by a specific user.").
-		WithFlag("employee-id", "", "Filter activity by employee ID").
+		WithLongDesc("View your own activity log in the Megaport Portal.\n\nThis command displays your 10 most recent entries, newest first. Actions made with an API key are not listed, so commands you run with your access and secret keys do not appear.").
 		WithExample("megaport-cli users activity").
-		WithExample("megaport-cli users activity --employee-id 12345").
 		WithRootCmd(rootCmd).
 		Build()
 

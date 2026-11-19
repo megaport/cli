@@ -664,7 +664,6 @@ func TestGetUserActivity(t *testing.T) {
 			})
 
 			cmd := testutil.NewCommand("activity", testutil.OutputAdapter(GetUserActivity))
-			cmd.Flags().String("employee-id", "", "")
 
 			var err error
 			capturedOutput := output.CaptureOutput(func() {

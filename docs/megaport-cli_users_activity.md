@@ -1,18 +1,17 @@
 # activity
 
-View user activity logs
+View your own activity log
 
 ## Description
 
-View activity logs for users in your Megaport company.
+View your own activity log in the Megaport Portal.
 
-This command retrieves and displays user activity logs. Optionally filter by a specific user.
+This command displays your 10 most recent entries, newest first. Actions made with an API key are not listed, so commands you run with your access and secret keys do not appear.
 
 ### Example Usage
 
 ```sh
   megaport-cli users activity
-  megaport-cli users activity --employee-id 12345
 ```
 
 ## Usage
@@ -29,5 +28,4 @@ megaport-cli users activity [flags]
 
 | Name | Shorthand | Default | Description | Required |
 |------|-----------|---------|-------------|----------|
-| `--employee-id` |  |  | Filter activity by employee ID | false |
 
