@@ -14,7 +14,7 @@ This command prints the product type, currency, monthly rate, and monthly rack r
 
 ### Optional Fields
   - `company-uid`: UID of the company that will own the Port (defaults to your company)
-  - `currency`: ISO 4217 currency code for a new Port (defaults to your billing currency for the location)
+  - `currency`: ISO 4217 currency code for a new Port (defaults to the billing currency for the location)
   - `product-uid`: UID of an existing Port to price
   - `term`: Contract term in months (defaults to 1 for a new product)
 
@@ -56,7 +56,7 @@ megaport-cli product pricing port [flags]
 | Name | Shorthand | Default | Description | Required |
 |------|-----------|---------|-------------|----------|
 | `--company-uid` |  |  | UID of the company that will own the Port (defaults to your company) | false |
-| `--currency` |  |  | ISO 4217 currency code for a new Port (defaults to your billing currency for the location) | false |
+| `--currency` |  |  | ISO 4217 currency code for a new Port (defaults to the billing currency for the location) | false |
 | `--generate-skeleton` |  | `false` | Print a JSON skeleton template for --json or --json-file input and exit | false |
 | `--json` |  |  | JSON string containing configuration | false |
 | `--json-file` |  |  | Path to JSON file containing configuration | false |

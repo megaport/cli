@@ -17,7 +17,7 @@ This command prints the product type, currency, monthly rate, and monthly rack r
   - `a-end-product-type`: Product type of the A-End service, for example MEGAPORT or MCR2
   - `company-uid`: UID of the company that will own the VXC (defaults to your company)
   - `connect-type`: Connect type of the VXC, for example AWS or AZURE
-  - `currency`: ISO 4217 currency code for a new VXC (defaults to your billing currency)
+  - `currency`: ISO 4217 currency code for a new VXC (defaults to the billing currency for the A-End location)
   - `product-uid`: UID of an existing VXC to price
   - `term`: Contract term in months (defaults to 1 for a new product)
 
@@ -65,7 +65,7 @@ megaport-cli product pricing vxc [flags]
 | `--b-location-id` |  | `0` | ID of the B-End location | true |
 | `--company-uid` |  |  | UID of the company that will own the VXC (defaults to your company) | false |
 | `--connect-type` |  |  | Connect type of the VXC, for example AWS or AZURE | false |
-| `--currency` |  |  | ISO 4217 currency code for a new VXC (defaults to your billing currency) | false |
+| `--currency` |  |  | ISO 4217 currency code for a new VXC (defaults to the billing currency for the A-End location) | false |
 | `--generate-skeleton` |  | `false` | Print a JSON skeleton template for --json or --json-file input and exit | false |
 | `--json` |  |  | JSON string containing configuration | false |
 | `--json-file` |  |  | Path to JSON file containing configuration | false |
