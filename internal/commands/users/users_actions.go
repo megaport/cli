@@ -334,16 +334,9 @@ func GetUserActivity(cmd *cobra.Command, args []string, noColor bool, outputForm
 	}
 	defer cancel()
 
-	req := &megaport.GetUserActivityRequest{}
+	spinner := output.PrintResourceListing("activity log", noColor)
 
-	employeeID, _ := cmd.Flags().GetString("employee-id")
-	if employeeID != "" {
-		req.PersonIdOrUid = employeeID
-	}
-
-	spinner := output.PrintResourceListing("user activity", noColor)
-
-	activities, err := getUserActivityFunc(ctx, client, req)
+	activities, err := getUserActivityFunc(ctx, client, nil)
 
 	spinner.Stop()
 
