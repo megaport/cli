@@ -1091,6 +1091,18 @@ func TestProductPricing(t *testing.T) {
 			apiErr:        fmt.Errorf("API error"),
 			expectedError: "failed to get Port pricing: API error",
 		},
+		{
+			name:          "API error with company-uid",
+			args:          []string{"mcr", "--location-id", "1", "--speed", "1000", "--company-uid", "company-uid-1"},
+			apiErr:        fmt.Errorf("API error"),
+			expectedError: "failed to get MCR pricing: API error",
+		},
+		{
+			name:         "json missing speed with company-uid",
+			args:         []string{"vxc", "--json", `{"aLocationId":1,"bLocationId":2}`, "--company-uid", "company-uid-1"},
+			apiErr:       megaport.ErrPricingSpeedRequired,
+			wantUsageErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1099,6 +1111,7 @@ func TestProductPricing(t *testing.T) {
 				GetProductPricingResult:           price,
 				GetProductPricingErr:              tt.apiErr,
 				GetProductPricingForCompanyResult: price,
+				GetProductPricingForCompanyErr:    tt.apiErr,
 			}
 			cleanup := testutil.SetupLogin(func(c *megaport.Client) {
 				c.ProductService = mockService

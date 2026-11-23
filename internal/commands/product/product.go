@@ -194,7 +194,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithIntFlag("port-location-id", 0, "ID of the location of the Port the IX will attach to").
 		WithFlag("ix-type", "", "IX type, for example Los Angeles IX").
 		WithIntFlag("speed", 0, "IX speed in Mbps").
-		WithIntFlag("term", 0, "Contract term in months (defaults to 1 for a new product)").
+		WithIntFlag("term", 0, "Contract term in months").
 		WithFlag("currency", "", "ISO 4217 currency code for a new IX (defaults to the billing currency for the location)").
 		WithFlag("product-uid", "", "UID of an existing IX to price").
 		WithFlag("company-uid", "", "UID of the company that will own the IX (defaults to your company)").
@@ -203,7 +203,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithDocumentedRequiredFlag("port-location-id", "ID of the location of the Port the IX will attach to").
 		WithDocumentedRequiredFlag("ix-type", "IX type, for example Los Angeles IX").
 		WithDocumentedRequiredFlag("speed", "IX speed in Mbps").
-		WithOptionalFlag("term", "Contract term in months (defaults to 1 for a new product)").
+		WithOptionalFlag("term", "Contract term in months").
 		WithOptionalFlag("currency", "ISO 4217 currency code for a new IX (defaults to the billing currency for the location)").
 		WithOptionalFlag("product-uid", "UID of an existing IX to price").
 		WithOptionalFlag("company-uid", "UID of the company that will own the IX (defaults to your company)").

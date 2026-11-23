@@ -17,7 +17,7 @@ This command prints the product type, currency, monthly rate, and monthly rack r
   - `company-uid`: UID of the company that will own the IX (defaults to your company)
   - `currency`: ISO 4217 currency code for a new IX (defaults to the billing currency for the location)
   - `product-uid`: UID of an existing IX to price
-  - `term`: Contract term in months (defaults to 1 for a new product)
+  - `term`: Contract term in months
 
 ### Important Notes
   - Required flags can be skipped when using --json or --json-file
@@ -65,5 +65,5 @@ megaport-cli product pricing ix [flags]
 | `--port-location-id` |  | `0` | ID of the location of the Port the IX will attach to | true |
 | `--product-uid` |  |  | UID of an existing IX to price | false |
 | `--speed` |  | `0` | IX speed in Mbps | true |
-| `--term` |  | `0` | Contract term in months (defaults to 1 for a new product) | false |
+| `--term` |  | `0` | Contract term in months | false |
 

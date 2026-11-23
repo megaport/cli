@@ -120,6 +120,11 @@
 | [megaport-cli product get-type](megaport-cli_product_get-type.md) | Get the type of a product by UID |
 | [megaport-cli product list](megaport-cli_product_list.md) | List all products with optional filters |
 | [megaport-cli product pricing](megaport-cli_product_pricing.md) | Get the monthly price of a product |
+| [megaport-cli product pricing ip-address](megaport-cli_product_pricing_ip-address.md) | Get the monthly price of an IP address block |
+| [megaport-cli product pricing ix](megaport-cli_product_pricing_ix.md) | Get the monthly price of an IX |
+| [megaport-cli product pricing mcr](megaport-cli_product_pricing_mcr.md) | Get the monthly price of an MCR |
+| [megaport-cli product pricing mve](megaport-cli_product_pricing_mve.md) | Get the monthly price of an MVE |
+| [megaport-cli product pricing nat-gateway](megaport-cli_product_pricing_nat-gateway.md) | Get the monthly price of a NAT Gateway |
 | [megaport-cli product pricing port](megaport-cli_product_pricing_port.md) | Get the monthly price of a Port |
 | [megaport-cli product pricing vxc](megaport-cli_product_pricing_vxc.md) | Get the monthly price of a VXC |
 | [megaport-cli servicekeys](megaport-cli_servicekeys.md) | Manage service keys for the Megaport API |
