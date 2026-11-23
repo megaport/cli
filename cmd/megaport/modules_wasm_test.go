@@ -30,6 +30,11 @@ func TestReadOnlyModulesRegistered(t *testing.T) {
 		{"product availability", []string{"megaport-cli", "product", "availability", "--help"}, "Usage:\n  megaport-cli product availability"},
 		{"product pricing port", []string{"megaport-cli", "product", "pricing", "port", "--help"}, "Usage:\n  megaport-cli product pricing port"},
 		{"product pricing vxc", []string{"megaport-cli", "product", "pricing", "vxc", "--help"}, "Usage:\n  megaport-cli product pricing vxc"},
+		{"product pricing mcr", []string{"megaport-cli", "product", "pricing", "mcr", "--help"}, "Usage:\n  megaport-cli product pricing mcr"},
+		{"product pricing mve", []string{"megaport-cli", "product", "pricing", "mve", "--help"}, "Usage:\n  megaport-cli product pricing mve"},
+		{"product pricing ix", []string{"megaport-cli", "product", "pricing", "ix", "--help"}, "Usage:\n  megaport-cli product pricing ix"},
+		{"product pricing nat-gateway", []string{"megaport-cli", "product", "pricing", "nat-gateway", "--help"}, "Usage:\n  megaport-cli product pricing nat-gateway"},
+		{"product pricing ip-address", []string{"megaport-cli", "product", "pricing", "ip-address", "--help"}, "Usage:\n  megaport-cli product pricing ip-address"},
 	}
 
 	for _, tc := range cases {

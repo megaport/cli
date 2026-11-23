@@ -729,6 +729,11 @@ func TestProductPricing(t *testing.T) {
 
 	portReq := &megaport.MegaportPriceBookRequest{LocationID: 1, Speed: 1000, Term: 12, Currency: "USD", ProductUID: "port-uid"}
 	vxcReq := &megaport.VXCPriceBookRequest{ALocationID: 1, BLocationID: 2, Speed: 100, Term: 12, AEndProductType: "MCR2", ConnectType: "AWS", Currency: "USD", ProductUID: "vxc-uid"}
+	mcrReq := &megaport.MCRPriceBookRequest{LocationID: 1, Speed: 1000, Term: 12, Currency: "USD", ProductUID: "mcr-uid"}
+	mveReq := &megaport.MVEPriceBookRequest{LocationID: 1, Size: "SMALL", Term: 12, Currency: "USD", ProductUID: "mve-uid"}
+	ixReq := &megaport.IXPriceBookRequest{PortLocationID: 1, IXType: "Los Angeles IX", Speed: 1000, Term: 12, Currency: "USD", ProductUID: "ix-uid"}
+	natReq := &megaport.NATGatewayPriceBookRequest{LocationID: 1, Speed: 1000, SessionCount: 4, Term: 12, Currency: "USD", ProductUID: "nat-uid"}
+	ipReq := &megaport.IPAddressPriceBookRequest{LocationID: 1, IPBlock: "/29", Currency: "USD"}
 	price := &megaport.PriceBookDTO{ProductType: "MEGAPORT", Currency: "USD", MonthlyRate: 450.5, MonthlyRackRate: 500}
 
 	tests := []struct {
@@ -872,6 +877,188 @@ func TestProductPricing(t *testing.T) {
 			name:    "vxc with flag defaults",
 			args:    []string{"vxc", "--a-location-id", "1", "--b-location-id", "2", "--speed", "100"},
 			wantReq: &megaport.VXCPriceBookRequest{ALocationID: 1, BLocationID: 2, Speed: 100},
+		},
+		{
+			name:    "mcr from flags",
+			args:    []string{"mcr", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "mcr-uid"},
+			wantReq: mcrReq,
+		},
+		{
+			name:    "mcr from json",
+			args:    []string{"mcr", "--json", `{"locationId":1,"speed":1000,"term":12,"currency":"USD","productUid":"mcr-uid"}`},
+			wantReq: mcrReq,
+		},
+		{
+			name:        "mcr with company-uid",
+			args:        []string{"mcr", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "mcr-uid", "--company-uid", "company-uid-1"},
+			wantReq:     mcrReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "mcr missing location-id",
+			args:         []string{"mcr", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mcr missing speed",
+			args:         []string{"mcr", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mcr json missing speed",
+			args:         []string{"mcr", "--json", `{"locationId":1}`},
+			apiErr:       megaport.ErrPricingSpeedRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "mve from flags",
+			args:    []string{"mve", "--location-id", "1", "--size", "SMALL", "--term", "12", "--currency", "USD", "--product-uid", "mve-uid"},
+			wantReq: mveReq,
+		},
+		{
+			name:    "mve from json",
+			args:    []string{"mve", "--json", `{"locationId":1,"size":"SMALL","term":12,"currency":"USD","productUid":"mve-uid"}`},
+			wantReq: mveReq,
+		},
+		{
+			name:        "mve with company-uid",
+			args:        []string{"mve", "--location-id", "1", "--size", "SMALL", "--term", "12", "--currency", "USD", "--product-uid", "mve-uid", "--company-uid", "company-uid-1"},
+			wantReq:     mveReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "mve missing size",
+			args:         []string{"mve", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mve missing location-id",
+			args:         []string{"mve", "--size", "SMALL"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mve json missing location",
+			args:         []string{"mve", "--json", `{"size":"SMALL"}`},
+			apiErr:       megaport.ErrPricingMVELocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "ix from flags",
+			args:    []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "ix-uid"},
+			wantReq: ixReq,
+		},
+		{
+			name:    "ix from json",
+			args:    []string{"ix", "--json", `{"portLocationId":1,"ixType":"Los Angeles IX","speed":1000,"term":12,"currency":"USD","productUid":"ix-uid"}`},
+			wantReq: ixReq,
+		},
+		{
+			name:        "ix with company-uid",
+			args:        []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "ix-uid", "--company-uid", "company-uid-1"},
+			wantReq:     ixReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "ix missing port-location-id",
+			args:         []string{"ix", "--ix-type", "Los Angeles IX", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix missing ix-type",
+			args:         []string{"ix", "--port-location-id", "1", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix missing speed",
+			args:         []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix json missing location",
+			args:         []string{"ix", "--json", `{"ixType":"Los Angeles IX","speed":1000}`},
+			apiErr:       megaport.ErrPricingIXLocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix json missing type",
+			args:         []string{"ix", "--json", `{"portLocationId":1,"speed":1000}`},
+			apiErr:       megaport.ErrPricingIXTypeRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "nat-gateway from flags",
+			args:    []string{"nat-gateway", "--location-id", "1", "--speed", "1000", "--session-count", "4", "--term", "12", "--currency", "USD", "--product-uid", "nat-uid"},
+			wantReq: natReq,
+		},
+		{
+			name:    "nat-gateway from json",
+			args:    []string{"nat-gateway", "--json", `{"locationId":1,"speed":1000,"sessionCount":4,"term":12,"currency":"USD","productUid":"nat-uid"}`},
+			wantReq: natReq,
+		},
+		{
+			name:        "nat-gateway with company-uid",
+			args:        []string{"nat-gateway", "--location-id", "1", "--speed", "1000", "--session-count", "4", "--term", "12", "--currency", "USD", "--product-uid", "nat-uid", "--company-uid", "company-uid-1"},
+			wantReq:     natReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "nat-gateway missing location-id",
+			args:         []string{"nat-gateway", "--speed", "1000", "--session-count", "4"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "nat-gateway missing speed",
+			args:         []string{"nat-gateway", "--location-id", "1", "--session-count", "4"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "nat-gateway missing session-count",
+			args:         []string{"nat-gateway", "--location-id", "1", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "nat-gateway json missing session-count",
+			args:         []string{"nat-gateway", "--json", `{"locationId":1,"speed":1000}`},
+			apiErr:       megaport.ErrPricingNATSessionRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "ip-address from flags",
+			args:    []string{"ip-address", "--location-id", "1", "--ip-block", "/29", "--currency", "USD"},
+			wantReq: ipReq,
+		},
+		{
+			name:    "ip-address from json",
+			args:    []string{"ip-address", "--json", `{"locationId":1,"ipBlock":"/29","currency":"USD"}`},
+			wantReq: ipReq,
+		},
+		{
+			name:        "ip-address with company-uid",
+			args:        []string{"ip-address", "--location-id", "1", "--ip-block", "/29", "--currency", "USD", "--company-uid", "company-uid-1"},
+			wantReq:     ipReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "ip-address missing location-id",
+			args:         []string{"ip-address", "--ip-block", "/29"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ip-address missing ip-block",
+			args:         []string{"ip-address", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ip-address json missing location",
+			args:         []string{"ip-address", "--json", `{"ipBlock":"/29"}`},
+			apiErr:       megaport.ErrPricingIPLocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "ip-address json missing ip-block",
+			args:         []string{"ip-address", "--json", `{"locationId":1}`},
+			apiErr:       megaport.ErrPricingIPBlockRequired,
+			wantUsageErr: true,
 		},
 		{
 			name:          "API error",

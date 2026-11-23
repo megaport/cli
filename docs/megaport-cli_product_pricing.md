@@ -6,7 +6,7 @@ Get the monthly price of a product
 
 Get the monthly price of a new or existing product.
 
-Use the subcommands to price a Port or a VXC.
+Use the subcommands to price a Port, VXC, MCR, MVE, IX, NAT Gateway, or IP address.
 
 ### Example Usage
 
@@ -31,6 +31,11 @@ megaport-cli product pricing [flags]
 |------|-----------|---------|-------------|----------|
 
 ## Subcommands
+* [ip-address](megaport-cli_product_pricing_ip-address.md)
+* [ix](megaport-cli_product_pricing_ix.md)
+* [mcr](megaport-cli_product_pricing_mcr.md)
+* [mve](megaport-cli_product_pricing_mve.md)
+* [nat-gateway](megaport-cli_product_pricing_nat-gateway.md)
 * [port](megaport-cli_product_pricing_port.md)
 * [vxc](megaport-cli_product_pricing_vxc.md)
 

@@ -6,7 +6,7 @@ Manage products in the Megaport API
 
 Manage products in the Megaport API.
 
-This command groups operations related to products. You can use the subcommands to list all products, get the type of a specific product, list the products your company can order, or get the monthly price of a Port or VXC.
+This command groups operations related to products. You can use the subcommands to list all products, get the type of a specific product, list the products your company can order, or get the monthly price of a product.
 
 ### Example Usage
 

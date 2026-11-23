@@ -161,6 +161,71 @@ func GetVXCPricing(cmd *cobra.Command, args []string, noColor bool, outputFormat
 	})
 }
 
+func GetMCRPricing(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
+	req := &megaport.MCRPriceBookRequest{}
+	return getProductPricing(cmd, noColor, outputFormat, "MCR", req, func() {
+		req.LocationID, _ = cmd.Flags().GetInt("location-id")
+		req.Speed, _ = cmd.Flags().GetInt("speed")
+		req.Term, _ = cmd.Flags().GetInt("term")
+		req.Currency, _ = cmd.Flags().GetString("currency")
+		req.ProductUID, _ = cmd.Flags().GetString("product-uid")
+	})
+}
+
+func GetMVEPricing(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
+	req := &megaport.MVEPriceBookRequest{}
+	return getProductPricing(cmd, noColor, outputFormat, "MVE", req, func() {
+		req.LocationID, _ = cmd.Flags().GetInt("location-id")
+		req.Size, _ = cmd.Flags().GetString("size")
+		req.Term, _ = cmd.Flags().GetInt("term")
+		req.Currency, _ = cmd.Flags().GetString("currency")
+		req.ProductUID, _ = cmd.Flags().GetString("product-uid")
+	})
+}
+
+func GetIXPricing(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
+	req := &megaport.IXPriceBookRequest{}
+	return getProductPricing(cmd, noColor, outputFormat, "IX", req, func() {
+		req.PortLocationID, _ = cmd.Flags().GetInt("port-location-id")
+		req.IXType, _ = cmd.Flags().GetString("ix-type")
+		req.Speed, _ = cmd.Flags().GetInt("speed")
+		req.Term, _ = cmd.Flags().GetInt("term")
+		req.Currency, _ = cmd.Flags().GetString("currency")
+		req.ProductUID, _ = cmd.Flags().GetString("product-uid")
+	})
+}
+
+func GetNATGatewayPricing(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
+	req := &megaport.NATGatewayPriceBookRequest{}
+	return getProductPricing(cmd, noColor, outputFormat, "NAT Gateway", req, func() {
+		req.LocationID, _ = cmd.Flags().GetInt("location-id")
+		req.Speed, _ = cmd.Flags().GetInt("speed")
+		req.SessionCount, _ = cmd.Flags().GetInt("session-count")
+		req.Term, _ = cmd.Flags().GetInt("term")
+		req.Currency, _ = cmd.Flags().GetString("currency")
+		req.ProductUID, _ = cmd.Flags().GetString("product-uid")
+	})
+}
+
+func GetIPAddressPricing(cmd *cobra.Command, args []string, noColor bool, outputFormat string) error {
+	req := &megaport.IPAddressPriceBookRequest{}
+	return getProductPricing(cmd, noColor, outputFormat, "IP address", req, func() {
+		req.LocationID, _ = cmd.Flags().GetInt("location-id")
+		req.IPBlock, _ = cmd.Flags().GetString("ip-block")
+		req.Currency, _ = cmd.Flags().GetString("currency")
+	})
+}
+
+// pricingUsageErrors are the SDK errors for a missing or zero required field.
+var pricingUsageErrors = []error{
+	megaport.ErrPricingLocationRequired, megaport.ErrPricingSpeedRequired,
+	megaport.ErrPricingVXCLocationRequired, megaport.ErrPricingVXCSpeedRequired,
+	megaport.ErrPricingIXLocationRequired, megaport.ErrPricingIXTypeRequired,
+	megaport.ErrPricingNATSessionRequired,
+	megaport.ErrPricingIPLocationRequired, megaport.ErrPricingIPBlockRequired,
+	megaport.ErrPricingMVELocationRequired,
+}
+
 // getProductPricing fills req from --json or --json-file when either is set,
 // and from fromFlags otherwise.
 func getProductPricing(cmd *cobra.Command, noColor bool, outputFormat, productName string, req megaport.PriceBookRequest, fromFlags func()) error {
@@ -216,10 +281,10 @@ func getProductPricing(cmd *cobra.Command, noColor bool, outputFormat, productNa
 	if err != nil {
 		output.PrintError("Failed to get %s pricing: %v", noColor, productName, err)
 		err = fmt.Errorf("failed to get %s pricing: %w", productName, err)
-		// The SDK returns these when a required field is missing or zero.
-		if errors.Is(err, megaport.ErrPricingLocationRequired) || errors.Is(err, megaport.ErrPricingSpeedRequired) ||
-			errors.Is(err, megaport.ErrPricingVXCLocationRequired) || errors.Is(err, megaport.ErrPricingVXCSpeedRequired) {
-			return exitcodes.NewUsageError(err)
+		for _, sentinel := range pricingUsageErrors {
+			if errors.Is(err, sentinel) {
+				return exitcodes.NewUsageError(err)
+			}
 		}
 		return err
 	}
