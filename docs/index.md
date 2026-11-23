@@ -119,6 +119,9 @@
 | [megaport-cli product availability](megaport-cli_product_availability.md) | List the products your company can order and the markets for each |
 | [megaport-cli product get-type](megaport-cli_product_get-type.md) | Get the type of a product by UID |
 | [megaport-cli product list](megaport-cli_product_list.md) | List all products with optional filters |
+| [megaport-cli product pricing](megaport-cli_product_pricing.md) | Get the monthly price of a product |
+| [megaport-cli product pricing port](megaport-cli_product_pricing_port.md) | Get the monthly price of a Port |
+| [megaport-cli product pricing vxc](megaport-cli_product_pricing_vxc.md) | Get the monthly price of a VXC |
 | [megaport-cli servicekeys](megaport-cli_servicekeys.md) | Manage service keys for the Megaport API |
 | [megaport-cli servicekeys create](megaport-cli_servicekeys_create.md) | Create a new service key |
 | [megaport-cli servicekeys get](megaport-cli_servicekeys_get.md) | Get details of a service key |

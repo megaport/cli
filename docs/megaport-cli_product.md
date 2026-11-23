@@ -6,7 +6,7 @@ Manage products in the Megaport API
 
 Manage products in the Megaport API.
 
-This command groups operations related to products. You can use the subcommands to list all products, get the type of a specific product, or list the products your company can order.
+This command groups operations related to products. You can use the subcommands to list all products, get the type of a specific product, list the products your company can order, or get the monthly price of a Port or VXC.
 
 ### Example Usage
 
@@ -14,6 +14,7 @@ This command groups operations related to products. You can use the subcommands 
   megaport-cli product list
   megaport-cli product get-type [productUID]
   megaport-cli product availability
+  megaport-cli product pricing port --location-id 1 --speed 1000
 ```
 
 ## Usage
@@ -32,4 +33,5 @@ megaport-cli product [flags]
 * [availability](megaport-cli_product_availability.md)
 * [get-type](megaport-cli_product_get-type.md)
 * [list](megaport-cli_product_list.md)
+* [pricing](megaport-cli_product_pricing.md)
 
