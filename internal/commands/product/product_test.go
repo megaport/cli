@@ -879,6 +879,31 @@ func TestProductPricing(t *testing.T) {
 			wantReq: &megaport.VXCPriceBookRequest{ALocationID: 1, BLocationID: 2, Speed: 100},
 		},
 		{
+			name:    "mcr with flag defaults",
+			args:    []string{"mcr", "--location-id", "1", "--speed", "1000"},
+			wantReq: &megaport.MCRPriceBookRequest{LocationID: 1, Speed: 1000},
+		},
+		{
+			name:    "mve with flag defaults",
+			args:    []string{"mve", "--location-id", "1", "--size", "SMALL"},
+			wantReq: &megaport.MVEPriceBookRequest{LocationID: 1, Size: "SMALL"},
+		},
+		{
+			name:    "ix with flag defaults",
+			args:    []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX", "--speed", "1000"},
+			wantReq: &megaport.IXPriceBookRequest{PortLocationID: 1, IXType: "Los Angeles IX", Speed: 1000},
+		},
+		{
+			name:    "nat-gateway with flag defaults",
+			args:    []string{"nat-gateway", "--location-id", "1", "--speed", "1000", "--session-count", "4"},
+			wantReq: &megaport.NATGatewayPriceBookRequest{LocationID: 1, Speed: 1000, SessionCount: 4},
+		},
+		{
+			name:    "ip-address with flag defaults",
+			args:    []string{"ip-address", "--location-id", "1", "--ip-block", "/29"},
+			wantReq: &megaport.IPAddressPriceBookRequest{LocationID: 1, IPBlock: "/29"},
+		},
+		{
 			name:    "mcr from flags",
 			args:    []string{"mcr", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "mcr-uid"},
 			wantReq: mcrReq,

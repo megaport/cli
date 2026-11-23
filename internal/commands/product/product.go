@@ -184,6 +184,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithImportantNote("Required flags can be skipped when using --json or --json-file").
 		WithImportantNote("--company-uid is a flag, not a JSON field, and works with --json or --json-file").
 		WithImportantNote("The command sets productType, so leave it out of the JSON").
+		WithImportantNote("The API prices an MVE by size and ignores mveLabel, so set size in the JSON").
 		WithRootCmd(rootCmd).
 		WithConditionalRequirements("location-id", "size").
 		Build()
