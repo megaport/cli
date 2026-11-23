@@ -1100,7 +1100,7 @@ func TestProductPricing(t *testing.T) {
 		{
 			name:         "json missing speed with company-uid",
 			args:         []string{"vxc", "--json", `{"aLocationId":1,"bLocationId":2}`, "--company-uid", "company-uid-1"},
-			apiErr:       megaport.ErrPricingSpeedRequired,
+			apiErr:       megaport.ErrPricingVXCSpeedRequired,
 			wantUsageErr: true,
 		},
 	}
