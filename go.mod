@@ -10,7 +10,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/jedib0t/go-pretty/v6 v6.9.1
 	github.com/jmespath/go-jmespath v0.4.0
-	github.com/megaport/megaportgo v1.31.0
+	github.com/megaport/megaportgo v1.35.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
@@ -37,6 +37,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
