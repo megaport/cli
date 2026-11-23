@@ -53,35 +53,13 @@ func TestWithStandardInputFlags(t *testing.T) {
 	assertFlagType(t, cmd, "json-file", "string")
 }
 
-func TestWithDeleteFlags(t *testing.T) {
-	cmd := NewCommand("test", "test").WithDeleteFlags().Build()
-
-	assertFlagExists(t, cmd, "force", "false")
-	assertFlagType(t, cmd, "force", "bool")
-	f := cmd.Flags().Lookup("force")
-	assert.Equal(t, "f", f.Shorthand)
-
-	assertFlagExists(t, cmd, "now", "false")
-	assertFlagType(t, cmd, "now", "bool")
-}
-
-func TestWithSafeDeleteFlags(t *testing.T) {
-	cmd := NewCommand("test", "test").WithSafeDeleteFlags().Build()
-
-	// Should include all delete flags
-	assertFlagExists(t, cmd, "force", "false")
-	assertFlagExists(t, cmd, "now", "false")
-
-	// Plus safe-delete
-	assertFlagExists(t, cmd, "safe-delete", "false")
-	assertFlagType(t, cmd, "safe-delete", "bool")
-}
-
 func TestWithImmediateDeleteFlags(t *testing.T) {
 	cmd := NewCommand("test", "test").WithImmediateDeleteFlags().Build()
 
 	assertFlagExists(t, cmd, "force", "false")
 	assertFlagType(t, cmd, "force", "bool")
+	f := cmd.Flags().Lookup("force")
+	assert.Equal(t, "f", f.Shorthand)
 
 	// No --now and no --later for resources that only support immediate deletion.
 	assert.Nil(t, cmd.Flags().Lookup("now"))
@@ -436,19 +414,6 @@ func TestWithMCRPrefixFilterListFlags(t *testing.T) {
 // Test that composite flagsets can be combined without conflicts
 
 func TestFlagsetCombinations(t *testing.T) {
-	t.Run("standard input with delete flags", func(t *testing.T) {
-		cmd := NewCommand("test", "test").
-			WithStandardInputFlags().
-			WithDeleteFlags().
-			Build()
-
-		assertFlagExists(t, cmd, "interactive", "false")
-		assertFlagExists(t, cmd, "json", "")
-		assertFlagExists(t, cmd, "json-file", "")
-		assertFlagExists(t, cmd, "force", "false")
-		assertFlagExists(t, cmd, "now", "false")
-	})
-
 	t.Run("standard input with buy confirm and no-wait", func(t *testing.T) {
 		cmd := NewCommand("test", "test").
 			WithStandardInputFlags().

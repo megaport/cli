@@ -83,6 +83,12 @@ func integrationMCRDeleteCmd() *cobra.Command {
 	return cmd
 }
 
+func integrationMCRDeletePFLCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "delete"}
+	cmd.Flags().BoolP("force", "f", false, "")
+	return cmd
+}
+
 func integrationMCRTagCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "update-tags"}
 	cmd.Flags().Bool("interactive", false, "")
@@ -291,9 +297,11 @@ func TestIntegration_MCRLifecycle(t *testing.T) {
 	// Best-effort cleanup. Registered after the MCR cleanup so it runs first
 	// (cleanups run LIFO) — the list must be gone before the MCR is deleted.
 	t.Cleanup(func() {
+		delPFLCmd := integrationMCRDeletePFLCmd()
+		_ = delPFLCmd.Flags().Set("force", "true")
 		var delErr error
 		out := captureTableOutput(func() {
-			delErr = DeleteMCRPrefixFilterList(&cobra.Command{Use: "delete"}, []string{mcrUID, pflID}, true)
+			delErr = DeleteMCRPrefixFilterList(delPFLCmd, []string{mcrUID, pflID}, true)
 		})
 		if delErr != nil {
 			t.Logf("cleanup: delete prefix filter list %s failed: %v; output: %s", pflID, delErr, out)
@@ -340,9 +348,11 @@ func TestIntegration_MCRLifecycle(t *testing.T) {
 	assert.Contains(t, verifyPFLOut, "192.168.0.0/16")
 
 	// Delete the prefix filter list and assert it is gone.
+	delPFLCmd := integrationMCRDeletePFLCmd()
+	require.NoError(t, delPFLCmd.Flags().Set("force", "true"))
 	var deletePFLErr error
 	deletePFLOut := captureTableOutput(func() {
-		deletePFLErr = DeleteMCRPrefixFilterList(&cobra.Command{Use: "delete"}, []string{mcrUID, pflID}, true)
+		deletePFLErr = DeleteMCRPrefixFilterList(delPFLCmd, []string{mcrUID, pflID}, true)
 	})
 	require.NoError(t, deletePFLErr, "delete prefix filter list output: %s", deletePFLOut)
 
@@ -560,9 +570,11 @@ func TestIntegration_MCRIPv6PrefixFilterLifecycle(t *testing.T) {
 	// failure can't leak the list. Registered after the MCR cleanup so it runs
 	// first (cleanups run LIFO), ensuring the list is gone before the MCR.
 	t.Cleanup(func() {
+		delPFLCmd := integrationMCRDeletePFLCmd()
+		_ = delPFLCmd.Flags().Set("force", "true")
 		var delErr error
 		out := captureTableOutput(func() {
-			delErr = DeleteMCRPrefixFilterList(&cobra.Command{Use: "delete"}, []string{mcrUID, pflID}, true)
+			delErr = DeleteMCRPrefixFilterList(delPFLCmd, []string{mcrUID, pflID}, true)
 		})
 		if delErr != nil {
 			t.Logf("cleanup: delete prefix filter list %s failed: %v; output: %s", pflID, delErr, out)
@@ -612,9 +624,11 @@ func TestIntegration_MCRIPv6PrefixFilterLifecycle(t *testing.T) {
 	})
 
 	// Delete via the CLI and assert it is gone via the SDK.
+	delPFLCmd := integrationMCRDeletePFLCmd()
+	require.NoError(t, delPFLCmd.Flags().Set("force", "true"))
 	var deleteErr error
 	deleteOut := captureTableOutput(func() {
-		deleteErr = DeleteMCRPrefixFilterList(&cobra.Command{Use: "delete"}, []string{mcrUID, pflID}, true)
+		deleteErr = DeleteMCRPrefixFilterList(delPFLCmd, []string{mcrUID, pflID}, true)
 	})
 	require.NoError(t, deleteErr, "delete IPv6 prefix filter list output: %s", deleteOut)
 

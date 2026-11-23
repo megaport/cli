@@ -249,6 +249,14 @@ func DeleteMCRPrefixFilterList(cmd *cobra.Command, args []string, noColor bool) 
 		return err
 	}
 
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		return err
+	}
+	if confirmed, err := utils.ConfirmDelete(utils.ResourceTypePrefixFilterList, fmt.Sprintf("%d", prefixFilterListID), force, noColor); !confirmed {
+		return err
+	}
+
 	spinner := output.PrintResourceDeleting("Prefix filter list", fmt.Sprintf("%d", prefixFilterListID), noColor)
 
 	var resp *megaport.DeleteMCRPrefixFilterListResponse

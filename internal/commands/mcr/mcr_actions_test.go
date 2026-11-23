@@ -674,9 +674,11 @@ func TestGetMCRPrefixFilterList_AbsentBoundsStayAbsent(t *testing.T) {
 func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 	cleanup := testutil.SetupLogin(func(c *megaport.Client) {})
 	defer cleanup()
-	originalPrompt := utils.GetResourcePrompt()
+	originalConfirmPrompt := utils.GetConfirmPrompt()
+	originalDeleteFunc := deleteMCRPrefixFilterListFunc
 	defer func() {
-		utils.SetResourcePrompt(originalPrompt)
+		utils.SetConfirmPrompt(originalConfirmPrompt)
+		deleteMCRPrefixFilterListFunc = originalDeleteFunc
 	}()
 
 	tests := []struct {
@@ -685,53 +687,83 @@ func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 		prefixListID    int
 		rawPrefixListID string
 		force           bool
-		promptResponse  string
+		promptResponse  bool
 		setupMock       func(*MockMCRService)
 		expectedError   string
 		expectedOutput  string
+		wantPrompts     int
+		expectDelete    bool
 	}{
 		{
-			name:           "successful delete prefix filter list",
+			name:           "confirm deletion",
 			mcrUID:         "mcr-123",
 			prefixListID:   1,
-			force:          false,
-			promptResponse: "y",
+			promptResponse: true,
 			setupMock: func(m *MockMCRService) {
 				m.DeleteMCRPrefixFilterListResult = &megaport.DeleteMCRPrefixFilterListResponse{
 					IsDeleted: true,
 				}
 			},
 			expectedOutput: "Prefix filter list deleted successfully - ID: 1",
+			wantPrompts:    1,
+			expectDelete:   true,
+		},
+		{
+			name:           "cancel deletion",
+			mcrUID:         "mcr-123",
+			prefixListID:   1,
+			promptResponse: false,
+			setupMock: func(m *MockMCRService) {
+				m.DeleteMCRPrefixFilterListResult = &megaport.DeleteMCRPrefixFilterListResponse{
+					IsDeleted: true,
+				}
+			},
+			expectedError: "cancelled by user",
+			wantPrompts:   1,
+			expectDelete:  false,
+		},
+		{
+			name:         "force skips the prompt",
+			mcrUID:       "mcr-123",
+			prefixListID: 1,
+			force:        true,
+			setupMock: func(m *MockMCRService) {
+				m.DeleteMCRPrefixFilterListResult = &megaport.DeleteMCRPrefixFilterListResponse{
+					IsDeleted: true,
+				}
+			},
+			expectedOutput: "Prefix filter list deleted successfully - ID: 1",
+			expectDelete:   true,
 		},
 		{
 			name:           "API error",
 			mcrUID:         "mcr-123",
 			prefixListID:   1,
-			force:          false,
-			promptResponse: "y",
+			promptResponse: true,
 			setupMock: func(m *MockMCRService) {
 				m.DeleteMCRPrefixFilterListErr = fmt.Errorf("API error: service unavailable")
 			},
 			expectedError: "API error: service unavailable",
+			wantPrompts:   1,
+			expectDelete:  true,
 		},
 		{
-			name:           "not successful",
-			mcrUID:         "mcr-123",
-			prefixListID:   1,
-			force:          true,
-			promptResponse: "y",
+			name:         "not successful",
+			mcrUID:       "mcr-123",
+			prefixListID: 1,
+			force:        true,
 			setupMock: func(m *MockMCRService) {
 				m.DeleteMCRPrefixFilterListResult = &megaport.DeleteMCRPrefixFilterListResponse{
 					IsDeleted: false,
 				}
 			},
 			expectedError: "not successful for ID 1",
+			expectDelete:  true,
 		},
 		{
 			name:            "invalid prefix filter list ID",
 			mcrUID:          "mcr-123",
 			rawPrefixListID: "abc",
-			force:           true,
 			setupMock:       func(m *MockMCRService) {},
 			expectedError:   "invalid prefix filter list ID",
 		},
@@ -748,8 +780,17 @@ func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 				return client, nil
 			})
 
-			utils.SetResourcePrompt(func(_, msg string, _ bool) (string, error) {
-				return tt.promptResponse, nil
+			deleteCalls := 0
+			deleteMCRPrefixFilterListFunc = func(ctx context.Context, client *megaport.Client, mcrID string, prefixFilterListID int) (*megaport.DeleteMCRPrefixFilterListResponse, error) {
+				deleteCalls++
+				return originalDeleteFunc(ctx, client, mcrID, prefixFilterListID)
+			}
+
+			promptCalls := 0
+			utils.SetConfirmPrompt(func(message string, _ bool) bool {
+				promptCalls++
+				assert.Contains(t, message, fmt.Sprintf("Are you sure you want to delete Prefix filter list %d?", tt.prefixListID))
+				return tt.promptResponse
 			})
 
 			idStr := tt.rawPrefixListID
@@ -764,10 +805,8 @@ func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 				},
 			}
 			cmd.Flags().BoolP("force", "f", false, "Force deletion without confirmation")
-			cmd.Flags().Bool("now", false, "Delete prefix filter list immediately instead of at end of billing cycle")
 			testutil.SetFlags(t, cmd, map[string]string{
 				"force": fmt.Sprintf("%v", tt.force),
-				"now":   fmt.Sprintf("%v", false),
 			})
 
 			var err error
@@ -776,12 +815,91 @@ func TestDeleteMCRPrefixFilterListCmd_WithMockClient(t *testing.T) {
 			})
 
 			if tt.expectedError != "" {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedError)
 			} else {
 				assert.NoError(t, err)
 				assert.Contains(t, output, tt.expectedOutput)
 			}
+			assert.Equal(t, tt.wantPrompts, promptCalls, "prompt calls")
+			assert.Equal(t, tt.expectDelete, deleteCalls == 1, "delete calls: %d", deleteCalls)
+		})
+	}
+}
+
+// Runs the registered command so a missing --force registration fails here.
+func TestDeleteMCRPrefixFilterListRegisteredCommand(t *testing.T) {
+	cleanup := testutil.SetupLogin(func(c *megaport.Client) {})
+	defer cleanup()
+	originalConfirmPrompt := utils.GetConfirmPrompt()
+	originalDeleteFunc := deleteMCRPrefixFilterListFunc
+	defer func() {
+		utils.SetConfirmPrompt(originalConfirmPrompt)
+		deleteMCRPrefixFilterListFunc = originalDeleteFunc
+	}()
+
+	tests := []struct {
+		name             string
+		args             []string
+		wantPrompts      int
+		expectedExitCode int
+		expectDelete     bool
+		expectedErr      string
+	}{
+		{
+			name:             "declined prompt keeps the list",
+			args:             []string{"mcr", "delete-prefix-filter-list", "mcr-123", "1"},
+			wantPrompts:      1,
+			expectedErr:      "cancelled by user",
+			expectedExitCode: exitcodes.Cancelled,
+		},
+		{
+			name:         "force deletes without a prompt",
+			args:         []string{"mcr", "delete-prefix-filter-list", "mcr-123", "1", "--force"},
+			expectDelete: true,
+		},
+		{
+			name:        "now flag is gone",
+			args:        []string{"mcr", "delete-prefix-filter-list", "mcr-123", "1", "--now"},
+			expectedErr: "unknown flag: --now",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deleteCalls := 0
+			deleteMCRPrefixFilterListFunc = func(_ context.Context, _ *megaport.Client, _ string, _ int) (*megaport.DeleteMCRPrefixFilterListResponse, error) {
+				deleteCalls++
+				return &megaport.DeleteMCRPrefixFilterListResponse{IsDeleted: true}, nil
+			}
+			promptCalls := 0
+			utils.SetConfirmPrompt(func(string, bool) bool {
+				promptCalls++
+				return false
+			})
+
+			root := &cobra.Command{Use: "megaport-cli", SilenceUsage: true, SilenceErrors: true}
+			NewModule().RegisterCommands(root)
+			root.SetArgs(tt.args)
+
+			var err error
+			output.CaptureOutput(func() {
+				err = root.Execute()
+			})
+
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr)
+				if tt.expectedExitCode != 0 {
+					var cliErr *exitcodes.CLIError
+					require.True(t, errors.As(err, &cliErr))
+					assert.Equal(t, tt.expectedExitCode, cliErr.Code)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantPrompts, promptCalls, "prompt calls")
+			assert.Equal(t, tt.expectDelete, deleteCalls == 1, "delete calls: %d", deleteCalls)
 		})
 	}
 }

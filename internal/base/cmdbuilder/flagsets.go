@@ -40,20 +40,6 @@ func (b *CommandBuilder) WithResourceTagFlags() *CommandBuilder {
 	return b
 }
 
-// WithDeleteFlags adds flags for deletion
-func (b *CommandBuilder) WithDeleteFlags() *CommandBuilder {
-	b.WithBoolFlagP("force", "f", false, "Skip confirmation prompt")
-	b.WithBoolFlag("now", false, "Delete resource immediately instead of at end of billing cycle")
-	return b
-}
-
-// WithSafeDeleteFlags adds flags for deletion with safe-delete support (for resources that support it via the API)
-func (b *CommandBuilder) WithSafeDeleteFlags() *CommandBuilder {
-	b.WithDeleteFlags()
-	b.WithBoolFlag("safe-delete", false, "Fail if the resource has attached VXCs or other active services")
-	return b
-}
-
 // WithImmediateSafeDeleteFlags adds delete flags for resources that only support
 // immediate deletion (no --now flag), with safe-delete support.
 func (b *CommandBuilder) WithImmediateSafeDeleteFlags() *CommandBuilder {
