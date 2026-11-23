@@ -57,7 +57,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithIntFlag("location-id", 0, "ID of the location where the Port will be deployed").
 		WithIntFlag("speed", 0, "Port speed in Mbps").
 		WithIntFlag("term", 0, "Contract term in months (defaults to 1 for a new product)").
-		WithFlag("currency", "", "ISO 4217 currency code (defaults to the company's preferred currency)").
+		WithFlag("currency", "", "ISO 4217 currency code for a new Port (defaults to your billing currency for the location)").
 		WithFlag("product-uid", "", "UID of an existing Port to price").
 		WithFlag("company-uid", "", "UID of the company that will own the Port (defaults to your company)").
 		WithJSONConfigFlags().
@@ -65,7 +65,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithDocumentedRequiredFlag("location-id", "ID of the location where the Port will be deployed").
 		WithDocumentedRequiredFlag("speed", "Port speed in Mbps").
 		WithOptionalFlag("term", "Contract term in months (defaults to 1 for a new product)").
-		WithOptionalFlag("currency", "ISO 4217 currency code (defaults to the company's preferred currency)").
+		WithOptionalFlag("currency", "ISO 4217 currency code for a new Port (defaults to your billing currency for the location)").
 		WithOptionalFlag("product-uid", "UID of an existing Port to price").
 		WithOptionalFlag("company-uid", "UID of the company that will own the Port (defaults to your company)").
 		WithExample("megaport-cli product pricing port --location-id 1 --speed 1000 --term 12").
@@ -92,7 +92,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithIntFlag("term", 0, "Contract term in months (defaults to 1 for a new product)").
 		WithFlag("a-end-product-type", "", "Product type of the A-End service, for example MEGAPORT or MCR2").
 		WithFlag("connect-type", "", "Connect type of the VXC, for example AWS or AZURE").
-		WithFlag("currency", "", "ISO 4217 currency code (defaults to the company's preferred currency)").
+		WithFlag("currency", "", "ISO 4217 currency code for a new VXC (defaults to your billing currency)").
 		WithFlag("product-uid", "", "UID of an existing VXC to price").
 		WithFlag("company-uid", "", "UID of the company that will own the VXC (defaults to your company)").
 		WithJSONConfigFlags().
@@ -103,7 +103,7 @@ func AddCommandsTo(rootCmd *cobra.Command) {
 		WithOptionalFlag("term", "Contract term in months (defaults to 1 for a new product)").
 		WithOptionalFlag("a-end-product-type", "Product type of the A-End service, for example MEGAPORT or MCR2").
 		WithOptionalFlag("connect-type", "Connect type of the VXC, for example AWS or AZURE").
-		WithOptionalFlag("currency", "ISO 4217 currency code (defaults to the company's preferred currency)").
+		WithOptionalFlag("currency", "ISO 4217 currency code for a new VXC (defaults to your billing currency)").
 		WithOptionalFlag("product-uid", "UID of an existing VXC to price").
 		WithOptionalFlag("company-uid", "UID of the company that will own the VXC (defaults to your company)").
 		WithExample("megaport-cli product pricing vxc --a-location-id 1 --b-location-id 2 --speed 100").

@@ -864,10 +864,20 @@ func TestProductPricing(t *testing.T) {
 			wantUsageErr: true,
 		},
 		{
+			name:    "port with flag defaults",
+			args:    []string{"port", "--location-id", "1", "--speed", "1000"},
+			wantReq: &megaport.MegaportPriceBookRequest{LocationID: 1, Speed: 1000},
+		},
+		{
+			name:    "vxc with flag defaults",
+			args:    []string{"vxc", "--a-location-id", "1", "--b-location-id", "2", "--speed", "100"},
+			wantReq: &megaport.VXCPriceBookRequest{ALocationID: 1, BLocationID: 2, Speed: 100},
+		},
+		{
 			name:          "API error",
 			args:          []string{"port", "--location-id", "1", "--speed", "1000"},
 			apiErr:        fmt.Errorf("API error"),
-			expectedError: "API error",
+			expectedError: "failed to get Port pricing: API error",
 		},
 	}
 
@@ -923,13 +933,10 @@ func TestProductPricing(t *testing.T) {
 				assert.Nil(t, mockService.CapturedGetProductPricingForCompanyRequest)
 				assert.Equal(t, tt.wantReq, mockService.CapturedGetProductPricingRequest)
 			}
-			assert.Contains(t, capturedOutput, "PRODUCT TYPE")
-			assert.Contains(t, capturedOutput, "CURRENCY")
-			assert.Contains(t, capturedOutput, "MONTHLY RATE")
-			assert.Contains(t, capturedOutput, "MONTHLY RACK RATE")
-			assert.Contains(t, capturedOutput, "USD")
-			assert.Contains(t, capturedOutput, "450.5")
-			assert.Contains(t, capturedOutput, "500")
+			// Cell separators can carry ANSI color codes, so match those as well as punctuation.
+			sep := `(?:\x1b\[[\d;]*m|\W)+`
+			assert.Regexp(t, `PRODUCT TYPE`+sep+`CURRENCY`+sep+`MONTHLY RATE`+sep+`MONTHLY RACK RATE`, capturedOutput)
+			assert.Regexp(t, `MEGAPORT`+sep+`USD`+sep+`450\.5`+sep+`500\b`, capturedOutput)
 		})
 	}
 }
