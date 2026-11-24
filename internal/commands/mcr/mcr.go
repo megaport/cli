@@ -323,7 +323,7 @@ func buildMCRPrefixFilterCommands(rootCmd *cobra.Command) (create, listPFL, getP
 	deletePFL = cmdbuilder.NewCommand("delete-prefix-filter-list", "Delete a prefix filter list on an MCR").
 		WithArgs(cobra.ExactArgs(2)).
 		WithColorAwareRunFunc(DeleteMCRPrefixFilterList).
-		WithDeleteFlags().
+		WithImmediateDeleteFlags().
 		WithLongDesc("Delete a prefix filter list on an MCR.\n\nThis command allows you to delete a prefix filter list from the specified MCR.").
 		WithExample("megaport-cli mcr delete-prefix-filter-list [mcrUID] [prefixFilterListID]").
 		WithExample("megaport-cli mcr delete-prefix-filter-list [mcrUID] [prefixFilterListID] --force").

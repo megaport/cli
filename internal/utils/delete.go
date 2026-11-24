@@ -17,6 +17,8 @@ const (
 	ResourceTypeMVE  ResourceType = "MVE"
 	ResourceTypeVXC  ResourceType = "VXC"
 	ResourceTypeIX   ResourceType = "IX"
+
+	ResourceTypePrefixFilterList ResourceType = "Prefix filter list"
 )
 
 // ConfirmDelete prompts the user to confirm deletion of a resource.
