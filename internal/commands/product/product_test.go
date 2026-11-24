@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -716,4 +718,475 @@ func TestListProductAvailabilityRegisteredCommand(t *testing.T) {
 		root.SetArgs([]string{"product", "availability", "extra"})
 		assert.Error(t, root.Execute())
 	})
+}
+
+func TestProductPricing(t *testing.T) {
+	output.SetTerminalWidthForTesting(200)
+	defer output.SetTerminalWidthForTesting(0)
+	jsonFile := filepath.Join(t.TempDir(), "port.json")
+	err := os.WriteFile(jsonFile, []byte(`{"locationId":1,"speed":1000,"term":12,"currency":"USD","productUid":"port-uid"}`+"\n"), 0o600)
+	assert.NoError(t, err)
+
+	portReq := &megaport.MegaportPriceBookRequest{LocationID: 1, Speed: 1000, Term: 12, Currency: "USD", ProductUID: "port-uid"}
+	vxcReq := &megaport.VXCPriceBookRequest{ALocationID: 1, BLocationID: 2, Speed: 100, Term: 12, AEndProductType: "MCR2", ConnectType: "AWS", Currency: "USD", ProductUID: "vxc-uid"}
+	mcrReq := &megaport.MCRPriceBookRequest{LocationID: 1, Speed: 1000, Term: 12, Currency: "USD", ProductUID: "mcr-uid"}
+	mveReq := &megaport.MVEPriceBookRequest{LocationID: 1, Size: "SMALL", Term: 12, Currency: "USD", ProductUID: "mve-uid"}
+	ixReq := &megaport.IXPriceBookRequest{PortLocationID: 1, IXType: "Los Angeles IX", Speed: 1000, Term: 12, Currency: "USD", ProductUID: "ix-uid"}
+	natReq := &megaport.NATGatewayPriceBookRequest{LocationID: 1, Speed: 1000, SessionCount: 4, Term: 12, Currency: "USD", ProductUID: "nat-uid"}
+	ipReq := &megaport.IPAddressPriceBookRequest{LocationID: 1, IPBlock: "/29", Currency: "USD"}
+	price := &megaport.PriceBookDTO{ProductType: "MEGAPORT", Currency: "USD", MonthlyRate: 450.5, MonthlyRackRate: 500}
+
+	tests := []struct {
+		name          string
+		args          []string
+		apiErr        error
+		wantReq       megaport.PriceBookRequest
+		wantCompany   string
+		wantUsageErr  bool
+		expectedError string
+	}{
+		{
+			name:    "port from flags",
+			args:    []string{"port", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "port-uid"},
+			wantReq: portReq,
+		},
+		{
+			name:    "port from json",
+			args:    []string{"port", "--json", `{"locationId":1,"speed":1000,"term":12,"currency":"USD","productUid":"port-uid"}`},
+			wantReq: portReq,
+		},
+		{
+			name:    "port from json-file",
+			args:    []string{"port", "--json-file", jsonFile},
+			wantReq: portReq,
+		},
+		{
+			name: "vxc from flags",
+			args: []string{"vxc", "--a-location-id", "1", "--b-location-id", "2", "--speed", "100", "--term", "12",
+				"--a-end-product-type", "MCR2", "--connect-type", "AWS", "--currency", "USD", "--product-uid", "vxc-uid"},
+			wantReq: vxcReq,
+		},
+		{
+			name:    "vxc from json",
+			args:    []string{"vxc", "--json", `{"aLocationId":1,"bLocationId":2,"speed":100,"term":12,"aEndProductType":"MCR2","connectType":"AWS","currency":"USD","productUid":"vxc-uid"}`},
+			wantReq: vxcReq,
+		},
+		{
+			name:        "port with company-uid",
+			args:        []string{"port", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "port-uid", "--company-uid", "company-uid-1"},
+			wantReq:     portReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:        "vxc from json with company-uid",
+			args:        []string{"vxc", "--company-uid", "company-uid-1", "--json", `{"aLocationId":1,"bLocationId":2,"speed":100,"term":12,"aEndProductType":"MCR2","connectType":"AWS","currency":"USD","productUid":"vxc-uid"}`},
+			wantReq:     vxcReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "port missing location-id",
+			args:         []string{"port", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "port missing speed",
+			args:         []string{"port", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "vxc missing a-location-id",
+			args:         []string{"vxc", "--b-location-id", "2", "--speed", "100"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "vxc missing b-location-id",
+			args:         []string{"vxc", "--a-location-id", "1", "--speed", "100"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "vxc missing speed",
+			args:         []string{"vxc", "--a-location-id", "1", "--b-location-id", "2"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "invalid json",
+			args:         []string{"port", "--json", `{"locationId":`},
+			wantUsageErr: true,
+		},
+		{
+			name:         "json with unknown key",
+			args:         []string{"port", "--json", `{"locationId":1,"speed":1000,"companyUid":"company-uid-1"}`},
+			wantUsageErr: true,
+		},
+		{
+			name:         "vxc json with unknown key",
+			args:         []string{"vxc", "--json", `{"aLocationId":1,"bLocationId":2,"speed":100,"locationId":1}`},
+			wantUsageErr: true,
+		},
+		{
+			name:         "json with trailing data",
+			args:         []string{"port", "--json", `{"locationId":1,"speed":1000}{}`},
+			wantUsageErr: true,
+		},
+		{
+			name:         "json with trailing brace",
+			args:         []string{"port", "--json", `{"locationId":1,"speed":1000}}`},
+			wantUsageErr: true,
+		},
+		{
+			name:          "empty json",
+			args:          []string{"port", "--json", " "},
+			wantUsageErr:  true,
+			expectedError: "JSON input is empty",
+		},
+		{
+			name:         "missing json-file",
+			args:         []string{"port", "--json-file", filepath.Join(t.TempDir(), "missing.json")},
+			wantUsageErr: true,
+		},
+		{
+			name:         "json missing location",
+			args:         []string{"port", "--json", `{"speed":1000}`},
+			apiErr:       megaport.ErrPricingLocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "json missing speed",
+			args:         []string{"port", "--json", `{"locationId":1}`},
+			apiErr:       megaport.ErrPricingSpeedRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "vxc json missing location",
+			args:         []string{"vxc", "--json", `{"aLocationId":1,"speed":100}`},
+			apiErr:       megaport.ErrPricingVXCLocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "vxc json missing speed",
+			args:         []string{"vxc", "--json", `{"aLocationId":1,"bLocationId":2}`},
+			apiErr:       megaport.ErrPricingVXCSpeedRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "port with flag defaults",
+			args:    []string{"port", "--location-id", "1", "--speed", "1000"},
+			wantReq: &megaport.MegaportPriceBookRequest{LocationID: 1, Speed: 1000},
+		},
+		{
+			name:    "vxc with flag defaults",
+			args:    []string{"vxc", "--a-location-id", "1", "--b-location-id", "2", "--speed", "100"},
+			wantReq: &megaport.VXCPriceBookRequest{ALocationID: 1, BLocationID: 2, Speed: 100},
+		},
+		{
+			name:    "mcr with flag defaults",
+			args:    []string{"mcr", "--location-id", "1", "--speed", "1000"},
+			wantReq: &megaport.MCRPriceBookRequest{LocationID: 1, Speed: 1000},
+		},
+		{
+			name:    "mve with flag defaults",
+			args:    []string{"mve", "--location-id", "1", "--size", "SMALL"},
+			wantReq: &megaport.MVEPriceBookRequest{LocationID: 1, Size: "SMALL"},
+		},
+		{
+			name:    "ix with flag defaults",
+			args:    []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX", "--speed", "1000"},
+			wantReq: &megaport.IXPriceBookRequest{PortLocationID: 1, IXType: "Los Angeles IX", Speed: 1000},
+		},
+		{
+			name:    "nat-gateway with flag defaults",
+			args:    []string{"nat-gateway", "--location-id", "1", "--speed", "1000", "--session-count", "4"},
+			wantReq: &megaport.NATGatewayPriceBookRequest{LocationID: 1, Speed: 1000, SessionCount: 4},
+		},
+		{
+			name:    "ip-address with flag defaults",
+			args:    []string{"ip-address", "--location-id", "1", "--ip-block", "/29"},
+			wantReq: &megaport.IPAddressPriceBookRequest{LocationID: 1, IPBlock: "/29"},
+		},
+		{
+			name:    "mcr from flags",
+			args:    []string{"mcr", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "mcr-uid"},
+			wantReq: mcrReq,
+		},
+		{
+			name:    "mcr from json",
+			args:    []string{"mcr", "--json", `{"locationId":1,"speed":1000,"term":12,"currency":"USD","productUid":"mcr-uid"}`},
+			wantReq: mcrReq,
+		},
+		{
+			name:        "mcr with company-uid",
+			args:        []string{"mcr", "--location-id", "1", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "mcr-uid", "--company-uid", "company-uid-1"},
+			wantReq:     mcrReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "mcr missing location-id",
+			args:         []string{"mcr", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mcr missing speed",
+			args:         []string{"mcr", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mcr json missing speed",
+			args:         []string{"mcr", "--json", `{"locationId":1}`},
+			apiErr:       megaport.ErrPricingSpeedRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "mve from flags",
+			args:    []string{"mve", "--location-id", "1", "--size", "SMALL", "--term", "12", "--currency", "USD", "--product-uid", "mve-uid"},
+			wantReq: mveReq,
+		},
+		{
+			name:    "mve from json",
+			args:    []string{"mve", "--json", `{"locationId":1,"size":"SMALL","term":12,"currency":"USD","productUid":"mve-uid"}`},
+			wantReq: mveReq,
+		},
+		{
+			name:        "mve with company-uid",
+			args:        []string{"mve", "--location-id", "1", "--size", "SMALL", "--term", "12", "--currency", "USD", "--product-uid", "mve-uid", "--company-uid", "company-uid-1"},
+			wantReq:     mveReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "mve missing size",
+			args:         []string{"mve", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mve missing location-id",
+			args:         []string{"mve", "--size", "SMALL"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "mve json missing location",
+			args:         []string{"mve", "--json", `{"size":"SMALL"}`},
+			apiErr:       megaport.ErrPricingMVELocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "ix from flags",
+			args:    []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "ix-uid"},
+			wantReq: ixReq,
+		},
+		{
+			name:    "ix from json",
+			args:    []string{"ix", "--json", `{"portLocationId":1,"ixType":"Los Angeles IX","speed":1000,"term":12,"currency":"USD","productUid":"ix-uid"}`},
+			wantReq: ixReq,
+		},
+		{
+			name:        "ix with company-uid",
+			args:        []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX", "--speed", "1000", "--term", "12", "--currency", "USD", "--product-uid", "ix-uid", "--company-uid", "company-uid-1"},
+			wantReq:     ixReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "ix missing port-location-id",
+			args:         []string{"ix", "--ix-type", "Los Angeles IX", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix missing ix-type",
+			args:         []string{"ix", "--port-location-id", "1", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix missing speed",
+			args:         []string{"ix", "--port-location-id", "1", "--ix-type", "Los Angeles IX"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix json missing location",
+			args:         []string{"ix", "--json", `{"ixType":"Los Angeles IX","speed":1000}`},
+			apiErr:       megaport.ErrPricingIXLocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "ix json missing type",
+			args:         []string{"ix", "--json", `{"portLocationId":1,"speed":1000}`},
+			apiErr:       megaport.ErrPricingIXTypeRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "nat-gateway from flags",
+			args:    []string{"nat-gateway", "--location-id", "1", "--speed", "1000", "--session-count", "4", "--term", "12", "--currency", "USD", "--product-uid", "nat-uid"},
+			wantReq: natReq,
+		},
+		{
+			name:    "nat-gateway from json",
+			args:    []string{"nat-gateway", "--json", `{"locationId":1,"speed":1000,"sessionCount":4,"term":12,"currency":"USD","productUid":"nat-uid"}`},
+			wantReq: natReq,
+		},
+		{
+			name:        "nat-gateway with company-uid",
+			args:        []string{"nat-gateway", "--location-id", "1", "--speed", "1000", "--session-count", "4", "--term", "12", "--currency", "USD", "--product-uid", "nat-uid", "--company-uid", "company-uid-1"},
+			wantReq:     natReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "nat-gateway missing location-id",
+			args:         []string{"nat-gateway", "--speed", "1000", "--session-count", "4"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "nat-gateway missing speed",
+			args:         []string{"nat-gateway", "--location-id", "1", "--session-count", "4"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "nat-gateway missing session-count",
+			args:         []string{"nat-gateway", "--location-id", "1", "--speed", "1000"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "nat-gateway json missing session-count",
+			args:         []string{"nat-gateway", "--json", `{"locationId":1,"speed":1000}`},
+			apiErr:       megaport.ErrPricingNATSessionRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:    "ip-address from flags",
+			args:    []string{"ip-address", "--location-id", "1", "--ip-block", "/29", "--currency", "USD"},
+			wantReq: ipReq,
+		},
+		{
+			name:    "ip-address from json",
+			args:    []string{"ip-address", "--json", `{"locationId":1,"ipBlock":"/29","currency":"USD"}`},
+			wantReq: ipReq,
+		},
+		{
+			name:        "ip-address with company-uid",
+			args:        []string{"ip-address", "--location-id", "1", "--ip-block", "/29", "--currency", "USD", "--company-uid", "company-uid-1"},
+			wantReq:     ipReq,
+			wantCompany: "company-uid-1",
+		},
+		{
+			name:         "ip-address missing location-id",
+			args:         []string{"ip-address", "--ip-block", "/29"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ip-address missing ip-block",
+			args:         []string{"ip-address", "--location-id", "1"},
+			wantUsageErr: true,
+		},
+		{
+			name:         "ip-address json missing location",
+			args:         []string{"ip-address", "--json", `{"ipBlock":"/29"}`},
+			apiErr:       megaport.ErrPricingIPLocationRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:         "ip-address json missing ip-block",
+			args:         []string{"ip-address", "--json", `{"locationId":1}`},
+			apiErr:       megaport.ErrPricingIPBlockRequired,
+			wantUsageErr: true,
+		},
+		{
+			name:          "API error",
+			args:          []string{"port", "--location-id", "1", "--speed", "1000"},
+			apiErr:        fmt.Errorf("API error"),
+			expectedError: "failed to get Port pricing: API error",
+		},
+		{
+			name:          "API error with company-uid",
+			args:          []string{"mcr", "--location-id", "1", "--speed", "1000", "--company-uid", "company-uid-1"},
+			apiErr:        fmt.Errorf("API error"),
+			expectedError: "failed to get MCR pricing: API error",
+		},
+		{
+			name:         "json missing speed with company-uid",
+			args:         []string{"vxc", "--json", `{"aLocationId":1,"bLocationId":2}`, "--company-uid", "company-uid-1"},
+			apiErr:       megaport.ErrPricingVXCSpeedRequired,
+			wantUsageErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockProductService{
+				GetProductPricingResult:           price,
+				GetProductPricingErr:              tt.apiErr,
+				GetProductPricingForCompanyResult: price,
+				GetProductPricingForCompanyErr:    tt.apiErr,
+			}
+			cleanup := testutil.SetupLogin(func(c *megaport.Client) {
+				c.ProductService = mockService
+			})
+			defer cleanup()
+
+			rootCmd := &cobra.Command{Use: "megaport-cli"}
+			rootCmd.PersistentFlags().StringP("output", "o", "table", "")
+			AddCommandsTo(rootCmd)
+			rootCmd.SetArgs(append([]string{"product", "pricing"}, tt.args...))
+
+			capturedOutput, err := output.CaptureOutputErr(rootCmd.Execute)
+
+			if tt.wantUsageErr {
+				var cliErr *exitcodes.CLIError
+				require.True(t, errors.As(err, &cliErr))
+				assert.Equal(t, exitcodes.Usage, cliErr.Code)
+				if tt.expectedError != "" {
+					assert.Contains(t, err.Error(), tt.expectedError)
+				}
+				if tt.apiErr == nil {
+					assert.Nil(t, mockService.CapturedGetProductPricingRequest)
+					assert.Nil(t, mockService.CapturedGetProductPricingForCompanyRequest)
+				}
+				return
+			}
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+				var cliErr *exitcodes.CLIError
+				require.True(t, errors.As(err, &cliErr))
+				assert.Equal(t, exitcodes.API, cliErr.Code)
+				return
+			}
+
+			assert.NoError(t, err)
+			if tt.wantCompany != "" {
+				assert.Nil(t, mockService.CapturedGetProductPricingRequest)
+				if assert.NotNil(t, mockService.CapturedGetProductPricingForCompanyRequest) {
+					assert.Equal(t, tt.wantReq, mockService.CapturedGetProductPricingForCompanyRequest.Req)
+					assert.Equal(t, tt.wantCompany, mockService.CapturedGetProductPricingForCompanyRequest.CompanyUID)
+				}
+			} else {
+				assert.Nil(t, mockService.CapturedGetProductPricingForCompanyRequest)
+				assert.Equal(t, tt.wantReq, mockService.CapturedGetProductPricingRequest)
+			}
+			// Cell separators can carry ANSI color codes, so match those as well as punctuation.
+			sep := `(?:\x1b\[[\d;]*m|\W)+`
+			assert.Regexp(t, `PRODUCT TYPE`+sep+`CURRENCY`+sep+`MONTHLY RATE`+sep+`MONTHLY RACK RATE`, capturedOutput)
+			assert.Regexp(t, `MEGAPORT`+sep+`USD`+sep+`450\.5`+sep+`500\b`, capturedOutput)
+		})
+	}
+}
+
+func TestProductPricingJSONOutput(t *testing.T) {
+	mockService := &MockProductService{
+		GetProductPricingResult: &megaport.PriceBookDTO{ProductType: "VXC", Currency: "AUD", MonthlyRate: 120, MonthlyRackRate: 150},
+	}
+	cleanup := testutil.SetupLogin(func(c *megaport.Client) {
+		c.ProductService = mockService
+	})
+	defer cleanup()
+
+	rootCmd := &cobra.Command{Use: "megaport-cli"}
+	rootCmd.PersistentFlags().StringP("output", "o", "table", "")
+	AddCommandsTo(rootCmd)
+	rootCmd.SetArgs([]string{"product", "pricing", "vxc", "--a-location-id", "1", "--b-location-id", "2", "--speed", "100", "-o", "json"})
+
+	var err error
+	stdout := output.CaptureStdout(func() {
+		err = rootCmd.Execute()
+	})
+	assert.NoError(t, err)
+
+	var got []map[string]any
+	assert.NoError(t, json.Unmarshal([]byte(stdout), &got))
+	assert.Equal(t, []map[string]any{{"product_type": "VXC", "currency": "AUD", "monthly_rate": 120.0, "monthly_rack_rate": 150.0}}, got)
 }

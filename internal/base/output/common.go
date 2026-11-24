@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -576,7 +577,7 @@ func formatFieldValue(fieldVal reflect.Value) string {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return fmt.Sprintf("%d", fieldVal.Uint())
 	case reflect.Float32, reflect.Float64:
-		return fmt.Sprintf("%g", fieldVal.Float())
+		return strconv.FormatFloat(fieldVal.Float(), 'f', -1, fieldVal.Type().Bits())
 	default:
 		if !fieldVal.CanInterface() {
 			return ""

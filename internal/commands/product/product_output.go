@@ -93,3 +93,24 @@ func toProductAvailabilityOutputs(products []*megaport.CompanyProductAvailabilit
 	}
 	return outputs
 }
+
+type productPricingOutput struct {
+	output.Output   `json:"-" header:"-"`
+	ProductType     string  `json:"product_type" header:"Product Type"`
+	Currency        string  `json:"currency" header:"Currency"`
+	MonthlyRate     float64 `json:"monthly_rate" header:"Monthly Rate"`
+	MonthlyRackRate float64 `json:"monthly_rack_rate" header:"Monthly Rack Rate"`
+}
+
+func printProductPricing(price *megaport.PriceBookDTO, format string, noColor bool) error {
+	if price == nil {
+		return fmt.Errorf("invalid pricing: nil value")
+	}
+	out := productPricingOutput{
+		ProductType:     price.ProductType,
+		Currency:        price.Currency,
+		MonthlyRate:     price.MonthlyRate,
+		MonthlyRackRate: price.MonthlyRackRate,
+	}
+	return output.PrintOutput([]productPricingOutput{out}, format, noColor)
+}
